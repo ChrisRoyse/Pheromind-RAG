@@ -1,0 +1,81 @@
+{
+  "name": "mcp-rag-indexer",
+  "version": "1.0.0",
+  "description": "Universal RAG code indexing for Claude via MCP - Zero-config global installation",
+  "main": "lib/wrapper.js",
+  "bin": {
+    "mcp-rag-indexer": "./bin/mcp-rag-indexer"
+  },
+  "scripts": {
+    "postinstall": "node lib/installer.js",
+    "preuninstall": "node lib/uninstaller.js",
+    "build": "node scripts/build.js",
+    "build:runtime": "node scripts/download-runtimes.js",
+    "build:models": "node scripts/download-models.js",
+    "test": "npm run test:unit && npm run test:integration",
+    "test:unit": "jest test/unit",
+    "test:integration": "jest test/integration",
+    "test:platform": "jest test/platform",
+    "dev": "node bin/mcp-rag-indexer --log-level debug",
+    "configure": "node lib/installer.js --reconfigure",
+    "validate": "node lib/validator.js"
+  },
+  "engines": {
+    "node": ">=16.0.0"
+  },
+  "os": ["win32", "darwin", "linux"],
+  "cpu": ["x64", "arm64"],
+  "keywords": [
+    "mcp",
+    "rag",
+    "code-search",
+    "claude",
+    "ai",
+    "indexing",
+    "semantic-search",
+    "global",
+    "zero-config"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/your-org/mcp-rag-indexer.git"
+  },
+  "bugs": {
+    "url": "https://github.com/your-org/mcp-rag-indexer/issues"
+  },
+  "homepage": "https://github.com/your-org/mcp-rag-indexer#readme",
+  "license": "MIT",
+  "author": "MCP RAG Indexer Team",
+  "dependencies": {
+    "node-fetch": "^3.3.2",
+    "tar": "^6.2.0",
+    "which": "^4.0.0",
+    "chalk": "^4.1.2",
+    "ora": "^5.4.1",
+    "fs-extra": "^11.2.0",
+    "cross-spawn": "^7.0.3",
+    "semver": "^7.5.4",
+    "commander": "^11.1.0"
+  },
+  "devDependencies": {
+    "jest": "^29.7.0",
+    "@types/jest": "^29.5.8",
+    "tmp": "^0.2.1",
+    "rimraf": "^5.0.5"
+  },
+  "files": [
+    "bin/",
+    "lib/",
+    "python/",
+    "runtime/",
+    "models/",
+    "scripts/build.js",
+    "README.md",
+    "LICENSE"
+  ],
+  "preferGlobal": true,
+  "publishConfig": {
+    "access": "public"
+  },
+  "packageManager": "npm@10.0.0"
+}

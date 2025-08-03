@@ -1,0 +1,180 @@
+#!/usr/bin/env node
+/**
+ * MCP RAG Indexer - Global CLI Entry Point
+ * Zero-configuration MCP server with embedded Python runtime
+ */
+
+const { spawn } = require('child_process');
+const path = require('path');
+const fs = require('fs');
+const { program } = require('commander');
+const chalk = require('chalk');
+
+// Import our platform and wrapper modules
+const { PlatformManager } = require('../lib/platform');
+const { ConfigManager } = require('../lib/config');
+const { validateInstallation } = require('../lib/validator');
+
+// Package information
+const packageJson = require('../package.json');
+
+// Configure CLI
+program
+  .name('mcp-rag-indexer')
+  .description('Universal RAG code indexing for Claude via MCP')
+  .version(packageJson.version)
+  .option('--log-level <level>', 'Logging level (debug, info, warning, error)', 'info')
+  .option('--configure', 'Reconfigure Claude Code integration')
+  .option('--validate', 'Validate installation')
+  .option('--status', 'Show server status')
+  .option('--daemon', 'Run as daemon process')
+  .option('--stop', 'Stop daemon process')
+  .allowUnknownOption() // Allow MCP server arguments to pass through
+  .parse();
+
+const options = program.opts();
+
+async function main() {
+  try {
+    // Handle special commands
+    if (options.configure) {
+      const { configureClaudeCode } = require('../lib/installer');
+      await configureClaudeCode();
+      return;
+    }
+    
+    if (options.validate) {
+      const isValid = await validateInstallation();
+      process.exit(isValid ? 0 : 1);
+    }
+    
+    if (options.status) {
+      console.log(chalk.blue('MCP RAG Indexer Status'));
+      console.log('Version:', packageJson.version);
+      console.log('Platform:', PlatformManager.detectPlatform());
+      console.log('Python Runtime:', await PlatformManager.validateRuntime() ? '✓' : '✗');
+      console.log('Models:', fs.existsSync(path.join(__dirname, '..', 'models')) ? '✓' : '✗');
+      return;
+    }
+    
+    // Validate installation
+    console.log(chalk.gray('Validating installation...'));
+    if (!await PlatformManager.validateRuntime()) {
+      console.error(chalk.red('❌ Python runtime not found. Please reinstall the package.'));
+      console.log(chalk.yellow('Try: npm uninstall -g mcp-rag-indexer && npm install -g mcp-rag-indexer'));
+      process.exit(1);
+    }
+    
+    // Get Python executable path
+    const pythonPath = PlatformManager.getPythonExecutable();
+    
+    // Get MCP server script path
+    const serverScript = path.join(__dirname, '..', 'python', 'mcp_rag_server.py');
+    
+    if (!fs.existsSync(serverScript)) {
+      console.error(chalk.red('❌ MCP server script not found:', serverScript));
+      process.exit(1);
+    }
+    
+    // Set environment variables for offline operation
+    const env = {
+      ...process.env,
+      // Model cache directories
+      TRANSFORMERS_CACHE: path.join(__dirname, '..', 'models'),
+      SENTENCE_TRANSFORMERS_HOME: path.join(__dirname, '..', 'models'),
+      HF_HOME: path.join(__dirname, '..', 'models'),
+      // Performance optimizations
+      TOKENIZERS_PARALLELISM: 'false',
+      OMP_NUM_THREADS: '1',
+      // Python path
+      PYTHONPATH: path.join(__dirname, '..', 'python'),
+      // Offline mode
+      HF_HUB_OFFLINE: '1',
+      TRANSFORMERS_OFFLINE: '1'
+    };
+    
+    // Prepare arguments
+    const args = [serverScript];
+    
+    // Add log level
+    if (options.logLevel) {
+      args.push('--log-level', options.logLevel);
+    }
+    
+    // Add any remaining arguments
+    const unknownArgs = program.args;
+    if (unknownArgs.length > 0) {
+      args.push(...unknownArgs);
+    }
+    
+    console.log(chalk.gray(`Starting MCP RAG Indexer v${packageJson.version}...`));
+    
+    // Spawn Python MCP server
+    const child = spawn(pythonPath, args, {
+      stdio: 'inherit',
+      env,
+      cwd: path.join(__dirname, '..')
+    });
+    
+    // Handle process signals
+    process.on('SIGINT', () => {
+      console.log(chalk.yellow('\n🛑 Received interrupt signal...'));
+      child.kill('SIGINT');
+    });
+    
+    process.on('SIGTERM', () => {
+      console.log(chalk.yellow('\n🛑 Received termination signal...'));
+      child.kill('SIGTERM');
+    });
+    
+    // Handle child process exit
+    child.on('exit', (code, signal) => {
+      if (signal) {
+        console.log(chalk.yellow(`Server terminated by signal: ${signal}`));
+      } else if (code !== 0) {
+        console.error(chalk.red(`Server exited with code: ${code}`));
+      }
+      process.exit(code || 0);
+    });
+    
+    child.on('error', (error) => {
+      console.error(chalk.red('Failed to start MCP server:'), error.message);
+      
+      if (error.code === 'ENOENT') {
+        console.log(chalk.yellow('This usually means the Python runtime is not properly installed.'));
+        console.log(chalk.yellow('Try reinstalling: npm uninstall -g mcp-rag-indexer && npm install -g mcp-rag-indexer'));
+      }
+      
+      process.exit(1);
+    });
+    
+  } catch (error) {
+    console.error(chalk.red('❌ Failed to start MCP RAG Indexer:'), error.message);
+    
+    if (error.code === 'MODULE_NOT_FOUND') {
+      console.log(chalk.yellow('This might be a corrupted installation.'));
+      console.log(chalk.yellow('Try reinstalling: npm uninstall -g mcp-rag-indexer && npm install -g mcp-rag-indexer'));
+    }
+    
+    process.exit(1);
+  }
+}
+
+// Handle uncaught exceptions
+process.on('uncaughtException', (error) => {
+  console.error(chalk.red('Uncaught Exception:'), error);
+  process.exit(1);
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+  console.error(chalk.red('Unhandled Rejection at:'), promise, chalk.red('reason:'), reason);
+  process.exit(1);
+});
+
+// Run main function
+if (require.main === module) {
+  main().catch((error) => {
+    console.error(chalk.red('Fatal error:'), error);
+    process.exit(1);
+  });
+}

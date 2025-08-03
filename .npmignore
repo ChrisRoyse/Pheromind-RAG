@@ -1,0 +1,113 @@
+# NPM Ignore File for MCP RAG Indexer
+# Only essential files should be included in the published package
+
+# Development files
+.git/
+.gitignore
+.github/
+.vscode/
+.idea/
+
+# Node.js development
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.npm
+.eslintcache
+
+# Testing
+coverage/
+test/unit/
+test/fixtures/
+*.test.js
+*.spec.js
+jest.config.js
+.nyc_output
+
+# Documentation (keep only README.md)
+docs/
+*.md
+!README.md
+
+# Build artifacts
+build/
+dist/
+.tmp/
+temp/
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+*.swp
+*.swo
+*~
+
+# IDE files
+*.sublime-project
+*.sublime-workspace
+.vscode/
+.idea/
+
+# Logs
+logs/
+*.log
+
+# Development configuration
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Cache directories
+.cache/
+.parcel-cache/
+
+# Optional npm cache directory
+.npm
+
+# Optional REPL history
+.node_repl_history
+
+# Output of 'npm pack'
+*.tgz
+
+# Yarn Integrity file
+.yarn-integrity
+
+# dotenv environment variables file
+.env
+
+# Development scripts
+scripts/test.js
+scripts/dev.js
+
+# Source maps
+*.map
+
+# NPM package files generated during development
+package-lock.json  # Include in repo but not in package
+
+# Python cache (should not be in package)
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+.venv/
+ENV/
+env.bak/
+venv.bak/
+
+# Ignore planning documents (keep only final implementation)
+*PLAN*.md
+*PLANNING*.md
+*TODO*.md
