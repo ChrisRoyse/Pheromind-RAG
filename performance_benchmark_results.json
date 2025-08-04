@@ -1,0 +1,464 @@
+{
+  "small": {
+    "rust_single": {
+      "test_name": "small_rust_single",
+      "scale": "small",
+      "language": "rust",
+      "input_size": 1671,
+      "processing_time": 0.0010042190551757812,
+      "memory_usage": 29.64453125,
+      "peak_memory": 29.64453125,
+      "cpu_usage": 0,
+      "chunks_created": 3,
+      "documentation_coverage": 0.0,
+      "confidence_score": 0.0,
+      "concurrent_workers": 1,
+      "success": true,
+      "error_message": ""
+    },
+    "python_single": {
+      "test_name": "small_python_single",
+      "scale": "small",
+      "language": "python",
+      "input_size": 1614,
+      "processing_time": 0.0015044212341308594,
+      "memory_usage": 29.7265625,
+      "peak_memory": 29.7265625,
+      "cpu_usage": 0,
+      "chunks_created": 3,
+      "documentation_coverage": 1.0,
+      "confidence_score": 0.5054245608484689,
+      "concurrent_workers": 1,
+      "success": true,
+      "error_message": ""
+    },
+    "javascript_single": {
+      "test_name": "small_javascript_single",
+      "scale": "small",
+      "language": "javascript",
+      "input_size": 1596,
+      "processing_time": 0.0010042190551757812,
+      "memory_usage": 29.75,
+      "peak_memory": 29.75,
+      "cpu_usage": 0,
+      "chunks_created": 3,
+      "documentation_coverage": 1.0,
+      "confidence_score": 0.46163800004231076,
+      "concurrent_workers": 1,
+      "success": true,
+      "error_message": ""
+    }
+  },
+  "medium": {
+    "rust_single": {
+      "test_name": "medium_rust_single",
+      "scale": "medium",
+      "language": "rust",
+      "input_size": 75590,
+      "processing_time": 0.04009222984313965,
+      "memory_usage": 29.7578125,
+      "peak_memory": 29.7578125,
+      "cpu_usage": 6.899999999999999,
+      "chunks_created": 155,
+      "documentation_coverage": 0.03225806451612903,
+      "confidence_score": 0.5,
+      "concurrent_workers": 1,
+      "success": true,
+      "error_message": ""
+    },
+    "rust_concurrent": {
+      "test_name": "medium_rust_concurrent",
+      "scale": "medium",
+      "language": "rust",
+      "input_size": 75590,
+      "processing_time": 0.05057954788208008,
+      "memory_usage": 30.3671875,
+      "peak_memory": 30.3671875,
+      "cpu_usage": 4.199999999999999,
+      "chunks_created": 155,
+      "documentation_coverage": 0.03225806451612903,
+      "confidence_score": 0.5,
+      "concurrent_workers": 4,
+      "success": true,
+      "error_message": ""
+    },
+    "python_single": {
+      "test_name": "medium_python_single",
+      "scale": "medium",
+      "language": "python",
+      "input_size": 73565,
+      "processing_time": 0.04208636283874512,
+      "memory_usage": 30.48046875,
+      "peak_memory": 30.48046875,
+      "cpu_usage": 4.7,
+      "chunks_created": 175,
+      "documentation_coverage": 0.5714285714285714,
+      "confidence_score": 0.5082527459950998,
+      "concurrent_workers": 1,
+      "success": true,
+      "error_message": ""
+    },
+    "python_concurrent": {
+      "test_name": "medium_python_concurrent",
+      "scale": "medium",
+      "language": "python",
+      "input_size": 73565,
+      "processing_time": 0.05359935760498047,
+      "memory_usage": 30.5859375,
+      "peak_memory": 30.5859375,
+      "cpu_usage": 12.0,
+      "chunks_created": 175,
+      "documentation_coverage": 0.5714285714285714,
+      "confidence_score": 0.5082527459950998,
+      "concurrent_workers": 4,
+      "success": true,
+      "error_message": ""
+    },
+    "javascript_single": {
+      "test_name": "medium_javascript_single",
+      "scale": "medium",
+      "language": "javascript",
+      "input_size": 70640,
+      "processing_time": 0.03406643867492676,
+      "memory_usage": 30.59765625,
+      "peak_memory": 30.59765625,
+      "cpu_usage": 10.599999999999998,
+      "chunks_created": 125,
+      "documentation_coverage": 0.8,
+      "confidence_score": 0.4636640154570083,
+      "concurrent_workers": 1,
+      "success": true,
+      "error_message": ""
+    },
+    "javascript_concurrent": {
+      "test_name": "medium_javascript_concurrent",
+      "scale": "medium",
+      "language": "javascript",
+      "input_size": 70640,
+      "processing_time": 0.04058027267456055,
+      "memory_usage": 30.77734375,
+      "peak_memory": 30.77734375,
+      "cpu_usage": 7.9,
+      "chunks_created": 125,
+      "documentation_coverage": 0.8,
+      "confidence_score": 0.4636640154570083,
+      "concurrent_workers": 4,
+      "success": true,
+      "error_message": ""
+    }
+  },
+  "large": {
+    "rust_single": {
+      "test_name": "large_rust_single",
+      "scale": "large",
+      "language": "rust",
+      "input_size": 887880,
+      "processing_time": 0.4514760971069336,
+      "memory_usage": 32.86953125,
+      "peak_memory": 34.00390625,
+      "cpu_usage": 3.1999999999999993,
+      "chunks_created": 1460,
+      "documentation_coverage": 0.0410958904109589,
+      "confidence_score": 0.5,
+      "concurrent_workers": 1,
+      "success": true,
+      "error_message": ""
+    },
+    "rust_concurrent": {
+      "test_name": "large_rust_concurrent",
+      "scale": "large",
+      "language": "rust",
+      "input_size": 887880,
+      "processing_time": 0.5071628093719482,
+      "memory_usage": 34.1984375,
+      "peak_memory": 34.78515625,
+      "cpu_usage": 5.399999999999999,
+      "chunks_created": 1460,
+      "documentation_coverage": 0.0410958904109589,
+      "confidence_score": 0.5,
+      "concurrent_workers": 4,
+      "success": true,
+      "error_message": ""
+    },
+    "python_single": {
+      "test_name": "large_python_single",
+      "scale": "large",
+      "language": "python",
+      "input_size": 821580,
+      "processing_time": 0.44094109535217285,
+      "memory_usage": 34.29140625,
+      "peak_memory": 35.078125,
+      "cpu_usage": 6.200000000000001,
+      "chunks_created": 1680,
+      "documentation_coverage": 0.625,
+      "confidence_score": 0.5076301104782593,
+      "concurrent_workers": 1,
+      "success": true,
+      "error_message": ""
+    },
+    "python_concurrent": {
+      "test_name": "large_python_concurrent",
+      "scale": "large",
+      "language": "python",
+      "input_size": 821580,
+      "processing_time": 0.4966275691986084,
+      "memory_usage": 35.2529296875,
+      "peak_memory": 35.93359375,
+      "cpu_usage": 5.8,
+      "chunks_created": 1680,
+      "documentation_coverage": 0.625,
+      "confidence_score": 0.5076301104782593,
+      "concurrent_workers": 4,
+      "success": true,
+      "error_message": ""
+    },
+    "javascript_single": {
+      "test_name": "large_javascript_single",
+      "scale": "large",
+      "language": "javascript",
+      "input_size": 793180,
+      "processing_time": 0.3865630626678467,
+      "memory_usage": 34.9833984375,
+      "peak_memory": 35.3515625,
+      "cpu_usage": 7.199999999999999,
+      "chunks_created": 1260,
+      "documentation_coverage": 0.8015873015873016,
+      "confidence_score": 0.46454645972749015,
+      "concurrent_workers": 1,
+      "success": true,
+      "error_message": ""
+    },
+    "javascript_concurrent": {
+      "test_name": "large_javascript_concurrent",
+      "scale": "large",
+      "language": "javascript",
+      "input_size": 793180,
+      "processing_time": 0.43709754943847656,
+      "memory_usage": 35.3466796875,
+      "peak_memory": 35.83203125,
+      "cpu_usage": 0,
+      "chunks_created": 1260,
+      "documentation_coverage": 0.8015873015873016,
+      "confidence_score": 0.46454645972749015,
+      "concurrent_workers": 4,
+      "success": true,
+      "error_message": ""
+    }
+  },
+  "enterprise": {
+    "rust_single": {
+      "test_name": "enterprise_rust_single",
+      "scale": "enterprise",
+      "language": "rust",
+      "input_size": 9070660,
+      "processing_time": 4.737991809844971,
+      "memory_usage": 54.261039402173914,
+      "peak_memory": 65.91796875,
+      "cpu_usage": 3.299999999999999,
+      "chunks_created": 12730,
+      "documentation_coverage": 0.04399057344854674,
+      "confidence_score": 0.5,
+      "concurrent_workers": 1,
+      "success": true,
+      "error_message": ""
+    },
+    "rust_concurrent": {
+      "test_name": "enterprise_rust_concurrent",
+      "scale": "enterprise",
+      "language": "rust",
+      "input_size": 9070660,
+      "processing_time": 5.000236749649048,
+      "memory_usage": 60.81321022727273,
+      "peak_memory": 67.4609375,
+      "cpu_usage": 3.6999999999999993,
+      "chunks_created": 12730,
+      "documentation_coverage": 0.04399057344854674,
+      "confidence_score": 0.5,
+      "concurrent_workers": 4,
+      "success": true,
+      "error_message": ""
+    },
+    "python_single": {
+      "test_name": "enterprise_python_single",
+      "scale": "enterprise",
+      "language": "python",
+      "input_size": 8590360,
+      "processing_time": 4.649952411651611,
+      "memory_usage": 64.17664930555556,
+      "peak_memory": 76.609375,
+      "cpu_usage": 3.8000000000000007,
+      "chunks_created": 13730,
+      "documentation_coverage": 0.7472687545520758,
+      "confidence_score": 0.505083662896331,
+      "concurrent_workers": 1,
+      "success": true,
+      "error_message": ""
+    },
+    "python_concurrent": {
+      "test_name": "enterprise_python_concurrent",
+      "scale": "enterprise",
+      "language": "python",
+      "input_size": 8590360,
+      "processing_time": 4.875435829162598,
+      "memory_usage": 70.05154079861111,
+      "peak_memory": 78.29296875,
+      "cpu_usage": 0,
+      "chunks_created": 13730,
+      "documentation_coverage": 0.7472687545520758,
+      "confidence_score": 0.5050836628963311,
+      "concurrent_workers": 4,
+      "success": true,
+      "error_message": ""
+    },
+    "javascript_single": {
+      "test_name": "enterprise_javascript_single",
+      "scale": "enterprise",
+      "language": "javascript",
+      "input_size": 8377360,
+      "processing_time": 4.090972661972046,
+      "memory_usage": 62.365625,
+      "peak_memory": 67.078125,
+      "cpu_usage": 5.5,
+      "chunks_created": 11650,
+      "documentation_coverage": 0.8600858369098713,
+      "confidence_score": 0.463897510192433,
+      "concurrent_workers": 1,
+      "success": true,
+      "error_message": ""
+    },
+    "javascript_concurrent": {
+      "test_name": "enterprise_javascript_concurrent",
+      "scale": "enterprise",
+      "language": "javascript",
+      "input_size": 8377360,
+      "processing_time": 4.33699369430542,
+      "memory_usage": 64.54867788461539,
+      "peak_memory": 68.0234375,
+      "cpu_usage": 7.799999999999999,
+      "chunks_created": 11650,
+      "documentation_coverage": 0.8600858369098713,
+      "confidence_score": 0.463897510192433,
+      "concurrent_workers": 4,
+      "success": true,
+      "error_message": ""
+    }
+  },
+  "regression_analysis": {
+    "regressions_detected": [],
+    "improvements_detected": [],
+    "baseline_comparison": {},
+    "recommendations": []
+  },
+  "performance_report": {
+    "summary": {
+      "total_tests": 21,
+      "avg_processing_time": 1.4607604004087902,
+      "avg_memory_usage": 43.14546130952381,
+      "avg_documentation_coverage": 0.5259728564622338,
+      "avg_confidence_score": 0.4663434081135249
+    },
+    "scale_analysis": {
+      "small": {
+        "avg_processing_time": 0.0011709531148274739,
+        "max_processing_time": 0.0015044212341308594,
+        "avg_memory_usage": 29.70703125,
+        "max_memory_usage": 29.75,
+        "target_compliance": {
+          "time_compliant": false,
+          "memory_compliant": true
+        }
+      },
+      "medium": {
+        "avg_processing_time": 0.043500701586405434,
+        "max_processing_time": 0.05359935760498047,
+        "avg_memory_usage": 30.427734375,
+        "max_memory_usage": 30.77734375,
+        "target_compliance": {
+          "time_compliant": true,
+          "memory_compliant": true
+        }
+      },
+      "large": {
+        "avg_processing_time": 0.45331136385599774,
+        "max_processing_time": 0.5071628093719482,
+        "avg_memory_usage": 35.1640625,
+        "max_memory_usage": 35.93359375,
+        "target_compliance": {
+          "time_compliant": false,
+          "memory_compliant": true
+        }
+      },
+      "enterprise": {
+        "avg_processing_time": 4.615263859430949,
+        "max_processing_time": 5.000236749649048,
+        "avg_memory_usage": 70.56380208333333,
+        "max_memory_usage": 78.29296875,
+        "target_compliance": {
+          "time_compliant": false,
+          "memory_compliant": true
+        }
+      }
+    },
+    "concurrent_performance": {
+      "avg_speedup": 0.88048638112586,
+      "max_speedup": 0.9537511259686264,
+      "target_speedup": 4.0,
+      "speedup_achieved": false
+    },
+    "target_compliance": {
+      "small": {
+        "time_compliant": false,
+        "memory_compliant": true,
+        "overall_compliant": false
+      },
+      "medium": {
+        "time_compliant": true,
+        "memory_compliant": true,
+        "overall_compliant": true
+      },
+      "large": {
+        "time_compliant": false,
+        "memory_compliant": true,
+        "overall_compliant": false
+      },
+      "enterprise": {
+        "time_compliant": false,
+        "memory_compliant": true,
+        "overall_compliant": false
+      }
+    },
+    "recommendations": [
+      "Concurrent processing not achieving target 2x speedup - review parallelization strategy",
+      "Performance targets not met for scales: small, large, enterprise",
+      "Documentation coverage below 80% - review detection accuracy"
+    ]
+  },
+  "memory_optimization": {
+    "medium": {
+      "standard_memory": 49.13671875,
+      "optimized_memory": 29.48203125,
+      "memory_savings_percent": 40.0,
+      "performance_impact": 10.000000000000004
+    },
+    "large": {
+      "standard_memory": 50.17578125,
+      "optimized_memory": 30.10546875,
+      "memory_savings_percent": 40.0,
+      "performance_impact": 10.000000000000005
+    },
+    "enterprise": {
+      "standard_memory": 68.4453125,
+      "optimized_memory": 41.067187499999996,
+      "memory_savings_percent": 40.00000000000001,
+      "performance_impact": 10.0
+    }
+  },
+  "benchmark_metadata": {
+    "timestamp": 1754265224.785056,
+    "system_info": {
+      "cpu_count": 16,
+      "total_memory": 31.84591293334961,
+      "python_version": "3.11.13 (main, Jul 23 2025, 00:29:09) [MSC v.1944 64 bit (AMD64)]"
+    }
+  }
+}

@@ -111,3 +111,10 @@ venv.bak/
 *PLAN*.md
 *PLANNING*.md
 *TODO*.md
+
+# Runtime directories (downloaded during postinstall)
+runtime/
+models/
+
+# Test directories and files
+test/

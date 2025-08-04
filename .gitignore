@@ -79,3 +79,7 @@ logs/
 # Test artifacts
 test/fixtures/
 test/tmp/
+
+# Project-specific directories
+crates/
+allocationplan/

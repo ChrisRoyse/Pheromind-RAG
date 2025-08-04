@@ -7,18 +7,29 @@
     "mcp-rag-indexer": "./bin/mcp-rag-indexer"
   },
   "scripts": {
-    "postinstall": "node lib/installer.js",
+    "postinstall": "node scripts/download-runtimes.js --current && node lib/installer.js",
     "preuninstall": "node lib/uninstaller.js",
     "build": "node scripts/build.js",
     "build:runtime": "node scripts/download-runtimes.js",
     "build:models": "node scripts/download-models.js",
-    "test": "npm run test:unit && npm run test:integration",
-    "test:unit": "jest test/unit",
-    "test:integration": "jest test/integration",
-    "test:platform": "jest test/platform",
+    "test": "npm run test:unit && npm run test:integration && npm run test:platform",
+    "test:unit": "jest test/unit.test.js --testTimeout=30000",
+    "test:integration": "jest test/integration.test.js --testTimeout=60000",
+    "test:platform": "jest test/platform.test.js --testTimeout=30000",
+    "test:vector": "jest test/vector_system.test.js --testTimeout=60000",
+    "test:patterns": "jest test/documentation_patterns.test.js --testTimeout=30000",
+    "test:chunking": "jest test/chunking_algorithm.test.js --testTimeout=60000",
+    "test:tdd": "npm run test:vector && npm run test:patterns && npm run test:chunking",
+    "test:all": "jest --testTimeout=60000",
+    "test:coverage": "jest --coverage --testTimeout=60000",
+    "lint": "echo 'Linting not configured yet' && exit 0",
+    "format:check": "echo 'Format checking not configured yet' && exit 0",
     "dev": "node bin/mcp-rag-indexer --log-level debug",
     "configure": "node lib/installer.js --reconfigure",
-    "validate": "node lib/validator.js"
+    "validate": "node lib/validator.js",
+    "clean": "rimraf runtime models dist coverage",
+    "prepare": "echo 'Package prepared for publishing'",
+    "version": "npm run test && npm run build"
   },
   "engines": {
     "node": ">=16.0.0"
@@ -55,7 +66,8 @@
     "fs-extra": "^11.2.0",
     "cross-spawn": "^7.0.3",
     "semver": "^7.5.4",
-    "commander": "^11.1.0"
+    "commander": "^11.1.0",
+    "adm-zip": "^0.5.10"
   },
   "devDependencies": {
     "jest": "^29.7.0",
@@ -67,9 +79,7 @@
     "bin/",
     "lib/",
     "python/",
-    "runtime/",
-    "models/",
-    "scripts/build.js",
+    "scripts/",
     "README.md",
     "LICENSE"
   ],

@@ -1,0 +1,286 @@
+name: Test Suite
+
+on:
+  push:
+    branches-ignore: [ main ]
+  pull_request:
+    branches: [ main, develop ]
+  workflow_dispatch:
+
+env:
+  NODE_VERSION: '18'
+
+jobs:
+  lint:
+    name: Lint and Format Check
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ env.NODE_VERSION }}
+        cache: 'npm'
+        
+    - name: Install dependencies
+      run: npm ci
+      
+    - name: Run ESLint
+      run: npm run lint
+      continue-on-error: true
+      
+    - name: Check formatting
+      run: npm run format:check
+      continue-on-error: true
+
+  unit-tests:
+    name: Unit Tests
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        node-version: [16, 18, 20]
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Setup Node.js ${{ matrix.node-version }}
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ matrix.node-version }}
+        cache: 'npm'
+        
+    - name: Install dependencies
+      run: npm ci
+      
+    - name: Run unit tests
+      run: npm run test:unit -- --coverage
+      
+    - name: Upload coverage to Codecov
+      uses: codecov/codecov-action@v4
+      with:
+        file: ./coverage/lcov.info
+        flags: unittests,${{ matrix.os }},node${{ matrix.node-version }}
+        name: codecov-${{ matrix.os }}-node${{ matrix.node-version }}
+
+  integration-tests:
+    name: Integration Tests
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ env.NODE_VERSION }}
+        cache: 'npm'
+        
+    - name: Install dependencies
+      run: npm ci
+      
+    - name: Run integration tests
+      run: npm run test:integration
+      continue-on-error: true
+      
+    - name: Upload test artifacts
+      uses: actions/upload-artifact@v4
+      if: failure()
+      with:
+        name: integration-test-logs-${{ matrix.os }}
+        path: |
+          logs/
+          temp/
+        retention-days: 3
+
+  platform-tests:
+    name: Platform-Specific Tests
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ env.NODE_VERSION }}
+        cache: 'npm'
+        
+    - name: Install dependencies
+      run: npm ci
+      
+    - name: Run platform tests
+      run: npm run test:platform
+      
+    - name: Test CLI functionality
+      run: |
+        node bin/mcp-rag-indexer --version
+        node bin/mcp-rag-indexer --status
+        node bin/mcp-rag-indexer --help
+
+  build-test:
+    name: Test Build Process
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ env.NODE_VERSION }}
+        cache: 'npm'
+        
+    - name: Install dependencies
+      run: npm ci
+      
+    - name: Test runtime download
+      run: |
+        node scripts/download-runtimes.js --list
+        node scripts/download-runtimes.js linux-x64
+        node scripts/download-runtimes.js --summary
+      timeout-minutes: 10
+      
+    - name: Test model download
+      run: |
+        node scripts/download-models.js --list
+        node scripts/download-models.js --model sentence-transformers/all-MiniLM-L6-v2
+        node scripts/download-models.js --summary
+      timeout-minutes: 15
+      
+    - name: Test package build
+      run: npm run build
+      timeout-minutes: 30
+      
+    - name: Validate build output
+      run: |
+        ls -la runtime/
+        ls -la models/
+        node scripts/download-runtimes.js --summary
+        node scripts/download-models.js --summary
+
+  dependency-check:
+    name: Dependency Security Check
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ env.NODE_VERSION }}
+        cache: 'npm'
+        
+    - name: Install dependencies
+      run: npm ci
+      
+    - name: Run npm audit
+      run: npm audit --audit-level=high
+      continue-on-error: true
+      
+    - name: Check for outdated packages
+      run: npm outdated
+      continue-on-error: true
+
+  package-size-check:
+    name: Package Size Analysis
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ env.NODE_VERSION }}
+        cache: 'npm'
+        
+    - name: Install dependencies
+      run: npm ci
+      
+    - name: Analyze package size
+      run: |
+        npm pack --dry-run
+        echo "📦 Package size analysis:"
+        npm run build
+        du -sh runtime/ models/ python/ lib/ bin/ || true
+        echo "Total package contents:"
+        find . -name "node_modules" -prune -o -name ".git" -prune -o -type f -print | wc -l
+
+  documentation-check:
+    name: Documentation Check
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Check README
+      run: |
+        if [ ! -f README.md ]; then echo "❌ README.md not found"; exit 1; fi
+        echo "✅ README.md exists"
+        
+    - name: Check package.json fields
+      run: |
+        node -e "
+        const pkg = require('./package.json');
+        const required = ['name', 'version', 'description', 'main', 'bin', 'repository', 'license'];
+        const missing = required.filter(field => !pkg[field]);
+        if (missing.length > 0) {
+          console.log('❌ Missing package.json fields:', missing.join(', '));
+          process.exit(1);
+        }
+        console.log('✅ All required package.json fields present');
+        "
+        
+    - name: Validate Python requirements
+      run: |
+        if [ ! -f python/requirements.txt ]; then 
+          echo "❌ python/requirements.txt not found"; 
+          exit 1; 
+        fi
+        echo "✅ Python requirements file exists"
+        cat python/requirements.txt
+
+  test-summary:
+    name: Test Summary
+    runs-on: ubuntu-latest
+    needs: [lint, unit-tests, integration-tests, platform-tests, build-test, dependency-check]
+    if: always()
+    
+    steps:
+    - name: Summary
+      run: |
+        echo "## Test Results Summary"
+        echo "- Lint: ${{ needs.lint.result }}"
+        echo "- Unit Tests: ${{ needs.unit-tests.result }}"
+        echo "- Integration Tests: ${{ needs.integration-tests.result }}"
+        echo "- Platform Tests: ${{ needs.platform-tests.result }}"
+        echo "- Build Test: ${{ needs.build-test.result }}"
+        echo "- Dependency Check: ${{ needs.dependency-check.result }}"
+        
+        if [[ "${{ needs.unit-tests.result }}" == "success" && "${{ needs.platform-tests.result }}" == "success" && "${{ needs.build-test.result }}" == "success" ]]; then
+          echo "✅ Core tests passed - ready for review"
+        else
+          echo "❌ Some core tests failed"
+          exit 1
+        fi
