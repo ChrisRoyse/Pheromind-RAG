@@ -1,298 +1,406 @@
-# Phase 3: Hybrid Ranking System
+# Phase 3: Git File Watching
 
-## **PHASE OVERVIEW - PROVEN RANKING TECHNIQUES**
+## **PHASE OVERVIEW - SIMPLE GIT UPDATES**
 
-**GOAL**: Combine exact and semantic search results for optimal accuracy  
-**APPROACH**: Simple result fusion with proven ranking algorithms  
-**VALIDATION**: Measure hybrid approach against individual search methods  
-**TIMELINE**: 4 weeks (Tasks 031-045)
+**GOAL**: Git-based file change detection and vector database updates  
+**APPROACH**: Use git status to detect changes, update only modified files  
+**MEASUREMENT**: Verify changes are detected and indexed correctly  
+**TIMELINE**: Week 3 (Tasks 021-030)
 
-## **KEY INSIGHT: PROVEN FUSION TECHNIQUES**
+## **KEY INSIGHT: GIT KNOWS BEST**
 
-**APPROACH**: Use established information retrieval techniques for result combination  
-**GOAL**: Improve search accuracy through hybrid approach (exact + semantic)  
-**VALIDATION**: Measure against both individual approaches to prove value
+**SIMPLICITY**: Git already tracks file changes perfectly - just use it!
 
-**Proven Fusion Techniques**:
-- **Reciprocal Rank Fusion (RRF)**: Proven algorithm for combining ranked lists
-- **Score Normalization**: Standard techniques for combining different scoring systems
-- **Relevance Re-ranking**: Established methods for improving result ordering
-- **Simple Deduplication**: Basic content similarity for duplicate removal
+**Core Components**:
+1. **Git Status**: Detect modified/added/deleted files
+2. **Incremental Updates**: Only re-embed changed files
+3. **Vector Cleanup**: Remove embeddings for deleted/modified chunks
+4. **Automatic Mode**: Optional background watching
 
-## **FOCUSED TASK BREAKDOWN (031-045)**
+## **GIT WATCHING TASK BREAKDOWN (021-030)**
 
-### **Core Fusion Tasks (031-035): Result Combination**
+### **Core Git Integration Tasks (021-025): Change Detection**
 
-#### **Task 031: Simple Result Deduplication**
-**Goal**: Remove duplicate results between exact and semantic search  
-**Duration**: 4 hours  
+#### **Task 021: Git Status Parser**
+**Goal**: Parse git status to find changed files  
+**Duration**: 3 hours  
 **Dependencies**: Phase 2 completion
 
-**TDD Cycle**:
-1. **RED Phase**: Test duplicate results from exact and semantic search aren't removed
-2. **GREEN Phase**: File path and content similarity deduplication
-3. **REFACTOR Phase**: Fuzzy matching for slight content differences
-
+**Implementation**:
 ```rust
-pub struct SimpleDeduplicator {
-    content_hasher: ContentHasher,
-    similarity_threshold: f32,
+use std::process::Command;
+
+pub struct GitWatcher {
+    repo_path: PathBuf,
 }
 
-impl SimpleDeduplicator {
-    pub fn deduplicate(&self, exact_results: Vec<SearchResult>, semantic_results: Vec<SearchResult>) -> Vec<SearchResult> {
-        let mut all_results = Vec::new();
-        let mut seen_files = HashSet::new();
-        
-        // Add exact results first (higher priority)
-        for result in exact_results {
-            if !seen_files.contains(&result.file_path) {
-                seen_files.insert(result.file_path.clone());
-                all_results.push(result);
-            }
-        }
-        
-        // Add semantic results that aren't duplicates
-        for result in semantic_results {
-            if !self.is_duplicate(&result, &all_results) {
-                all_results.push(result);
-            }
-        }
-        
-        all_results
+#[derive(Debug, Clone)]
+pub enum FileChange {
+    Modified(PathBuf),
+    Added(PathBuf),
+    Deleted(PathBuf),
+}
+
+impl GitWatcher {
+    pub fn new(repo_path: PathBuf) -> Self {
+        Self { repo_path }
     }
     
-    fn is_duplicate(&self, candidate: &SearchResult, existing: &[SearchResult]) -> bool {
-        for existing_result in existing {
-            if candidate.file_path == existing_result.file_path {
-                return true;
+    pub fn get_changes(&self) -> Result<Vec<FileChange>> {
+        // Run git status --porcelain
+        let output = Command::new("git")
+            .args(&["status", "--porcelain"])
+            .current_dir(&self.repo_path)
+            .output()?;
+        
+        if !output.status.success() {
+            return Err(anyhow!("Git status failed"));
+        }
+        
+        let stdout = String::from_utf8(output.stdout)?;
+        let mut changes = Vec::new();
+        
+        for line in stdout.lines() {
+            if line.len() < 3 {
+                continue;
             }
             
-            if self.content_similarity(&candidate.content, &existing_result.content) > self.similarity_threshold {
-                return true;
+            let status = &line[0..2];
+            let file_path = PathBuf::from(line[3..].trim());
+            
+            // Only process code files
+            if !self.is_code_file(&file_path) {
+                continue;
+            }
+            
+            match status {
+                " M" | "M " | "MM" => changes.push(FileChange::Modified(file_path)),
+                "A " | "AM" => changes.push(FileChange::Added(file_path)),
+                " D" | "D " => changes.push(FileChange::Deleted(file_path)),
+                "??" => changes.push(FileChange::Added(file_path)), // Untracked
+                _ => {} // Ignore other statuses
             }
         }
-        false
+        
+        Ok(changes)
+    }
+    
+    fn is_code_file(&self, path: &Path) -> bool {
+        match path.extension().and_then(|s| s.to_str()) {
+            Some(ext) => matches!(
+                ext,
+                "rs" | "py" | "js" | "ts" | "jsx" | "tsx" | 
+                "go" | "java" | "cpp" | "c" | "h" | "hpp" |
+                "rb" | "php" | "swift" | "kt" | "scala"
+            ),
+            None => false,
+        }
     }
 }
 ```
 
-#### **Task 032: Reciprocal Rank Fusion (RRF)**
-**Goal**: Implement proven RRF algorithm to combine ranked lists  
+#### **Task 022: Vector Database Updater**
+**Goal**: Update embeddings for changed files  
 **Duration**: 4 hours  
-**Dependencies**: Task 031
+**Dependencies**: Task 021
 
-**TDD Cycle**:
-1. **RED Phase**: Test combining ranked lists doesn't improve over individual lists
-2. **GREEN Phase**: Standard RRF implementation with parameter k=60
-3. **REFACTOR Phase**: Tune RRF parameter based on empirical testing
-
+**Implementation**:
 ```rust
-pub struct ReciprocalRankFusion {
-    k: f32, // RRF parameter, typically 60
+pub struct VectorUpdater {
+    storage: VectorStorage,
+    chunker: SimpleRegexChunker,
+    embedder: MiniLMEmbedder,
 }
 
-impl ReciprocalRankFusion {
-    pub fn fuse_rankings(&self, exact_results: Vec<SearchResult>, semantic_results: Vec<SearchResult>) -> Vec<SearchResult> {
-        let mut rrf_scores = HashMap::new();
-        
-        // Calculate RRF scores for exact search results
-        for (rank, result) in exact_results.iter().enumerate() {
-            let score = 1.0 / (self.k + (rank + 1) as f32);
-            rrf_scores.entry(result.id.clone())
-                .and_modify(|e| *e += score)
-                .or_insert(score);
+impl VectorUpdater {
+    pub async fn update_file(&mut self, file_path: &Path, change: &FileChange) -> Result<()> {
+        match change {
+            FileChange::Deleted(_) => {
+                self.delete_file_embeddings(file_path).await
+            },
+            FileChange::Modified(_) | FileChange::Added(_) => {
+                // Delete old embeddings first
+                self.delete_file_embeddings(file_path).await?;
+                
+                // Re-index the file
+                self.index_file(file_path).await
+            }
         }
+    }
+    
+    async fn delete_file_embeddings(&mut self, file_path: &Path) -> Result<()> {
+        // Remove all embeddings for this file
+        self.storage.delete_by_file(file_path.to_str().unwrap())?;
+        Ok(())
+    }
+    
+    async fn index_file(&mut self, file_path: &Path) -> Result<()> {
+        // Read file content
+        let content = std::fs::read_to_string(file_path)?;
         
-        // Calculate RRF scores for semantic search results
-        for (rank, result) in semantic_results.iter().enumerate() {
-            let score = 1.0 / (self.k + (rank + 1) as f32);
-            rrf_scores.entry(result.id.clone())
-                .and_modify(|e| *e += score)
-                .or_insert(score);
-        }
+        // Chunk the file
+        let chunks = self.chunker.chunk_file(&content);
         
-        // Combine all results and sort by RRF score
-        let all_results = exact_results.into_iter()
-            .chain(semantic_results.into_iter())
-            .collect::<Vec<_>>();
+        // Embed and store each chunk
+        for (idx, chunk) in chunks.iter().enumerate() {
+            let embedding = self.embedder.embed(&chunk.content)?;
             
-        let mut combined = self.deduplicate_by_id(all_results);
+            self.storage.insert_embedding(
+                file_path.to_str().unwrap(),
+                idx,
+                chunk,
+                embedding
+            )?;
+        }
         
-        combined.sort_by(|a, b| {
-            let score_a = rrf_scores.get(&a.id).unwrap_or(&0.0);
-            let score_b = rrf_scores.get(&b.id).unwrap_or(&0.0);
-            score_b.partial_cmp(score_a).unwrap()
-        });
-        
-        combined
+        Ok(())
     }
 }
 ```
 
-#### **Task 033: Score Normalization**
-**Goal**: Normalize scores between exact and semantic search for fair comparison  
+#### **Task 023: Batch Update Processing**
+**Goal**: Process multiple file changes efficiently  
 **Duration**: 3 hours  
-**Dependencies**: Task 032
+**Dependencies**: Task 022
 
-**TDD Cycle**:
-1. **RED Phase**: Test different search methods have incomparable scores
-2. **GREEN Phase**: Min-max normalization for score standardization
-3. **REFACTOR Phase**: Z-score normalization for better distribution
+**Implementation**:
+```rust
+impl VectorUpdater {
+    pub async fn batch_update(&mut self, changes: Vec<FileChange>) -> Result<UpdateStats> {
+        let mut stats = UpdateStats::default();
+        let start_time = Instant::now();
+        
+        // Group changes by type for efficient processing
+        let mut modifications = Vec::new();
+        let mut deletions = Vec::new();
+        
+        for change in changes {
+            match &change {
+                FileChange::Deleted(path) => deletions.push(path.clone()),
+                FileChange::Modified(path) | FileChange::Added(path) => {
+                    modifications.push(path.clone())
+                }
+            }
+        }
+        
+        // Process deletions first (fast)
+        for path in deletions {
+            self.delete_file_embeddings(&path).await?;
+            stats.deleted_files += 1;
+        }
+        
+        // Process modifications/additions
+        for path in modifications {
+            match self.index_file(&path).await {
+                Ok(_) => stats.updated_files += 1,
+                Err(e) => {
+                    eprintln!("Failed to index {}: {}", path.display(), e);
+                    stats.failed_files += 1;
+                }
+            }
+        }
+        
+        stats.total_time = start_time.elapsed();
+        Ok(stats)
+    }
+}
 
-#### **Task 034: File Relevance Boosting**
-**Goal**: Boost results from more important files (README, main files, etc.)  
-**Duration**: 3 hours  
-**Dependencies**: Task 033
+#[derive(Default)]
+pub struct UpdateStats {
+    pub updated_files: usize,
+    pub deleted_files: usize,
+    pub failed_files: usize,
+    pub total_time: Duration,
+}
+```
 
-#### **Task 035: Query-Result Relevance Scoring**
-**Goal**: Score results based on query-content match quality  
-**Duration**: 4 hours  
-**Dependencies**: Task 034
-
-### **Performance Optimization Tasks (036-040): Efficiency Improvements**
-
-#### **Task 036: Result Caching**
-**Goal**: Cache fusion results for repeated queries  
-**Duration**: 3 hours  
-**Dependencies**: Task 035
-
-#### **Task 037: Batch Processing Optimization**
-**Goal**: Optimize fusion for multiple results efficiently  
+#### **Task 024: Watch Command Implementation**
+**Goal**: Create a watch command that runs periodically  
 **Duration**: 2 hours  
-**Dependencies**: Task 036
+**Dependencies**: Task 023
 
-#### **Task 038: Memory Usage Optimization**
-**Goal**: Minimize memory usage during result fusion  
+**Implementation**:
+```rust
+pub struct WatchCommand {
+    watcher: GitWatcher,
+    updater: VectorUpdater,
+    interval: Duration,
+    enabled: Arc<AtomicBool>,
+}
+
+impl WatchCommand {
+    pub fn new(repo_path: PathBuf, updater: VectorUpdater) -> Self {
+        Self {
+            watcher: GitWatcher::new(repo_path),
+            updater,
+            interval: Duration::from_secs(5), // Check every 5 seconds
+            enabled: Arc::new(AtomicBool::new(false)),
+        }
+    }
+    
+    pub fn start(&mut self) {
+        self.enabled.store(true, Ordering::Relaxed);
+        let enabled = self.enabled.clone();
+        
+        std::thread::spawn(move || {
+            while enabled.load(Ordering::Relaxed) {
+                if let Err(e) = self.check_and_update() {
+                    eprintln!("Watch error: {}", e);
+                }
+                
+                std::thread::sleep(self.interval);
+            }
+        });
+    }
+    
+    pub fn stop(&self) {
+        self.enabled.store(false, Ordering::Relaxed);
+    }
+    
+    fn check_and_update(&mut self) -> Result<()> {
+        let changes = self.watcher.get_changes()?;
+        
+        if !changes.is_empty() {
+            println!("Detected {} file changes", changes.len());
+            let stats = self.updater.batch_update(changes).await?;
+            println!(
+                "Updated {} files, deleted {} files in {:?}",
+                stats.updated_files, stats.deleted_files, stats.total_time
+            );
+        }
+        
+        Ok(())
+    }
+}
+```
+
+#### **Task 025: State Persistence**
+**Goal**: Remember last update state across restarts  
 **Duration**: 2 hours  
-**Dependencies**: Task 037
+**Dependencies**: Task 024
 
-#### **Task 039: Latency Optimization**
-**Goal**: Minimize fusion processing latency  
-**Duration**: 3 hours  
-**Dependencies**: Task 038
+### **Integration Tasks (026-030): Production Features**
 
-#### **Task 040: Performance Monitoring**
-**Goal**: Track fusion performance and bottlenecks  
+#### **Task 026: Progress Reporting**
+**Goal**: Show progress during large updates  
 **Duration**: 2 hours  
-**Dependencies**: Task 039
+**Dependencies**: Task 025
 
-### **Validation Tasks (041-045): Hybrid System Validation**
+**Implementation**:
+```rust
+use indicatif::{ProgressBar, ProgressStyle};
 
-#### **Task 041: Accuracy Measurement vs Individual Methods**
-**Goal**: Measure hybrid accuracy against exact and semantic separately  
-**Duration**: 4 hours  
-**Dependencies**: Task 040
+impl VectorUpdater {
+    pub async fn batch_update_with_progress(&mut self, changes: Vec<FileChange>) -> Result<UpdateStats> {
+        let pb = ProgressBar::new(changes.len() as u64);
+        pb.set_style(
+            ProgressStyle::default_bar()
+                .template("[{elapsed_precise}] {bar:40.cyan/blue} {pos}/{len} {msg}")
+                .progress_chars("##-")
+        );
+        
+        let mut stats = UpdateStats::default();
+        
+        for (i, change) in changes.iter().enumerate() {
+            let path = match change {
+                FileChange::Modified(p) | FileChange::Added(p) | FileChange::Deleted(p) => p,
+            };
+            
+            pb.set_message(format!("Processing: {}", path.display()));
+            
+            match self.update_file(path, change).await {
+                Ok(_) => match change {
+                    FileChange::Deleted(_) => stats.deleted_files += 1,
+                    _ => stats.updated_files += 1,
+                },
+                Err(e) => {
+                    eprintln!("Failed to process {}: {}", path.display(), e);
+                    stats.failed_files += 1;
+                }
+            }
+            
+            pb.set_position((i + 1) as u64);
+        }
+        
+        pb.finish_with_message("Update complete");
+        Ok(stats)
+    }
+}
+```
 
-#### **Task 042: A/B Testing Framework**
-**Goal**: Set up A/B tests between fusion strategies  
-**Duration**: 3 hours  
-**Dependencies**: Task 041
-
-#### **Task 043: Error Analysis and Improvement**
-**Goal**: Analyze where hybrid approach fails and improve  
-**Duration**: 4 hours  
-**Dependencies**: Task 042
-
-#### **Task 044: Performance Validation**
-**Goal**: Ensure hybrid approach meets performance requirements  
+#### **Task 027: Ignore Patterns**
+**Goal**: Support .gitignore-style patterns  
 **Duration**: 2 hours  
-**Dependencies**: Task 043
+**Dependencies**: Task 026
 
-#### **Task 045: Phase 3 System Validation**
-**Goal**: Final validation that hybrid ranking provides measurable value  
+#### **Task 028: Error Recovery**
+**Goal**: Handle partial updates gracefully  
+**Duration**: 2 hours  
+**Dependencies**: Task 027
+
+#### **Task 029: Watch Status API**
+**Goal**: API to check watch status and stats  
 **Duration**: 1 hour  
-**Dependencies**: Task 044
+**Dependencies**: Task 028
+
+#### **Task 030: Phase 3 Completion**
+**Goal**: Integration testing with real repositories  
+**Duration**: 1 hour  
+**Dependencies**: Task 029
 
 ## **SUCCESS CRITERIA**
 
 ### **Phase 3 Targets**
-- **Hybrid Search Implementation**: Working combination of exact + semantic search
-- **Accuracy Improvement**: Measurable improvement over both individual methods
-- **Performance**: <1s total search latency for hybrid approach
-- **Resource Efficiency**: <100MB additional memory for fusion operations
-- **Integration**: Seamless combination with previous phases
+- **Git Integration**: Reliable change detection
+- **Incremental Updates**: Only changed files processed
+- **Performance**: <1s to detect and start updating
+- **Reliability**: Handle errors gracefully
+- **Watch Mode**: Optional automatic updates
 
-### **Fusion Requirements**
-- **Proven Techniques**: Use established algorithms (RRF, score normalization)
-- **Empirical Validation**: A/B test all fusion strategies against baselines
-- **Performance Boundaries**: Fusion overhead <20% of total search time
-- **Quality Metrics**: Higher accuracy than best individual method
+### **Deliverables**
+- Git status parser
+- Vector database updater
+- Batch processing
+- Watch command
+- Progress reporting
 
 ## **ARCHITECTURE**
 
 ```rust
-pub struct HybridRankingSystem {
-    // Core fusion components
-    deduplicator: SimpleDeduplicator,
-    rrf_fusion: ReciprocalRankFusion,
-    score_normalizer: ScoreNormalizer,
-    relevance_booster: FileRelevanceBooster,
-    
-    // Performance optimization
-    result_cache: LRU<String, Vec<SearchResult>>,
-    performance_monitor: FusionPerformanceMonitor,
-    
-    // Integration with previous phases
-    exact_search: BaselineSearchSystem,
-    semantic_search: SemanticSearchSystem,
-    
-    // Validation
-    ab_testing: ABTestingFramework,
-    accuracy_measurement: AccuracyMeasurement,
+// Phase 3 additions
+pub struct Phase3GitWatch {
+    pub watcher: GitWatcher,
+    pub updater: VectorUpdater,
+    pub watch_command: WatchCommand,
 }
 
-impl HybridRankingSystem {
-    pub async fn search(&mut self, query: &str, project_path: &Path) -> Result<HybridSearchResult> {
-        let start_time = Instant::now();
-        
-        // Run exact and semantic search in parallel
-        let (exact_future, semantic_future) = tokio::join!(
-            self.exact_search.search(query, project_path),
-            self.semantic_search.search(query, project_path)
-        );
-        
-        let exact_results = exact_future?;
-        let semantic_results = semantic_future?;
-        
-        // Remove duplicates
-        let deduplicated = self.deduplicator.deduplicate(exact_results.results, semantic_results.results);
-        
-        // Apply RRF fusion
-        let fused = self.rrf_fusion.fuse_rankings(exact_results.results, semantic_results.results);
-        
-        // Boost file relevance
-        let boosted = self.relevance_booster.apply_boosts(&fused, project_path);
-        
-        // Cache results
-        self.result_cache.put(query.to_string(), boosted.clone());
-        
-        HybridSearchResult {
-            query: query.to_string(),
-            results: boosted,
-            total_found: fused.len(),
-            fusion_time: start_time.elapsed(),
-            individual_methods: IndividualResults {
-                exact_accuracy: exact_results.accuracy_score,
-                semantic_accuracy: semantic_results.accuracy_score,
-            },
-        }
+// Simple API
+impl Phase3GitWatch {
+    pub fn check_changes(&self) -> Result<Vec<FileChange>> {
+        self.watcher.get_changes()
+    }
+    
+    pub async fn update_changes(&mut self) -> Result<UpdateStats> {
+        let changes = self.check_changes()?;
+        self.updater.batch_update(changes).await
+    }
+    
+    pub fn start_watching(&mut self) {
+        self.watch_command.start();
+    }
+    
+    pub fn stop_watching(&self) {
+        self.watch_command.stop();
     }
 }
 ```
 
-## **OPTIMIZATION RESULTS**
+## **WEEK 3 DELIVERABLES**
 
-**BEFORE (Complex Result Fusion)**:
-- 25 tasks for intelligent multi-factor fusion with learning
-- Unproven accuracy benefits with high complexity
-- Complex deduplication and contextual re-ranking
-- Advanced learning systems requiring user data
+1. **Git Detection**: Parse git status for changes
+2. **Update Logic**: Re-embed only changed files
+3. **Batch Processing**: Efficient multi-file updates
+4. **Watch Mode**: Automatic periodic checking
+5. **Ready for MCP**: Foundation for toggle command
 
-**AFTER (Hybrid Ranking System)**:
-- 15 focused tasks for proven fusion techniques
-- Evidence-based approach with established algorithms
-- Simple, reliable deduplication and RRF fusion
-- Performance optimization and empirical validation
-
-**Result**: Measurable accuracy improvement through proven hybrid approach combining exact and semantic search.
+**Next Phase**: MCP server with full tool suite

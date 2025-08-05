@@ -1,318 +1,429 @@
-# Phase 1: Baseline & Evaluation Foundation
+# Phase 1: Regex + Embeddings Foundation
 
-## **PHASE OVERVIEW - EVIDENCE-BASED DEVELOPMENT**
+## **PHASE OVERVIEW - CORE FOUNDATION**
 
-**GOAL**: Establish measurable baseline and comprehensive evaluation framework  
-**APPROACH**: Build exact text search baseline with robust accuracy measurement  
-**MEASUREMENT**: Create ground truth dataset and success metrics before optimization  
-**TIMELINE**: 4 weeks (Tasks 001-015)
+**GOAL**: Build regex chunking + MiniLM embeddings + 3-chunk context  
+**APPROACH**: Fast chunking, single model embeddings, vector storage  
+**MEASUREMENT**: Basic accuracy testing with simple queries  
+**TIMELINE**: Week 1 (Tasks 001-010)
 
-## **KEY INSIGHT: MEASUREMENT BEFORE OPTIMIZATION**
+## **KEY INSIGHT: SIMPLICITY + CONTEXT**
 
-**PROBLEM**: Cannot improve what cannot be measured accurately  
-**SOLUTION**: Build comprehensive evaluation framework before any optimization
+**CORE COMPONENTS**:
+1. **Regex Chunking**: Fast pattern-based chunking
+2. **MiniLM Embeddings**: all-MiniLM-L6-v2 for all embeddings
+3. **3-Chunk Context**: Always return above + target + below
+4. **LanceDB Storage**: Simple vector database
 
 **Foundation Requirements**:
-- **Baseline System**: High-quality exact text search using proven tools
-- **Ground Truth Dataset**: 500+ real developer queries with known correct results
-- **Success Metrics**: Clear definition of search success (relevant result in top 5)
-- **A/B Testing Framework**: Compare improvements against baseline objectively
+- **Regex Patterns**: Basic patterns for code boundaries
+- **Single Model**: MiniLM only (no complex routing)
+- **Vector Storage**: Set up LanceDB with proper schema
+- **Basic Testing**: Simple queries to validate system
 
-## **EVIDENCE-BASED TASK BREAKDOWN (001-015)**
+## **FOUNDATION TASK BREAKDOWN (001-010)**
 
-### **Baseline System Tasks (001-005): Exact Text Search Foundation**
+### **Core Setup Tasks (001-005): Regex + Embeddings**
 
-#### **Task 001: High-Quality Exact Text Search**
-**Goal**: Implement production-quality exact text search using ripgrep  
-**Duration**: 4 hours (realistic)  
+#### **Task 001: Basic Regex Patterns**
+**Goal**: Simple regex patterns for code chunking  
+**Duration**: 3 hours  
 **Dependencies**: None
 
-**TDD Cycle**:
-1. **RED Phase**: Test exact text search fails to find known code patterns
-2. **GREEN Phase**: Implement ripgrep-based exact search with file filtering
-3. **REFACTOR Phase**: Add result ranking by relevance and file importance
-
+**Implementation**:
 ```rust
-pub struct ExactTextSearch {
-    ripgrep_engine: RipgrepSearch,
-    file_filter: FileTypeFilter,
-    result_ranker: SimpleRanking,
+pub struct SimpleRegexChunker {
+    // Simple patterns for common code structures
+    function_pattern: Regex,
+    class_pattern: Regex,
+    chunk_size_target: usize, // ~100 lines per chunk
 }
 
-impl ExactTextSearch {
-    pub fn search(&self, query: &str, path: &Path) -> Result<Vec<SearchResult>> {
-        // Use ripgrep for exact text matching
-        let raw_results = self.ripgrep_engine.search(query, path)?;
-        
-        // Filter by relevant file types
-        let filtered = self.file_filter.filter_code_files(raw_results);
-        
-        // Simple ranking by match quality
-        let ranked = self.result_ranker.rank_by_relevance(filtered);
-        
-        Ok(ranked)
-    }
-}
-
-```
-
-#### **Task 002: Simple Query Processing**  
-**Goal**: Basic query cleaning and keyword extraction for better exact search  
-**Duration**: 3 hours  
-**Dependencies**: Task 001
-
-**TDD Cycle**:
-1. **RED Phase**: Test raw user queries don't work well with exact search
-2. **GREEN Phase**: Basic query cleaning (remove stop words, extract keywords)
-3. **REFACTOR Phase**: Smart query expansion with programming synonyms
-
-```rust
-pub struct SimpleQueryProcessor {
-    stop_words: HashSet<String>,
-    programming_synonyms: HashMap<String, Vec<String>>,
-}
-
-impl SimpleQueryProcessor {
-    pub fn process(&self, raw_query: &str) -> ProcessedQuery {
-        // Clean and normalize query
-        let cleaned = self.remove_stop_words(raw_query);
-        let keywords = self.extract_keywords(&cleaned);
-        
-        // Add programming-specific synonyms
-        let expanded = self.add_synonyms(&keywords);
-        
-        ProcessedQuery {
-            original: raw_query.to_string(),
-            keywords,
-            expanded_terms: expanded,
-            search_terms: self.build_search_terms(&keywords, &expanded),
+impl SimpleRegexChunker {
+    pub fn new() -> Self {
+        Self {
+            // Universal patterns that work across languages
+            function_pattern: Regex::new(r"^\s*(pub|public|private|protected|static|async|def|function|fn|func)\s+\w+").unwrap(),
+            class_pattern: Regex::new(r"^\s*(class|struct|interface|enum)\s+\w+").unwrap(),
+            chunk_size_target: 100,
         }
     }
+    
+    pub fn chunk_file(&self, content: &str) -> Vec<Chunk> {
+        // Simple line-based chunking with pattern hints
+        let lines: Vec<&str> = content.lines().collect();
+        let mut chunks = Vec::new();
+        let mut current_chunk = Vec::new();
+        let mut start_line = 0;
+        
+        for (i, line) in lines.iter().enumerate() {
+            current_chunk.push(*line);
+            
+            // Start new chunk on pattern match or size limit
+            if self.is_chunk_boundary(line) || current_chunk.len() >= self.chunk_size_target {
+                if !current_chunk.is_empty() {
+                    chunks.push(Chunk {
+                        content: current_chunk.join("\n"),
+                        start_line,
+                        end_line: i,
+                    });
+                    current_chunk.clear();
+                    start_line = i + 1;
+                }
+            }
+        }
+        
+        // Don't forget the last chunk
+        if !current_chunk.is_empty() {
+            chunks.push(Chunk {
+                content: current_chunk.join("\n"),
+                start_line,
+                end_line: lines.len() - 1,
+            });
+        }
+        
+        chunks
+    }
 }
 ```
 
-#### **Task 003: File Type and Language Detection**
-**Goal**: Detect programming languages and prioritize relevant files  
+#### **Task 002: MiniLM Embedder Setup**  
+**Goal**: Set up all-MiniLM-L6-v2 embedding model  
+**Duration**: 3 hours  
+**Dependencies**: None
+
+**Implementation**:
+```rust
+use candle::{Device, Tensor};
+use tokenizers::Tokenizer;
+
+pub struct MiniLMEmbedder {
+    model: BertModel,
+    tokenizer: Tokenizer,
+    device: Device,
+}
+
+impl MiniLMEmbedder {
+    pub fn new() -> Result<Self> {
+        // Load all-MiniLM-L6-v2
+        let device = Device::Cpu;
+        let model_path = "models/all-MiniLM-L6-v2";
+        
+        let config = Config::from_file(&format!("{}/config.json", model_path))?;
+        let model = BertModel::load(&format!("{}/model.safetensors", model_path), &config, &device)?;
+        let tokenizer = Tokenizer::from_file(&format!("{}/tokenizer.json", model_path))?;
+        
+        Ok(Self { model, tokenizer, device })
+    }
+    
+    pub fn embed(&self, text: &str) -> Result<Vec<f32>> {
+        // Tokenize
+        let encoding = self.tokenizer.encode(text, true)?;
+        let input_ids = Tensor::new(encoding.get_ids(), &self.device)?;
+        
+        // Get embeddings
+        let embeddings = self.model.forward(&input_ids)?;
+        
+        // Mean pooling
+        let pooled = self.mean_pool(&embeddings)?;
+        
+        // Convert to Vec<f32>
+        Ok(pooled.to_vec1()?)
+    }
+    
+    pub fn embed_batch(&self, texts: &[String]) -> Result<Vec<Vec<f32>>> {
+        texts.iter()
+            .map(|text| self.embed(text))
+            .collect()
+    }
+}
+```
+
+#### **Task 003: LanceDB Setup**
+**Goal**: Set up LanceDB for vector storage  
 **Duration**: 2 hours  
 **Dependencies**: Task 002
 
-**TDD Cycle**:
-1. **RED Phase**: Test search doesn't prioritize relevant file types
-2. **GREEN Phase**: Simple file extension detection and filtering
-3. **REFACTOR Phase**: Project language detection for better file prioritization
-
+**Implementation**:
 ```rust
-pub struct FileTypeDetector {
-    language_extensions: HashMap<String, Language>,
-    priority_files: HashSet<String>,
+use lance::dataset::Dataset;
+use lance::table::Table;
+
+pub struct VectorStorage {
+    db_path: PathBuf,
+    dataset: Option<Dataset>,
 }
 
-impl FileTypeDetector {
-    pub fn detect_project_languages(&self, root_path: &Path) -> Vec<Language> {
-        // Count files by language
-        let file_counts = self.count_files_by_language(root_path);
-        
-        // Return languages sorted by prevalence
-        file_counts.into_iter()
-            .sorted_by(|a, b| b.1.cmp(&a.1))
-            .map(|(lang, _)| lang)
-            .collect()
+impl VectorStorage {
+    pub fn new(db_path: PathBuf) -> Result<Self> {
+        Ok(Self {
+            db_path,
+            dataset: None,
+        })
     }
     
-    pub fn should_search_file(&self, file_path: &Path, languages: &[Language]) -> bool {
-        if let Some(ext) = file_path.extension() {
-            if let Some(lang) = self.language_extensions.get(ext.to_str().unwrap()) {
-                return languages.contains(lang);
+    pub fn init_schema(&mut self) -> Result<()> {
+        // Create schema for embeddings
+        let schema = Schema::new(vec![
+            Field::new("id", DataType::Utf8, false),
+            Field::new("file_path", DataType::Utf8, false),
+            Field::new("chunk_index", DataType::Int32, false),
+            Field::new("content", DataType::Utf8, false),
+            Field::new("embedding", DataType::FixedSizeList(
+                Box::new(Field::new("item", DataType::Float32, true)),
+                384, // MiniLM dimension
+            ), false),
+            Field::new("start_line", DataType::Int32, false),
+            Field::new("end_line", DataType::Int32, false),
+        ]);
+        
+        // Create dataset
+        self.dataset = Some(Dataset::create(&self.db_path, schema)?);        
+        Ok(())
+    }
+    
+    pub fn insert_embedding(&mut self, file_path: &str, chunk_idx: usize, chunk: &Chunk, embedding: Vec<f32>) -> Result<()> {
+        let batch = RecordBatch::try_new(
+            self.dataset.as_ref().unwrap().schema(),
+            vec![
+                Arc::new(StringArray::from(vec![format!("{}-{}", file_path, chunk_idx)])),
+                Arc::new(StringArray::from(vec![file_path])),
+                Arc::new(Int32Array::from(vec![chunk_idx as i32])),
+                Arc::new(StringArray::from(vec![&chunk.content])),
+                Arc::new(FixedSizeListArray::from_iter_primitive::<Float32Type, _, _>(
+                    vec![Some(embedding)],
+                    384
+                )),
+                Arc::new(Int32Array::from(vec![chunk.start_line as i32])),
+                Arc::new(Int32Array::from(vec![chunk.end_line as i32])),
+            ],
+        )?;
+        
+        self.dataset.as_mut().unwrap().append_batch(batch)?;
+        Ok(())
+    }
+}
+```
+
+#### **Task 004: Three-Chunk Expander**
+**Goal**: Implement 3-chunk context expansion  
+**Duration**: 2 hours  
+**Dependencies**: Task 001
+
+**Implementation**:
+```rust
+pub struct ThreeChunkExpander;
+
+pub struct ThreeChunkResult {
+    pub above: Option<Chunk>,
+    pub target: Chunk,
+    pub below: Option<Chunk>,
+}
+
+impl ThreeChunkExpander {
+    pub fn expand(&self, chunks: &[Chunk], target_idx: usize) -> ThreeChunkResult {
+        ThreeChunkResult {
+            above: if target_idx > 0 { 
+                Some(chunks[target_idx - 1].clone()) 
+            } else { 
+                None 
+            },
+            target: chunks[target_idx].clone(),
+            below: if target_idx < chunks.len() - 1 { 
+                Some(chunks[target_idx + 1].clone()) 
+            } else { 
+                None 
+            },
+        }
+    }
+    
+    pub fn format_for_display(&self, result: &ThreeChunkResult) -> String {
+        let mut output = String::new();
+        
+        if let Some(above) = &result.above {
+            output.push_str("// === ABOVE CONTEXT ===\n");
+            output.push_str(&above.content);
+            output.push_str("\n\n");
+        }
+        
+        output.push_str("// === TARGET CHUNK ===\n");
+        output.push_str(&result.target.content);
+        output.push_str("\n");
+        
+        if let Some(below) = &result.below {
+            output.push_str("\n// === BELOW CONTEXT ===\n");
+            output.push_str(&below.content);
+        }
+        
+        output
+    }
+}
+```
+
+#### **Task 005: Initial Indexing**
+**Goal**: Index a test codebase with embeddings  
+**Duration**: 3 hours  
+**Dependencies**: Tasks 001-004
+
+### **Integration Tasks (006-010): Bringing It Together**
+
+#### **Task 006: Ripgrep Integration**
+**Goal**: Set up ripgrep for exact text search  
+**Duration**: 2 hours  
+**Dependencies**: None
+
+**Implementation**:
+```rust
+use std::process::Command;
+
+pub struct RipgrepSearcher;
+
+impl RipgrepSearcher {
+    pub fn search(&self, query: &str, path: &Path) -> Result<Vec<Match>> {
+        let output = Command::new("rg")
+            .args(&[
+                "--json",
+                "--max-count", "100",
+                query,
+                path.to_str().unwrap()
+            ])
+            .output()?;
+        
+        let mut matches = Vec::new();
+        
+        for line in output.stdout.lines() {
+            if let Ok(json) = serde_json::from_str::<RgMatch>(&line?) {
+                if json.type_field == "match" {
+                    matches.push(Match {
+                        file: json.data.path.text,
+                        line_number: json.data.line_number,
+                        content: json.data.lines.text,
+                    });
+                }
             }
         }
-        false
-    }
-}
-```
-
-#### **Task 004: Result Ranking and Scoring**
-**Goal**: Rank exact search results by relevance and file importance  
-**Duration**: 3 hours  
-**Dependencies**: Task 003
-
-**TDD Cycle**:
-1. **RED Phase**: Test search results aren't ranked by relevance
-2. **GREEN Phase**: Simple scoring based on exact matches and file importance
-3. **REFACTOR Phase**: Multi-factor ranking (match quality + file type + context)
-
-```rust
-pub struct SearchResultRanker {
-    file_importance: FileImportanceCalculator,
-    match_quality: MatchQualityScorer,
-}
-
-impl SearchResultRanker {
-    pub fn rank(&self, results: Vec<RawSearchResult>) -> Vec<RankedSearchResult> {
-        results.into_iter()
-            .map(|result| self.score_result(result))
-            .sorted_by(|a, b| b.total_score.partial_cmp(&a.total_score).unwrap())
-            .collect()
-    }
-    
-    fn score_result(&self, result: RawSearchResult) -> RankedSearchResult {
-        let match_score = self.match_quality.score(&result);
-        let file_score = self.file_importance.score(&result.file_path);
-        let context_score = self.calculate_context_relevance(&result);
         
-        RankedSearchResult {
-            result,
-            total_score: match_score * 0.5 + file_score * 0.3 + context_score * 0.2,
-            match_score,
-            file_score,
-            context_score,
-        }
+        Ok(matches)
     }
 }
 ```
 
-#### **Task 005: Baseline System Integration**
-**Goal**: Integrate all baseline components into working search system  
-**Duration**: 2 hours  
-**Dependencies**: Task 004
-
-### **Evaluation Framework Tasks (006-010): Measurement Infrastructure**
-
-#### **Task 006: Ground Truth Dataset Creation**
-**Goal**: Create 500+ real developer queries with known correct results  
-**Duration**: 8 hours (manual work required)  
-**Dependencies**: Task 005
-
-**TDD Cycle**:
-1. **RED Phase**: Test evaluation system has no ground truth data
-2. **GREEN Phase**: Manual creation of 100 query-result pairs for common patterns
-3. **REFACTOR Phase**: Expand to 500+ queries covering diverse search scenarios
-
-#### **Task 007: Accuracy Measurement Framework**
-**Goal**: Implement objective accuracy measurement against ground truth  
-**Duration**: 4 hours  
-**Dependencies**: Task 006
-
-#### **Task 008: A/B Testing Infrastructure**
-**Goal**: Framework to compare different search approaches objectively  
+#### **Task 007: Simple Search API**
+**Goal**: Create unified search interface  
 **Duration**: 3 hours  
+**Dependencies**: Tasks 001-006
+
+**Implementation**:
+```rust
+pub struct SimpleSearcher {
+    chunker: SimpleRegexChunker,
+    embedder: MiniLMEmbedder,
+    storage: VectorStorage,
+    expander: ThreeChunkExpander,
+    ripgrep: RipgrepSearcher,
+}
+
+impl SimpleSearcher {
+    pub async fn search(&self, query: &str) -> Result<Vec<SearchResult>> {
+        // 1. Exact search with ripgrep
+        let exact_matches = self.ripgrep.search(query, &self.project_path)?;
+        
+        // 2. Semantic search
+        let query_embedding = self.embedder.embed(query)?;
+        let semantic_matches = self.storage.search_similar(query_embedding, 20)?;
+        
+        // 3. Simple fusion (covered in phase 2)
+        let mut all_results = Vec::new();
+        
+        // For now, just return exact matches with 3-chunk context
+        for match_result in exact_matches {
+            let file_content = std::fs::read_to_string(&match_result.file)?;
+            let chunks = self.chunker.chunk_file(&file_content);
+            let chunk_idx = self.find_chunk_for_line(&chunks, match_result.line_number);
+            let three_chunk = self.expander.expand(&chunks, chunk_idx);
+            
+            all_results.push(SearchResult {
+                file: match_result.file,
+                three_chunk_context: three_chunk,
+                score: 1.0, // Exact match
+            });
+        }
+        
+        Ok(all_results)
+    }
+}
+```
+
+#### **Task 008: Basic Testing**
+**Goal**: Test chunking, embedding, and search  
+**Duration**: 2 hours  
 **Dependencies**: Task 007
 
-#### **Task 009: Performance Benchmarking**
-**Goal**: Measure baseline system latency and resource usage  
+#### **Task 009: Performance Optimization**
+**Goal**: Basic caching and performance tuning  
 **Duration**: 2 hours  
 **Dependencies**: Task 008
 
-#### **Task 010: Success Metrics Definition**
-**Goal**: Define clear success criteria (e.g., relevant result in top 5)  
+#### **Task 010: Phase 1 Completion**
+**Goal**: Verify all components work together  
 **Duration**: 1 hour  
 **Dependencies**: Task 009
-
-#### **Task 011: Baseline Accuracy Measurement**
-**Goal**: Measure baseline exact search accuracy against ground truth  
-**Duration**: 2 hours  
-**Dependencies**: Task 010
-
-#### **Task 012: Performance Validation**
-**Goal**: Validate baseline meets performance requirements  
-**Duration**: 2 hours  
-**Dependencies**: Task 011
-
-#### **Task 013: Error Analysis**
-**Goal**: Analyze where baseline fails and why  
-**Duration**: 3 hours  
-**Dependencies**: Task 012
-
-#### **Task 014: Documentation and Reporting**
-**Goal**: Document baseline performance and create improvement roadmap  
-**Duration**: 2 hours  
-**Dependencies**: Task 013
-
-#### **Task 015: Phase 1 Validation**
-**Goal**: Final validation that baseline foundation is solid for Phase 2  
-**Duration**: 1 hour  
-**Dependencies**: Task 014
 
 
 ## **SUCCESS CRITERIA**
 
 ### **Phase 1 Targets**
-- **Baseline System**: Production-quality exact text search working
-- **Ground Truth Dataset**: 500+ validated query-result pairs
-- **Evaluation Framework**: Objective accuracy measurement system
-- **Performance**: <200ms search latency, <1GB memory usage
-- **Documentation**: Clear baseline accuracy and failure modes documented
+- **Regex Chunking**: Working chunker with ~100 line chunks
+- **MiniLM Setup**: Embedder producing 384-dim vectors
+- **Vector Storage**: LanceDB initialized and storing embeddings
+- **3-Chunk Context**: All results include context
+- **Basic Search**: Ripgrep integration working
 
-### **Integration Points**
-- **Phase 2 Input**: Solid baseline system with evaluation framework
-- **Comparison**: All Phase 2 improvements measured against Phase 1 baseline
-- **Foundation**: Proven infrastructure for adding semantic search
+### **Performance Requirements**
+- Chunking: <50ms per file
+- Embedding: <100ms per chunk
+- Storage: <10ms per insert
+- Memory: <1GB for model
 
-## **ARCHITECTURE**
+## **SIMPLE ARCHITECTURE**
 
 ```rust
-pub struct BaselineSearchSystem {
-    // Core search components
-    text_search: ExactTextSearch,
-    query_processor: SimpleQueryProcessor,
-    file_detector: FileTypeDetector,
-    result_ranker: SearchResultRanker,
-    
-    // Evaluation infrastructure
-    evaluation_framework: AccuracyMeasurement,
-    performance_monitor: PerformanceMonitor,
-    ab_testing: ABTestingFramework,
+// Core components for Phase 1
+pub struct Phase1Foundation {
+    pub chunker: SimpleRegexChunker,
+    pub embedder: MiniLMEmbedder,
+    pub storage: VectorStorage,
+    pub expander: ThreeChunkExpander,
+    pub searcher: SimpleSearcher,
 }
 
-pub struct BaselineSearchResult {
-    pub query: String,
-    pub results: Vec<RankedSearchResult>,
-    pub total_found: usize,
-    pub search_time: Duration,
-    pub accuracy_score: Option<f32>, // Only available if ground truth exists
+// Basic types
+#[derive(Clone)]
+pub struct Chunk {
+    pub content: String,
+    pub start_line: usize,
+    pub end_line: usize,
 }
 
-impl BaselineSearchSystem {
-    pub fn search(&self, query: &str, project_path: &Path) -> BaselineSearchResult {
-        let start_time = Instant::now();
-        
-        // 1. Process query (simple cleaning and expansion)
-        let processed = self.query_processor.process(query);
-        
-        // 2. Detect relevant file types for project
-        let languages = self.file_detector.detect_project_languages(project_path);
-        
-        // 3. Execute exact text search
-        let raw_results = self.text_search.search(&processed, project_path, &languages)?;
-        
-        // 4. Rank results by relevance
-        let ranked_results = self.result_ranker.rank(raw_results);
-        
-        // 5. Measure accuracy if ground truth available
-        let accuracy = self.evaluation_framework.measure_accuracy(query, &ranked_results);
-        
-        BaselineSearchResult {
-            query: query.to_string(),
-            results: ranked_results,
-            total_found: ranked_results.len(),
-            search_time: start_time.elapsed(),
-            accuracy_score: accuracy,
-        }
-    }
+pub struct SearchResult {
+    pub file: String,
+    pub three_chunk_context: ThreeChunkResult,
+    pub score: f32,
+}
+
+pub struct Match {
+    pub file: String,
+    pub line_number: usize,
+    pub content: String,
 }
 ```
 
-## **OPTIMIZATION RESULTS**
+## **WEEK 1 DELIVERABLES**
 
-**BEFORE (Complex Query Intelligence)**:
-- 25 tasks for advanced ML-based query understanding
-- Unproven accuracy improvements with high complexity
-- Heavy dependencies on training data and ML expertise
-- High maintenance overhead
+1. **Working Chunker**: Simple regex-based chunking
+2. **MiniLM Embeddings**: Single model setup complete  
+3. **Vector Storage**: LanceDB storing embeddings
+4. **3-Chunk Context**: Every result has context
+5. **Basic Search**: Ripgrep integration functional
 
-**AFTER (Baseline & Evaluation Foundation)**:
-- 15 focused tasks for measurement and proven search
-- Solid foundation with objective evaluation framework
-- Simple, proven technologies with known performance
-- Low maintenance overhead, high reliability
-
-**Result**: Evidence-based development foundation that enables accurate measurement of all future improvements.
+**Next Phase**: Simple fusion and improved search accuracy
