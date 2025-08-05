@@ -1,0 +1,11 @@
+[package]
+name = "embed-search"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+regex = "1.10"
+
+[[test]]
+name = "chunker_integration_tests"
+path = "tests/chunker_integration_tests.rs"
