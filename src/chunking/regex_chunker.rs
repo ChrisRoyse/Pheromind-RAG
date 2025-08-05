@@ -51,42 +51,51 @@ impl SimpleRegexChunker {
     pub fn chunk_file(&self, content: &str) -> Vec<Chunk> {
         let lines: Vec<&str> = content.lines().collect();
         let mut chunks = Vec::new();
-        let mut current_chunk = Vec::new();
+        let mut current_chunk_lines = Vec::new();
         let mut start_line = 0;
         
         for (i, line) in lines.iter().enumerate() {
-            if i > 0 && self.is_chunk_boundary(line) && !current_chunk.is_empty() {
+            if i > 0 && self.is_chunk_boundary(line) && !current_chunk_lines.is_empty() {
+                let chunk_content = self.build_chunk_content(&lines, start_line, i - 1);
                 chunks.push(Chunk {
-                    content: current_chunk.join("\n"),
+                    content: chunk_content,
                     start_line,
                     end_line: i - 1,
                 });
-                current_chunk.clear();
+                current_chunk_lines.clear();
                 start_line = i;
             }
             
-            current_chunk.push(*line);
+            current_chunk_lines.push(*line);
             
-            if current_chunk.len() >= self.chunk_size_target {
+            if current_chunk_lines.len() >= self.chunk_size_target {
+                let chunk_content = self.build_chunk_content(&lines, start_line, i);
                 chunks.push(Chunk {
-                    content: current_chunk.join("\n"),
+                    content: chunk_content,
                     start_line,
                     end_line: i,
                 });
-                current_chunk.clear();
+                current_chunk_lines.clear();
                 start_line = i + 1;
             }
         }
         
-        if !current_chunk.is_empty() {
+        if !current_chunk_lines.is_empty() {
+            let end_line = lines.len() - 1;
+            let chunk_content = self.build_chunk_content(&lines, start_line, end_line);
             chunks.push(Chunk {
-                content: current_chunk.join("\n"),
+                content: chunk_content,
                 start_line,
-                end_line: lines.len() - 1,
+                end_line,
             });
         }
         
         chunks
+    }
+    
+    /// Build chunk content that exactly matches the original file's line structure
+    fn build_chunk_content(&self, lines: &[&str], start_line: usize, end_line: usize) -> String {
+        lines[start_line..=end_line].join("\n")
     }
     
     fn is_chunk_boundary(&self, line: &str) -> bool {
@@ -100,7 +109,7 @@ impl SimpleRegexChunker {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct Chunk {
     pub content: String,
     pub start_line: usize,

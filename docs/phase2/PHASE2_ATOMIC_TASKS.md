@@ -530,10 +530,10 @@ Phase 2 implements unified search with simple fusion of exact and semantic resul
 - **TDD**: Setup error types
 
 ### 019.2: Add Graceful Degradation
-- Fallback strategies
-- Partial results
+- Direct error responses
+- Clear failure messages
 - **Time**: 15 min
-- **TDD**: Implement fallbacks
+- **TDD**: Implement error responses
 
 ### 019.3: Implement Error Logging
 - Log all errors

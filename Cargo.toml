@@ -6,6 +6,80 @@ edition = "2021"
 [dependencies]
 regex = "1.10"
 
+# Real ML embeddings with all-MiniLM-L6-v2
+candle-core = "0.3"
+candle-nn = "0.3"
+candle-transformers = "0.3"
+tokenizers = "0.15"
+hf-hub = "0.3"
+
+# LanceDB vector database  
+lancedb = "0.4"
+arrow = "51.0"
+arrow-array = "51.0" 
+arrow-schema = "51.0"
+
+# Legacy sled for migration
+sled = "0.34"
+
+# Always needed
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+anyhow = "1.0"
+tokio = { version = "1.35", features = ["full"] }
+chrono = { version = "0.4", features = ["serde"] }
+
+[features]
+default = []
+
+[dev-dependencies]
+criterion = "0.5"
+tempfile = "3.10"
+
+[[bench]]
+name = "line_tracking_bench"
+harness = false
+
 [[test]]
 name = "chunker_integration_tests"
 path = "tests/chunker_integration_tests.rs"
+
+[[test]]
+name = "line_tracking_tests"
+path = "tests/line_tracking_tests.rs"
+
+[[test]]
+name = "vectortest_line_tracking"
+path = "tests/vectortest_line_tracking.rs"
+
+[[test]]
+name = "three_chunk_stress_test"
+path = "tests/three_chunk_stress_test.rs"
+
+[[test]]
+name = "task003_final_validation"
+path = "tests/task003_final_validation.rs"
+
+[[test]]
+name = "embedding_tests"
+path = "tests/embedding_tests.rs"
+
+[[test]]
+name = "vectortest_embedding_stress"
+path = "tests/vectortest_embedding_stress.rs"
+
+[[test]]
+name = "vector_storage_tests"
+path = "tests/vector_storage_tests.rs"
+
+[[test]]
+name = "vector_storage_similarity_tests"
+path = "tests/vector_storage_similarity_tests.rs"
+
+[[test]]
+name = "comprehensive_stress_tests"
+path = "tests/comprehensive_stress_tests.rs"
+
+[[test]]
+name = "real_embedding_system_tests"
+path = "tests/real_embedding_system_tests.rs"

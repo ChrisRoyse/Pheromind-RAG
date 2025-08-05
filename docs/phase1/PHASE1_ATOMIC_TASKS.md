@@ -30,7 +30,7 @@ Phase 1 delivers the core foundation for 85% search accuracy through:
 
 ## Task 004: MiniLM Embedder Setup (15 min)
 **RED**: Test `MiniLMEmbedder` loads model and produces 384-dim embeddings
-**GREEN**: Implement embedder with all-MiniLM-L6-v2, mock if model not available
+**GREEN**: Implement embedder with all-MiniLM-L6-v2 (model must be available)
 **REFACTOR**: Add batch embedding support and normalization
 **Deliverable**: Embedder ready for semantic search
 
