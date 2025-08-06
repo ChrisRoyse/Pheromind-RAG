@@ -3,6 +3,7 @@ use std::collections::HashMap;
 use anyhow::{Result, anyhow};
 use serde::{Deserialize, Serialize};
 use crate::chunking::Chunk;
+use crate::config::Config;
 
 #[derive(Debug)]
 pub enum StorageError {
@@ -81,7 +82,7 @@ impl VectorStorage {
     pub async fn init_schema(&mut self) -> Result<(), StorageError> {
         let schema = VectorSchema {
             version: 1,
-            embedding_dim: 384, // MiniLM dimensions
+            embedding_dim: Config::embedding_dimensions(),
             created_at: chrono::Utc::now().to_rfc3339(),
         };
         
@@ -103,9 +104,10 @@ impl VectorStorage {
         chunk: &Chunk,
         embedding: Vec<f32>
     ) -> Result<(), StorageError> {
-        if embedding.len() != 384 {
+        let expected_dim = Config::embedding_dimensions();
+        if embedding.len() != expected_dim {
             return Err(StorageError::InvalidInput(
-                format!("Embedding must be 384-dimensional, got {}", embedding.len())
+                format!("Embedding must be {}-dimensional, got {}", expected_dim, embedding.len())
             ));
         }
         
@@ -135,11 +137,12 @@ impl VectorStorage {
             return Ok(());
         }
         
-        // Validate all embeddings are 384-dimensional
+        // Validate all embeddings match expected dimensions
+        let expected_dim = Config::embedding_dimensions();
         for (_, _, _, embedding) in &embeddings_data {
-            if embedding.len() != 384 {
+            if embedding.len() != expected_dim {
                 return Err(StorageError::InvalidInput(
-                    format!("All embeddings must be 384-dimensional, got {}", embedding.len())
+                    format!("All embeddings must be {}-dimensional, got {}", expected_dim, embedding.len())
                 ));
             }
         }
@@ -221,9 +224,10 @@ impl VectorStorage {
     }
     
     pub async fn search_similar(&self, query_embedding: Vec<f32>, limit: usize) -> Result<Vec<EmbeddingRecord>, StorageError> {
-        if query_embedding.len() != 384 {
+        let expected_dim = Config::embedding_dimensions();
+        if query_embedding.len() != expected_dim {
             return Err(StorageError::InvalidInput(
-                format!("Query embedding must be 384-dimensional, got {}", query_embedding.len())
+                format!("Query embedding must be {}-dimensional, got {}", expected_dim, query_embedding.len())
             ));
         }
         
@@ -296,7 +300,7 @@ mod tests {
         assert!(result.is_ok());
         
         let schema = storage.get_schema().unwrap();
-        assert_eq!(schema.embedding_dim, 384);
+        assert_eq!(schema.embedding_dim, Config::embedding_dimensions());
         assert_eq!(schema.version, 1);
     }
     
@@ -314,7 +318,7 @@ mod tests {
             end_line: 1,
         };
         
-        let embedding = vec![0.1f32; 384];
+        let embedding = vec![0.1f32; Config::embedding_dimensions()];
         let result = storage.insert_embedding("test.rs", 0, &chunk, embedding).await;
         assert!(result.is_ok());
         
@@ -334,14 +338,14 @@ mod tests {
         let chunk1 = Chunk { content: "fn test1() {}".to_string(), start_line: 1, end_line: 1 };
         let chunk2 = Chunk { content: "fn test2() {}".to_string(), start_line: 3, end_line: 3 };
         
-        let embedding1 = vec![1.0f32; 384];
-        let embedding2 = vec![0.5f32; 384];
+        let embedding1 = vec![1.0f32; Config::embedding_dimensions()];
+        let embedding2 = vec![0.5f32; Config::embedding_dimensions()];
         
         storage.insert_embedding("test.rs", 0, &chunk1, embedding1.clone()).await.unwrap();
         storage.insert_embedding("test.rs", 1, &chunk2, embedding2).await.unwrap();
         
         // Search with query similar to embedding1
-        let query = vec![1.0f32; 384];
+        let query = vec![1.0f32; Config::embedding_dimensions()];
         let results = storage.search_similar(query, 2).await.unwrap();
         
         assert_eq!(results.len(), 2);

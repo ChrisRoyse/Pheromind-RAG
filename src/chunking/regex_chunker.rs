@@ -1,8 +1,6 @@
 use regex::Regex;
 use std::path::Path;
-
-// Constants for better maintainability
-const DEFAULT_CHUNK_SIZE: usize = 100;
+use crate::config::Config;
 
 // Language-specific patterns
 const FUNCTION_PATTERNS: &[&str] = &[
@@ -27,7 +25,7 @@ pub struct SimpleRegexChunker {
 
 impl SimpleRegexChunker {
     pub fn new() -> Self {
-        Self::with_chunk_size(DEFAULT_CHUNK_SIZE)
+        Self::with_chunk_size(Config::chunk_size())
     }
     
     pub fn with_chunk_size(chunk_size: usize) -> Self {

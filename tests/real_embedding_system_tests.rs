@@ -3,6 +3,7 @@ use embed_search::storage::{LanceDBStorage, LanceEmbeddingRecord};
 use embed_search::chunking::{SimpleRegexChunker, Chunk};
 use std::path::PathBuf;
 use std::fs;
+use std::sync::Arc;
 use tempfile::TempDir;
 
 /// Test the REAL embedding system with actual all-MiniLM-L6-v2 model
@@ -13,7 +14,7 @@ async fn test_real_model_loading_and_basic_inference() {
     println!("🔬 Testing REAL all-MiniLM-L6-v2 model loading...");
     
     // Try to load the real model
-    let embedder = match RealMiniLMEmbedder::new().await {
+    let embedder = match RealMiniLMEmbedder::get_global().await {
         Ok(model) => {
             println!("✅ Successfully loaded real all-MiniLM-L6-v2 model");
             model
@@ -47,7 +48,7 @@ async fn test_real_model_loading_and_basic_inference() {
 async fn test_real_semantic_similarity() {
     println!("🧠 Testing REAL semantic similarity with actual model...");
     
-    let embedder = match RealMiniLMEmbedder::new().await {
+    let embedder = match RealMiniLMEmbedder::get_global().await {
         Ok(model) => model,
         Err(e) => {
             println!("⚠️  Skipping semantic test - model not available: {}", e);
@@ -67,8 +68,8 @@ async fn test_real_semantic_similarity() {
     let mut embeddings = Vec::new();
     for sentence in &sentences {
         let emb = embedder.embed(sentence).expect("Should generate embedding");
-        embeddings.push(emb);
         println!("   '{}' -> {} dims", sentence, emb.len());
+        embeddings.push(emb);
     }
     
     // Calculate cosine similarities  
@@ -103,7 +104,7 @@ async fn test_real_semantic_similarity() {
 async fn test_real_lancedb_integration() {
     println!("🗄️  Testing REAL LanceDB integration...");
     
-    let embedder = match RealMiniLMEmbedder::new().await {
+    let embedder = match RealMiniLMEmbedder::get_global().await {
         Ok(model) => model,
         Err(e) => {
             println!("⚠️  Skipping LanceDB test - model not available: {}", e);
@@ -186,7 +187,7 @@ async fn test_real_lancedb_integration() {
 async fn test_real_vectortest_directory_processing() {
     println!("📁 Testing REAL embedding processing of vectortest directory...");
     
-    let embedder = match RealMiniLMEmbedder::new().await {
+    let embedder = match RealMiniLMEmbedder::get_global().await {
         Ok(model) => model,
         Err(e) => {
             println!("⚠️  Skipping vectortest processing - model not available: {}", e);

@@ -1,0 +1,22 @@
+# Project-specific configuration in .embed directory
+# ==================================================
+# This file is automatically loaded when placed at .embed/config.toml
+
+# Fast chunking for rapid prototyping
+chunk_size = 50
+
+# High performance caching for active development
+embedding_cache_size = 20000
+search_cache_size = 500
+
+# Very responsive git watching
+git_poll_interval_secs = 1
+
+# Include all files for comprehensive indexing
+include_test_files = true
+
+# Show many results for exploration
+max_search_results = 50
+
+# Verbose logging for debugging
+log_level = "trace"

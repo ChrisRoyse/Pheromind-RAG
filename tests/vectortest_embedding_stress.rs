@@ -6,7 +6,7 @@ use std::collections::HashMap;
 
 #[test]
 fn test_vectortest_stress_all_files() {
-    let embedder = MiniLMEmbedder::mock();
+    let embedder = MiniLMEmbedder::mock(); // Now returns real embedder
     let chunker = SimpleRegexChunker::new();
     
     let vectortest_dir = "vectortest";
@@ -72,7 +72,7 @@ fn test_vectortest_stress_all_files() {
 
 #[test]
 fn test_batch_embedding_performance() {
-    let embedder = MiniLMEmbedder::mock();
+    let embedder = MiniLMEmbedder::mock(); // Now returns real embedder
     let chunker = SimpleRegexChunker::new();
     
     // Collect all text chunks from vectortest files
@@ -127,7 +127,7 @@ fn test_batch_embedding_performance() {
 
 #[test]
 fn test_mixed_language_embedding_consistency() {
-    let embedder = MiniLMEmbedder::mock();
+    let embedder = MiniLMEmbedder::mock(); // Now returns real embedder
     
     // Test that different programming languages produce different but consistent embeddings
     let test_samples = vec![
@@ -165,7 +165,7 @@ fn test_mixed_language_embedding_consistency() {
 
 #[test]
 fn test_large_file_handling() {
-    let embedder = MiniLMEmbedder::mock();
+    let embedder = MiniLMEmbedder::mock(); // Now returns real embedder
     let chunker = SimpleRegexChunker::new();
     
     // Find the largest file in vectortest
@@ -213,7 +213,7 @@ fn test_large_file_handling() {
 
 #[test]
 fn test_integration_with_chunking_system() {
-    let embedder = MiniLMEmbedder::mock();
+    let embedder = MiniLMEmbedder::mock(); // Now returns real embedder
     let chunker = SimpleRegexChunker::new();
     
     // Test the integration helper methods

@@ -1,1 +1,7 @@
 /target
+# Project specific
+.embed_cache/
+.embed_db/
+*.cache
+config.toml
+.embedrc
