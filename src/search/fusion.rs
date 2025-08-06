@@ -101,28 +101,27 @@ impl SimpleFusion {
             let content_lower = result.content.to_lowercase();
             let file_path_lower = result.file_path.to_lowercase();
             
-            // CRITICAL: Deprioritize test files first (before any boosts)
+            // Deprioritize test files 
             let is_test_file = self.is_test_file(&result.file_path);
             if is_test_file {
-                result.score *= 0.3; // Strong penalty for test files
-            }
-            
-            // MAJOR boost for vectortest/ directory files (actual implementation files)
-            if file_path_lower.contains("vectortest/") || file_path_lower.contains("vectortest\\") {
-                result.score *= 2.5; // Strong boost for vectortest files
+                result.score *= 0.5; // Moderate penalty for test files
             }
             
             // Directory-based ranking boosts
             let path_parts: Vec<&str> = result.file_path.split(['/', '\\']).collect();
             if let Some(dir_name) = path_parts.iter().rev().nth(1) {
                 let dir_lower = dir_name.to_lowercase();
-                // Boost for important implementation directories
-                if matches!(dir_lower.as_str(), "vectortest" | "src" | "lib" | "core" | "main") {
-                    result.score *= 1.8;
+                // Boost for implementation directories (generic, not biased)
+                if matches!(dir_lower.as_str(), "src" | "lib" | "core" | "main" | "app" | "backend" | "frontend") {
+                    result.score *= 1.2; // Reduced boost, more neutral
                 }
                 // Penalty for test directories
-                if matches!(dir_lower.as_str(), "tests" | "test" | "spec" | "specs") {
-                    result.score *= 0.4;
+                if matches!(dir_lower.as_str(), "tests" | "test" | "spec" | "specs" | "__tests__") {
+                    result.score *= 0.6; // Lighter penalty
+                }
+                // Penalty for deprecated/legacy code
+                if matches!(dir_lower.as_str(), "legacy" | "deprecated" | "old" | "archive") {
+                    result.score *= 0.7;
                 }
             }
             

@@ -116,3 +116,15 @@ path = "tests/embedding_performance_benchmark.rs"
 [[example]]
 name = "embedding_optimization_demo"
 path = "examples/embedding_optimization_demo.rs"
+
+[[bin]]
+name = "test_accuracy"
+path = "src/bin/test_accuracy.rs"
+
+[[bin]]
+name = "fast_accuracy_test"
+path = "src/bin/fast_accuracy_test.rs"
+
+[[bin]]
+name = "unbiased_accuracy_test"
+path = "src/bin/unbiased_accuracy_test.rs"
