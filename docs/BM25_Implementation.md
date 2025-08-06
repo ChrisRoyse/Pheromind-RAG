@@ -22,7 +22,7 @@ This document outlines the comprehensive integration of BM25/TF-IDF statistical 
 ├─────────────────────────────────────────────────────────────────┤
 │  Search Layer                                                  │
 │  ┌─────────────┐ ┌─────────────┐ ┌─────────────┐              │
-│  │   Ripgrep   │ │   MiniLM    │ │   Symbol    │              │
+│  │   Tantivy   │ │   MiniLM    │ │   Symbol    │              │
 │  │   Exact     │ │  Semantic   │ │   AST       │              │
 │  │  Score:1.0  │ │ Score:0.7×S │ │ Score:0.95  │              │
 │  └─────────────┘ └─────────────┘ └─────────────┘              │
@@ -38,7 +38,7 @@ This document outlines the comprehensive integration of BM25/TF-IDF statistical 
 ├─────────────────────────────────────────────────────────────────┤
 │  Search Layer                                                  │
 │  ┌─────────┐ ┌─────────┐ ┌─────────┐ ┌─────────────┐          │
-│  │ Ripgrep │ │ MiniLM  │ │ Symbol  │ │   BM25      │          │
+│  │ Tantivy │ │ MiniLM  │ │ Symbol  │ │   BM25      │          │
 │  │ Exact   │ │Semantic │ │  AST    │ │Statistical  │          │
 │  │Score:1.0│ │Scr:0.7×S│ │Scr:0.95 │ │Score:BM25   │          │
 │  └─────────┘ └─────────┘ └─────────┘ └─────────────┘          │
@@ -206,7 +206,7 @@ pub struct DocumentMetadata {
 ```rust
 pub struct UnifiedSearcher {
     // Existing components
-    ripgrep: RipgrepSearcher,
+    tantivy: TantivySearcher,
     embedder: Arc<NomicEmbedder>,
     storage: Arc<RwLock<LanceDBStorage>>,
     symbol_indexer: Arc<RwLock<SymbolIndexer>>,

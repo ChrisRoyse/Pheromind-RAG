@@ -1,6 +1,9 @@
+#[cfg(feature = "tree-sitter")]
 use embed_search::search::{SymbolIndexer, SymbolKind};
+#[cfg(feature = "tree-sitter")]
 use std::path::PathBuf;
 
+#[cfg(feature = "tree-sitter")]
 fn main() {
     println!("=== Symbol Extraction Verification ===\n");
     
@@ -112,4 +115,10 @@ fn main() {
         }
         Err(e) => println!("✗ File read failed: {}", e),
     }
+}
+
+#[cfg(not(feature = "tree-sitter"))]
+fn main() {
+    println!("❌ verify_symbols requires 'tree-sitter' feature to be enabled");
+    std::process::exit(1);
 }

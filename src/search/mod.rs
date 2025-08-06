@@ -1,26 +1,43 @@
-pub mod ripgrep;
-pub mod native_search;
-pub mod fusion;
-pub mod unified;
-pub mod preprocessing;
-pub mod cache;
-pub mod symbol_index;
-pub mod symbol_enhanced_searcher;
-pub mod tantivy_search;
-pub mod search_adapter;
-pub mod bm25;
-pub mod text_processor;
-pub mod inverted_index;
+use serde::{Deserialize, Serialize};
 
-pub use ripgrep::{RipgrepSearcher, RipgrepTextSearcher, ExactMatch};
+/// A search match result containing file information and match details
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ExactMatch {
+    pub file_path: String,
+    pub line_number: usize,
+    pub content: String,
+    pub line_content: String,
+}
+
+// Declare modules in dependency order (no circular refs)
+pub mod native_search;     // ✅ No dependencies
+pub mod preprocessing;     // ✅ No dependencies
+pub mod bm25;              // ✅ No dependencies
+pub mod text_processor;    // ✅ No dependencies
+pub mod inverted_index;    // ✅ Depends only on bm25
+pub mod cache;             // ✅ Depends only on basic types
+pub mod fusion;            // ✅ Depends on bm25
+pub mod unified;           // ✅ Depends on everything above
+#[cfg(feature = "tree-sitter")]
+pub mod symbol_index;
+#[cfg(feature = "tree-sitter")]
+pub mod symbol_enhanced_searcher;
+#[cfg(feature = "tantivy")]
+pub mod tantivy_search;
+#[cfg(feature = "tantivy")]
+pub mod search_adapter;
+
+// Re-export ONLY non-circular items
 pub use native_search::{NativeSearcher, SearchMatch};
-pub use fusion::{SimpleFusion, FusedResult, MatchType};
-pub use unified::{UnifiedSearcher, SearchResult};
 pub use preprocessing::QueryPreprocessor;
-pub use cache::SearchCache;
-pub use symbol_index::{SymbolIndexer, SymbolDatabase, Symbol, SymbolKind};
-pub use tantivy_search::TantivySearcher;
-pub use search_adapter::{TextSearcher, create_text_searcher, create_text_searcher_with_root};
 pub use bm25::{BM25Engine, BM25Match, BM25Document, Token as BM25Token};
 pub use text_processor::{CodeTextProcessor, ProcessedToken, TokenType};
 pub use inverted_index::{InvertedIndex, DocumentMetadata};
+pub use fusion::{SimpleFusion, FusedResult, MatchType};
+// DO NOT re-export cache::SearchCache or unified::SearchResult - causes circular deps
+#[cfg(feature = "tree-sitter")]
+pub use symbol_index::{SymbolIndexer, SymbolDatabase, Symbol, SymbolKind};
+#[cfg(feature = "tantivy")]
+pub use tantivy_search::TantivySearcher;
+#[cfg(feature = "tantivy")]
+pub use search_adapter::{TextSearcher, create_text_searcher, create_text_searcher_with_root};

@@ -46,7 +46,7 @@ impl MCPServer {
         let chunker = SimpleRegexChunker::new();
         
         let searcher = Arc::new(RwLock::new(UnifiedSearcher {
-            ripgrep: RipgrepSearcher,
+            tantivy: TantivySearcher,
             embedder: embedder.clone(),
             storage: storage.clone(),
             chunker: chunker.clone(),

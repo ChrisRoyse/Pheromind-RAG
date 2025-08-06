@@ -1,32 +1,38 @@
 use serde::{Deserialize, Serialize};
-use std::path::{Path, PathBuf};
+use std::path::Path;
+use std::str::FromStr;
 use anyhow::{Result, anyhow};
 use once_cell::sync::Lazy;
 use std::sync::RwLock;
+use crate::error::{EmbedError, Result as EmbedResult};
 
 /// Search backend options
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
 pub enum SearchBackend {
-    /// Use ripgrep for text search
-    Ripgrep,
     /// Use Tantivy for full-text search with fuzzy matching
     Tantivy,
-    /// Try Tantivy first, fallback to Ripgrep on failure
-    Auto,
+}
+
+impl<'de> serde::Deserialize<'de> for SearchBackend {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let s = String::deserialize(deserializer)?;
+        Self::from_str(&s).map_err(serde::de::Error::custom)
+    }
 }
 
 impl Default for SearchBackend {
     fn default() -> Self {
-        SearchBackend::Auto
+        SearchBackend::Tantivy
     }
 }
 
 impl std::fmt::Display for SearchBackend {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            SearchBackend::Ripgrep => write!(f, "Ripgrep"),
             SearchBackend::Tantivy => write!(f, "Tantivy"),
-            SearchBackend::Auto => write!(f, "Auto"),
         }
     }
 }
@@ -36,10 +42,8 @@ impl std::str::FromStr for SearchBackend {
     
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s.to_lowercase().as_str() {
-            "ripgrep" => Ok(SearchBackend::Ripgrep),
             "tantivy" => Ok(SearchBackend::Tantivy),
-            "auto" => Ok(SearchBackend::Auto),
-            _ => Err(anyhow!("Invalid search backend '{}'. Valid options: ripgrep, tantivy, auto", s)),
+            _ => Err(anyhow!("Invalid search backend '{}'. Valid option: tantivy (case-insensitive)", s)),
         }
     }
 }
@@ -74,9 +78,6 @@ pub struct Config {
     pub include_test_files: bool,
     pub max_search_results: usize,
     pub search_backend: SearchBackend,
-    /// Legacy setting for backward compatibility
-    #[serde(default)]
-    pub ripgrep_fallback: Option<bool>,
     
     /// Model configuration
     pub model_name: String,
@@ -120,8 +121,7 @@ impl Default for Config {
             enable_git_watch: true,
             include_test_files: false,
             max_search_results: 20,
-            search_backend: SearchBackend::Auto,
-            ripgrep_fallback: None,
+            search_backend: SearchBackend::Tantivy,
             model_name: "sentence-transformers/all-MiniLM-L6-v2".to_string(),
             embedding_dimensions: 768,
             log_level: "info".to_string(),
@@ -235,102 +235,136 @@ impl Config {
     /// Initialize the global configuration
     pub fn init() -> Result<()> {
         let config = Self::load()?;
-        *CONFIG.write().unwrap() = config;
+        *CONFIG.write().map_err(|e| anyhow!("Failed to acquire write lock for CONFIG: {}", e))? = config;
         Ok(())
     }
 
     /// Initialize with a specific config file
     pub fn init_with_file<P: AsRef<Path>>(path: P) -> Result<()> {
         let config = Self::load_from_file(path)?;
-        *CONFIG.write().unwrap() = config;
+        *CONFIG.write().map_err(|e| anyhow!("Failed to acquire write lock for CONFIG: {}", e))? = config;
         Ok(())
     }
 
     /// Get a copy of the global configuration
-    pub fn get() -> Config {
-        CONFIG.read().unwrap().clone()
+    pub fn get() -> EmbedResult<Config> {
+        Ok(CONFIG.read().map_err(|e| EmbedError::Concurrency {
+            message: format!("Failed to acquire read lock for CONFIG: {}", e),
+            operation: Some("get_config".to_string()),
+        })?.clone())
     }
 
     /// Get chunk size setting
-    pub fn chunk_size() -> usize {
-        CONFIG.read().unwrap().chunk_size
+    pub fn chunk_size() -> EmbedResult<usize> {
+        Ok(CONFIG.read().map_err(|e| EmbedError::Concurrency {
+            message: format!("Failed to acquire read lock for CONFIG: {}", e),
+            operation: Some("get_chunk_size".to_string()),
+        })?.chunk_size)
     }
 
     /// Get embedding cache size setting
-    pub fn embedding_cache_size() -> usize {
-        CONFIG.read().unwrap().embedding_cache_size
+    pub fn embedding_cache_size() -> EmbedResult<usize> {
+        Ok(CONFIG.read().map_err(|e| EmbedError::Concurrency {
+            message: format!("Failed to acquire read lock for CONFIG: {}", e),
+            operation: Some("get_embedding_cache_size".to_string()),
+        })?.embedding_cache_size)
     }
 
     /// Get search cache size setting
-    pub fn search_cache_size() -> usize {
-        CONFIG.read().unwrap().search_cache_size
+    pub fn search_cache_size() -> EmbedResult<usize> {
+        Ok(CONFIG.read().map_err(|e| EmbedError::Concurrency {
+            message: format!("Failed to acquire read lock for CONFIG: {}", e),
+            operation: Some("get_search_cache_size".to_string()),
+        })?.search_cache_size)
     }
 
     /// Get batch size setting
-    pub fn batch_size() -> usize {
-        CONFIG.read().unwrap().batch_size
+    pub fn batch_size() -> EmbedResult<usize> {
+        Ok(CONFIG.read().map_err(|e| EmbedError::Concurrency {
+            message: format!("Failed to acquire read lock for CONFIG: {}", e),
+            operation: Some("get_batch_size".to_string()),
+        })?.batch_size)
     }
 
     /// Get vector database path
-    pub fn vector_db_path() -> String {
-        CONFIG.read().unwrap().vector_db_path.clone()
+    pub fn vector_db_path() -> EmbedResult<String> {
+        Ok(CONFIG.read().map_err(|e| EmbedError::Concurrency {
+            message: format!("Failed to acquire read lock for CONFIG: {}", e),
+            operation: Some("get_vector_db_path".to_string()),
+        })?.vector_db_path.clone())
     }
 
     /// Get cache directory path
-    pub fn cache_dir() -> String {
-        CONFIG.read().unwrap().cache_dir.clone()
+    pub fn cache_dir() -> EmbedResult<String> {
+        Ok(CONFIG.read().map_err(|e| EmbedError::Concurrency {
+            message: format!("Failed to acquire read lock for CONFIG: {}", e),
+            operation: Some("get_cache_dir".to_string()),
+        })?.cache_dir.clone())
     }
 
     /// Get git poll interval
-    pub fn git_poll_interval_secs() -> u64 {
-        CONFIG.read().unwrap().git_poll_interval_secs
+    pub fn git_poll_interval_secs() -> EmbedResult<u64> {
+        Ok(CONFIG.read().map_err(|e| EmbedError::Concurrency {
+            message: format!("Failed to acquire read lock for CONFIG: {}", e),
+            operation: Some("get_git_poll_interval_secs".to_string()),
+        })?.git_poll_interval_secs)
     }
 
     /// Check if git watching is enabled
-    pub fn enable_git_watch() -> bool {
-        CONFIG.read().unwrap().enable_git_watch
+    pub fn enable_git_watch() -> EmbedResult<bool> {
+        Ok(CONFIG.read().map_err(|e| EmbedError::Concurrency {
+            message: format!("Failed to acquire read lock for CONFIG: {}", e),
+            operation: Some("get_enable_git_watch".to_string()),
+        })?.enable_git_watch)
     }
 
     /// Check if test files should be included
-    pub fn include_test_files() -> bool {
-        CONFIG.read().unwrap().include_test_files
+    pub fn include_test_files() -> EmbedResult<bool> {
+        Ok(CONFIG.read().map_err(|e| EmbedError::Concurrency {
+            message: format!("Failed to acquire read lock for CONFIG: {}", e),
+            operation: Some("get_include_test_files".to_string()),
+        })?.include_test_files)
     }
 
     /// Get maximum search results
-    pub fn max_search_results() -> usize {
-        CONFIG.read().unwrap().max_search_results
+    pub fn max_search_results() -> EmbedResult<usize> {
+        Ok(CONFIG.read().map_err(|e| EmbedError::Concurrency {
+            message: format!("Failed to acquire read lock for CONFIG: {}", e),
+            operation: Some("get_max_search_results".to_string()),
+        })?.max_search_results)
     }
 
     /// Get the search backend configuration
-    pub fn search_backend() -> SearchBackend {
-        CONFIG.read().unwrap().search_backend.clone()
+    pub fn search_backend() -> EmbedResult<SearchBackend> {
+        Ok(CONFIG.read().map_err(|e| EmbedError::Concurrency {
+            message: format!("Failed to acquire read lock for CONFIG: {}", e),
+            operation: Some("get_search_backend".to_string()),
+        })?.search_backend.clone())
     }
     
-    /// Check if ripgrep fallback is enabled (legacy compatibility)
-    pub fn ripgrep_fallback() -> bool {
-        let config = CONFIG.read().unwrap();
-        // Handle backward compatibility
-        if let Some(legacy_ripgrep) = config.ripgrep_fallback {
-            legacy_ripgrep
-        } else {
-            // Default behavior based on search_backend
-            matches!(config.search_backend, SearchBackend::Ripgrep | SearchBackend::Auto)
-        }
-    }
 
     /// Get model name
-    pub fn model_name() -> String {
-        CONFIG.read().unwrap().model_name.clone()
+    pub fn model_name() -> EmbedResult<String> {
+        Ok(CONFIG.read().map_err(|e| EmbedError::Concurrency {
+            message: format!("Failed to acquire read lock for CONFIG: {}", e),
+            operation: Some("get_model_name".to_string()),
+        })?.model_name.clone())
     }
 
     /// Get embedding dimensions
-    pub fn embedding_dimensions() -> usize {
-        CONFIG.read().unwrap().embedding_dimensions
+    pub fn embedding_dimensions() -> EmbedResult<usize> {
+        Ok(CONFIG.read().map_err(|e| EmbedError::Concurrency {
+            message: format!("Failed to acquire read lock for CONFIG: {}", e),
+            operation: Some("get_embedding_dimensions".to_string()),
+        })?.embedding_dimensions)
     }
 
     /// Get log level
-    pub fn log_level() -> String {
-        CONFIG.read().unwrap().log_level.clone()
+    pub fn log_level() -> EmbedResult<String> {
+        Ok(CONFIG.read().map_err(|e| EmbedError::Concurrency {
+            message: format!("Failed to acquire read lock for CONFIG: {}", e),
+            operation: Some("get_log_level".to_string()),
+        })?.log_level.clone())
     }
 
     /// Validate configuration settings
@@ -414,7 +448,6 @@ Search:
   include_test_files: {}
   max_search_results: {}
   search_backend: {}
-  ripgrep_fallback: {} (legacy)
 
 Model:
   model_name: {}
@@ -434,7 +467,6 @@ Logging:
             self.include_test_files,
             self.max_search_results,
             self.search_backend,
-            self.ripgrep_fallback.map(|b| b.to_string()).unwrap_or_else(|| "none".to_string()),
             self.model_name,
             self.embedding_dimensions,
             self.log_level
@@ -454,8 +486,7 @@ mod tests {
         assert_eq!(config.embedding_cache_size, 10000);
         assert_eq!(config.batch_size, 32);
         assert_eq!(config.embedding_dimensions, 768);
-        assert_eq!(config.search_backend, SearchBackend::Auto);
-        assert_eq!(config.ripgrep_fallback, None);
+        assert_eq!(config.search_backend, SearchBackend::Tantivy);
         assert!(config.validate().is_ok());
     }
 
@@ -482,54 +513,27 @@ mod tests {
         use std::str::FromStr;
         
         // Test string parsing
-        assert_eq!(SearchBackend::from_str("ripgrep").unwrap(), SearchBackend::Ripgrep);
-        assert_eq!(SearchBackend::from_str("TANTIVY").unwrap(), SearchBackend::Tantivy);
-        assert_eq!(SearchBackend::from_str("Auto").unwrap(), SearchBackend::Auto);
+        assert_eq!(SearchBackend::from_str("TANTIVY").expect("parsing tantivy"), SearchBackend::Tantivy);
         assert!(SearchBackend::from_str("invalid").is_err());
         
         // Test display
-        assert_eq!(SearchBackend::Ripgrep.to_string(), "Ripgrep");
         assert_eq!(SearchBackend::Tantivy.to_string(), "Tantivy");
-        assert_eq!(SearchBackend::Auto.to_string(), "Auto");
         
         // Test default
-        assert_eq!(SearchBackend::default(), SearchBackend::Auto);
+        assert_eq!(SearchBackend::default(), SearchBackend::Tantivy);
     }
 
-    #[test]
-    fn test_backward_compatibility() {
-        let mut config = Config::default();
-        
-        // Test with no legacy setting
-        config.search_backend = SearchBackend::Auto;
-        config.ripgrep_fallback = None;
-        assert!(Config::ripgrep_fallback()); // Auto should return true for backward compatibility
-        
-        // Test with legacy setting true
-        config.search_backend = SearchBackend::Tantivy;
-        config.ripgrep_fallback = Some(true);
-        *CONFIG.write().unwrap() = config.clone();
-        assert!(Config::ripgrep_fallback()); // Legacy override should work
-        
-        // Test with legacy setting false
-        config.ripgrep_fallback = Some(false);
-        *CONFIG.write().unwrap() = config.clone();
-        assert!(!Config::ripgrep_fallback()); // Legacy override should work
-        
-        // Reset to default for other tests
-        *CONFIG.write().unwrap() = Config::default();
-    }
 
     #[test]
     fn test_search_backend_method() {
         let mut config = Config::default();
         config.search_backend = SearchBackend::Tantivy;
-        *CONFIG.write().unwrap() = config;
+        *CONFIG.write().expect("write lock") = config;
         
-        assert_eq!(Config::search_backend(), SearchBackend::Tantivy);
+        assert_eq!(Config::search_backend().expect("get search backend"), SearchBackend::Tantivy);
         
         // Reset to default for other tests
-        *CONFIG.write().unwrap() = Config::default();
+        *CONFIG.write().expect("write lock") = Config::default();
     }
 
     #[test]

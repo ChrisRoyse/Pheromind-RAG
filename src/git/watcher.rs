@@ -7,6 +7,7 @@ use anyhow::{Result, anyhow};
 use tokio::sync::RwLock;
 
 use crate::search::unified::UnifiedSearcher;
+#[cfg(feature = "vectordb")]
 use crate::storage::lancedb_storage::LanceDBStorage;
 use crate::config::Config;
 
@@ -86,11 +87,13 @@ impl GitWatcher {
     }
 }
 
+#[cfg(feature = "vectordb")]
 pub struct VectorUpdater {
     searcher: Arc<UnifiedSearcher>,
     storage: Arc<RwLock<LanceDBStorage>>,
 }
 
+#[cfg(feature = "vectordb")]
 impl VectorUpdater {
     pub fn new(searcher: Arc<UnifiedSearcher>, storage: Arc<RwLock<LanceDBStorage>>) -> Self {
         Self { searcher, storage }
@@ -190,6 +193,7 @@ impl VectorUpdater {
     }
 }
 
+#[cfg(feature = "vectordb")]
 pub struct WatchCommand {
     watcher: GitWatcher,
     updater: VectorUpdater,
@@ -197,12 +201,13 @@ pub struct WatchCommand {
     enabled: Arc<AtomicBool>,
 }
 
+#[cfg(feature = "vectordb")]
 impl WatchCommand {
     pub fn new(repo_path: PathBuf, searcher: Arc<UnifiedSearcher>, storage: Arc<RwLock<LanceDBStorage>>) -> Self {
         Self {
             watcher: GitWatcher::new(repo_path),
             updater: VectorUpdater::new(searcher, storage),
-            interval: Duration::from_secs(Config::git_poll_interval_secs()),
+            interval: Duration::from_secs(Config::git_poll_interval_secs().unwrap_or(10)),
             enabled: Arc::new(AtomicBool::new(false)),
         }
     }
@@ -292,6 +297,7 @@ impl Clone for GitWatcher {
 }
 
 // Implement Clone for VectorUpdater
+#[cfg(feature = "vectordb")]
 impl Clone for VectorUpdater {
     fn clone(&self) -> Self {
         Self {

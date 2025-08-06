@@ -1,6 +1,8 @@
 use std::collections::HashSet;
-use crate::search::ripgrep::ExactMatch;
+use crate::search::ExactMatch;
+#[cfg(feature = "vectordb")]
 use crate::storage::lancedb_storage::LanceEmbeddingRecord;
+#[cfg(feature = "tree-sitter")]
 use crate::search::symbol_index::Symbol;
 use crate::search::bm25::BM25Match;
 
@@ -31,6 +33,7 @@ impl SimpleFusion {
         Self
     }
     
+    #[cfg(feature = "vectordb")]
     pub fn fuse_results(
         &self,
         exact_matches: Vec<ExactMatch>,
@@ -97,6 +100,7 @@ impl SimpleFusion {
         results
     }
     
+    #[cfg(all(feature = "vectordb", feature = "tree-sitter"))]
     pub fn fuse_all_results(
         &self,
         exact_matches: Vec<ExactMatch>,
@@ -179,6 +183,7 @@ impl SimpleFusion {
     }
     
     /// Enhanced fusion with BM25 results (4-way fusion)
+    #[cfg(all(feature = "vectordb", feature = "tree-sitter"))]
     pub fn fuse_all_results_with_bm25(
         &self,
         exact_matches: Vec<ExactMatch>,
@@ -287,6 +292,68 @@ impl SimpleFusion {
         self.apply_weighted_fusion(&mut results, 0.4, 0.25, 0.25, 0.1);
         
         // Sort by final score
+        results.sort_by(|a, b| b.score.partial_cmp(&a.score).unwrap());
+        
+        // Take top 20 results
+        results.truncate(20);
+        results
+    }
+    
+    /// Fallback fusion for core functionality (BM25 + Exact matches only)
+    pub fn fuse_results_core(
+        &self,
+        exact_matches: Vec<ExactMatch>,
+        bm25_matches: Vec<BM25Match>,
+    ) -> Vec<FusedResult> {
+        let mut seen = HashSet::new();
+        let mut results = Vec::new();
+        
+        // Process exact matches first (highest priority)
+        for exact in exact_matches {
+            let key = format!("{}-{}", exact.file_path, exact.line_number);
+            if seen.insert(key) {
+                results.push(FusedResult {
+                    file_path: exact.file_path,
+                    line_number: Some(exact.line_number),
+                    chunk_index: None,
+                    score: 1.0, // Exact matches get perfect score
+                    match_type: MatchType::Exact,
+                    content: exact.content,
+                    start_line: exact.line_number,
+                    end_line: exact.line_number,
+                });
+            }
+        }
+        
+        // Process BM25 matches
+        for bm25 in bm25_matches {
+            // Extract file path and chunk index from doc_id (format: "filepath-chunkindex")
+            let parts: Vec<&str> = bm25.doc_id.rsplitn(2, '-').collect();
+            let (file_path, chunk_index) = if parts.len() == 2 {
+                (parts[1].to_string(), parts[0].parse::<usize>().ok())
+            } else {
+                (bm25.doc_id.clone(), None)
+            };
+            
+            let key = format!("bm25-{}", bm25.doc_id);
+            if seen.insert(key) {
+                // Normalize BM25 score (typically ranges from 0-20, normalize to 0-0.9)
+                let normalized_score = (bm25.score / 10.0).min(0.9);
+                
+                results.push(FusedResult {
+                    file_path,
+                    line_number: None,
+                    chunk_index,
+                    score: normalized_score,
+                    match_type: MatchType::Statistical,
+                    content: format!("BM25 match (score: {:.2})", bm25.score),
+                    start_line: 0,
+                    end_line: 0,
+                });
+            }
+        }
+        
+        // Sort by score descending
         results.sort_by(|a, b| b.score.partial_cmp(&a.score).unwrap());
         
         // Take top 20 results
@@ -510,6 +577,7 @@ impl SimpleFusion {
 mod tests {
     use super::*;
     
+    #[cfg(feature = "vectordb")]
     #[test]
     fn test_fusion_prioritizes_exact_matches() {
         let fusion = SimpleFusion::new();
@@ -562,7 +630,7 @@ mod tests {
             }
         ];
         
-        let results = fusion.fuse_results(exact_matches, vec![]);
+        let results = fusion.fuse_results_core(exact_matches, vec![]);
         
         assert_eq!(results.len(), 1); // Duplicates removed
     }

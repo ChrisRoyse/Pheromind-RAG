@@ -175,7 +175,7 @@ Created a comprehensive test suite with **100 complex query tests** for the embe
   - Markdown (.md)
 
 ### 4. Search Capabilities
-- Exact text matching via ripgrep
+- Exact text matching via Tantivy full-text search
 - Semantic similarity via embeddings
 - Fusion of exact and semantic results
 - Query preprocessing

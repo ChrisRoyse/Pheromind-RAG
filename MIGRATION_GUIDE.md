@@ -1,10 +1,10 @@
 # Tantivy Migration Tool
 
-A comprehensive, safe migration tool for transitioning production systems from Ripgrep to Tantivy search backend with validation, backup/restore capabilities, and monitoring.
+A comprehensive tool for managing Tantivy search backend with validation, backup/restore capabilities, and monitoring.
 
 ## Overview
 
-The Tantivy Migration Tool provides a production-ready solution for migrating from the Ripgrep text search backend to Tantivy full-text search. It includes comprehensive safety features:
+The Tantivy Migration Tool provides a production-ready solution for managing Tantivy full-text search. It includes comprehensive safety features:
 
 - **Validation**: Compare search results between backends to ensure compatibility
 - **Backup/Restore**: Atomic backup and rollback capabilities  
@@ -60,7 +60,7 @@ tantivy_migrator monitor --duration 120 --format table
 
 ### `validate`
 
-Validate migration safety by comparing search results between Ripgrep and Tantivy.
+Validate Tantivy search functionality and performance.
 
 ```bash
 tantivy_migrator validate [OPTIONS]
@@ -87,7 +87,7 @@ tantivy_migrator validate --query-file test_queries.txt
 
 ### `migrate`
 
-Perform the actual migration from Ripgrep to Tantivy.
+Configure and deploy Tantivy search system.
 
 ```bash
 tantivy_migrator migrate [OPTIONS]
@@ -223,7 +223,7 @@ export EMBED_MAX_SEARCH_RESULTS=50
 
 ### Search Accuracy
 
-The validation compares search results between Ripgrep and Tantivy:
+The validation verifies Tantivy search functionality:
 
 - **Perfect Match (1.0)**: Identical results
 - **High Similarity (0.8-0.99)**: Minor differences, safe to proceed
@@ -234,7 +234,7 @@ The validation compares search results between Ripgrep and Tantivy:
 
 Different search behaviors are expected:
 
-1. **Ripgrep**: Substring matching, case-insensitive options
+1. **Baseline**: Traditional substring matching expectations
 2. **Tantivy**: Tokenized search, exact phrase matching
 
 **Example differences:**
@@ -249,7 +249,7 @@ The tool reports:
 - **Speedup factor** (how much faster Tantivy is)
 - **Individual query performance**
 
-Tantivy typically shows 2-10x speedup over Ripgrep.
+Tantivy typically shows 2-10x speedup over external process-based search.
 
 ## Backup and Restore
 
@@ -276,7 +276,7 @@ Restoration includes:
 **Manual Environment Variable Restoration:**
 ```bash
 # The tool will output commands like:
-export EMBED_SEARCH_BACKEND="ripgrep"
+export EMBED_SEARCH_BACKEND="tantivy"
 export EMBED_MAX_SEARCH_RESULTS="20"
 ```
 

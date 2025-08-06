@@ -1,5 +1,5 @@
 use std::collections::{BTreeMap, HashMap, HashSet};
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use anyhow::{Result, anyhow};
 use serde::{Serialize, Deserialize};
 use lru::LruCache;
@@ -288,6 +288,10 @@ impl InvertedIndex {
     }
     
     /// Get statistics about the index
+    pub fn get_document_metadata(&self, doc_id: &str) -> Option<&DocumentMetadata> {
+        self.doc_metadata.get(doc_id)
+    }
+    
     pub fn get_stats(&self) -> IndexStats {
         let total_terms = self.term_to_docs.len();
         let total_documents = self.doc_metadata.len();

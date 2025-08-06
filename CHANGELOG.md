@@ -10,7 +10,7 @@ This release represents a complete overhaul of the embedding search system, achi
 
 #### Core Search Improvements
 - **Test File Exclusion**: Automatically excludes test files and directories from indexing
-- **Native Rust Search**: Implemented parallel search engine, removing ripgrep dependency
+- **Tantivy Full-Text Search**: Implemented Tantivy-based search with fuzzy matching capabilities
 - **Enhanced Ranking**: Sophisticated scoring algorithm with filename matching, function detection, and semantic relevance
 
 #### Performance Optimizations

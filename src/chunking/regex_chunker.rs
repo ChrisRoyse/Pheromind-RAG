@@ -25,7 +25,8 @@ pub struct SimpleRegexChunker {
 
 impl SimpleRegexChunker {
     pub fn new() -> Self {
-        Self::with_chunk_size(Config::chunk_size())
+        let chunk_size = Config::chunk_size().unwrap_or(100);
+        Self::with_chunk_size(chunk_size)
     }
     
     pub fn with_chunk_size(chunk_size: usize) -> Self {

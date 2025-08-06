@@ -1,5 +1,4 @@
 use std::collections::HashSet;
-use anyhow::Result;
 use rust_stemmers::{Algorithm, Stemmer};
 use unicode_normalization::UnicodeNormalization;
 use unicode_segmentation::UnicodeSegmentation;

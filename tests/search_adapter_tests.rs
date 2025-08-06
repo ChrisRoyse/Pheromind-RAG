@@ -2,7 +2,7 @@ use std::path::Path;
 use tempfile::TempDir;
 use std::fs;
 
-use embed_search::search::{TextSearcher, RipgrepTextSearcher, TantivySearcher, create_text_searcher};
+use embed_search::search::{TextSearcher, TantivySearcher, create_text_searcher};
 use embed_search::config::Config;
 
 /// Test the search adapter interface for seamless backend switching
@@ -29,10 +29,6 @@ pub struct AuthConfig {
 "#;
     
     fs::write(&test_file, content).unwrap();
-    
-    // Test with RipgrepTextSearcher implementation
-    let mut ripgrep_searcher = RipgrepTextSearcher::new(temp_dir.path().to_path_buf());
-    test_searcher_interface(&mut ripgrep_searcher, temp_dir.path()).await;
     
     // Test with TantivySearcher implementation
     let mut tantivy_searcher = TantivySearcher::new().await.unwrap();
@@ -83,9 +79,9 @@ fn main() {
     
     fs::write(&test_file, content).unwrap();
     
-    // Test with ripgrep backend (default)
+    // Test with tantivy backend (default)
     let mut config = Config::default();
-    config.search_backend = embed_search::config::SearchBackend::Ripgrep;
+    config.search_backend = embed_search::config::SearchBackend::Tantivy;
     
     let _searcher = create_text_searcher(&config.search_backend).await.unwrap();
     
@@ -109,29 +105,23 @@ fn process_authentication() {
     
     fs::write(&test_file, content).unwrap();
     
-    // Create both searchers
-    let mut ripgrep = RipgrepTextSearcher::new(temp_dir.path().to_path_buf());
+    // Create Tantivy searcher
     let mut tantivy = TantivySearcher::new().await.unwrap();
     
-    // Index the same file with both
-    ripgrep.index_file(&test_file).await.unwrap();
+    // Index the file
     tantivy.index_file(&test_file).await.unwrap();
     
-    // Search with both - they should return compatible results  
-    let ripgrep_matches = ripgrep.search("authentication").await.unwrap();
+    // Search for matches
     let tantivy_matches = tantivy.search("authentication").await.unwrap();
     
-    // Both should find matches (though exact results may differ)
-    assert!(!ripgrep_matches.is_empty(), "RipgrepSearcher should find matches");
+    // Should find matches
     assert!(!tantivy_matches.is_empty(), "TantivySearcher should find matches");
     
-    // Both should return the same structure
-    for matches in [&ripgrep_matches, &tantivy_matches] {
-        for match_result in matches {
-            assert!(!match_result.file_path.is_empty());
-            assert!(match_result.line_number > 0);
-            assert!(!match_result.content.is_empty());
-            assert!(!match_result.line_content.is_empty());
-        }
+    // Verify structure
+    for match_result in &tantivy_matches {
+        assert!(!match_result.file_path.is_empty());
+        assert!(match_result.line_number > 0);
+        assert!(!match_result.content.is_empty());
+        assert!(!match_result.line_content.is_empty());
     }
 }

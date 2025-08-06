@@ -2,7 +2,7 @@
 
 ## Overview
 
-This implementation provides a unified `TextSearcher` trait that enables seamless switching between different search backends (RipgrepSearcher and TantivySearcher) without changing the calling code. The adapter interface follows Test-Driven Development (TDD) principles and leverages Rust's advanced trait system capabilities.
+This implementation provides a unified `TextSearcher` trait that enables consistent search interface using TantivySearcher backend without changing the calling code. The adapter interface follows Test-Driven Development (TDD) principles and leverages Rust's advanced trait system capabilities.
 
 ## Architecture
 
@@ -13,12 +13,7 @@ This implementation provides a unified `TextSearcher` trait that enables seamles
    - Methods: `search()`, `index_file()`, `clear_index()`
    - Returns consistent `Vec<ExactMatch>` for compatibility
 
-2. **`RipgrepTextSearcher`** (`src/search/ripgrep.rs`)
-   - Wrapper around existing `RipgrepSearcher`
-   - Handles project root configuration
-   - No-op index operations (searches filesystem on-demand)
-
-3. **`TantivySearcher`** (`src/search/tantivy_search.rs`)
+2. **`TantivySearcher`** (`src/search/tantivy_search.rs`)
    - Enhanced with missing async methods
    - Full-text search with fuzzy matching capabilities
    - Maintains in-memory index for performance
@@ -34,18 +29,16 @@ The implementation leverages the existing `SearchBackend` enum in the config sys
 ```rust
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub enum SearchBackend {
-    Ripgrep,    // Use ripgrep for text search
     Tantivy,    // Use Tantivy for full-text search with fuzzy matching
-    Auto,       // Try Tantivy first, fallback to Ripgrep on failure
 }
 ```
 
 ## Key Features
 
-### 1. Seamless Backend Switching
+### 1. Consistent Search Interface
 ```rust
-// Switch backends via configuration without code changes
-let searcher = create_text_searcher(&config.search_backend).await?;
+// Use tantivy backend with unified interface
+let searcher = create_text_searcher(&SearchBackend::Tantivy).await?;
 ```
 
 ### 2. Consistent Interface
@@ -59,12 +52,12 @@ pub trait TextSearcher: Send + Sync {
 }
 ```
 
-### 3. Auto-Fallback Support
-The `Auto` backend intelligently tries Tantivy first and falls back to Ripgrep if initialization fails.
+### 3. Robust Backend Support
+The backend system provides reliable Tantivy-based text search with proper error handling.
 
 ### 4. Performance Optimized
-- **RipgrepSearcher**: Zero indexing overhead, searches filesystem directly
 - **TantivySearcher**: In-memory indexing for fast full-text search with fuzzy matching
+- **Native implementation**: No external process dependencies
 
 ## Implementation Details
 
@@ -79,10 +72,10 @@ The implementation leverages Rust 2025's enhanced trait system features:
 
 ### Backend-Specific Adaptations
 
-#### RipgrepTextSearcher
-- Wraps the existing `RipgrepSearcher` with project root awareness
-- `index_file()` and `clear_index()` are no-ops (ripgrep searches on-demand)
-- Maintains compatibility with existing ripgrep workflow
+#### TantivyTextSearcher
+- Provides high-performance indexed text search with project root awareness
+- `index_file()` and `clear_index()` manage tantivy index efficiently
+- Maintains compatibility with existing search workflow
 
 #### TantivySearcher Enhancements
 - Added missing `index_file()` method for single file indexing
@@ -91,7 +84,7 @@ The implementation leverages Rust 2025's enhanced trait system features:
 
 ### Error Handling
 - Consistent `anyhow::Result` error types across all implementations
-- Graceful fallback handling in `Auto` mode
+- Robust error handling for all search operations
 - Detailed error messages for debugging
 
 ## Testing Strategy
@@ -132,7 +125,7 @@ Users can control search backend via configuration:
 
 ```toml
 # .embedrc or config.toml
-search_backend = "tantivy"  # or "ripgrep" or "auto"
+search_backend = "tantivy"
 ```
 
 ```bash
@@ -144,9 +137,7 @@ export EMBED_SEARCH_BACKEND=tantivy
 
 | Backend | Indexing | Search Speed | Memory Usage | Fuzzy Search |
 |---------|----------|--------------|--------------|--------------|
-| Ripgrep | None     | Fast         | Low          | No           |
 | Tantivy | Required | Very Fast    | Medium       | Yes          |
-| Auto    | Hybrid   | Adaptive     | Variable     | Conditional  |
 
 ## Usage Examples
 
@@ -155,7 +146,7 @@ export EMBED_SEARCH_BACKEND=tantivy
 use embed_search::search::{create_text_searcher, SearchBackend};
 
 // Create searcher
-let mut searcher = create_text_searcher(&SearchBackend::Auto).await?;
+let mut searcher = create_text_searcher(&SearchBackend::Tantivy).await?;
 
 // Index a file
 searcher.index_file(Path::new("src/main.rs")).await?;
@@ -195,7 +186,6 @@ let mut searcher = create_text_searcher_with_root(
 - `tests/unified_searcher_adapter_demo.rs` - Integration demonstration
 
 ### Modified Files
-- `src/search/ripgrep.rs` - Added `RipgrepTextSearcher` wrapper and trait impl
 - `src/search/tantivy_search.rs` - Added missing methods and trait impl
 - `src/search/mod.rs` - Exported new types and functions
 - `src/config/mod.rs` - Enhanced `SearchBackend` enum (was already present)

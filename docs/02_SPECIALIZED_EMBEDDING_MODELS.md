@@ -3,7 +3,7 @@
 ## **PHASE OVERVIEW - UNIFIED SEARCH**
 
 **GOAL**: Implement search with simple fusion of exact + semantic results  
-**APPROACH**: Combine ripgrep exact matches with vector similarity search  
+**APPROACH**: Combine tantivy exact and fuzzy matches with vector similarity search  
 **MEASUREMENT**: Basic accuracy testing with common queries  
 **TIMELINE**: Week 2 (Tasks 011-020)
 
@@ -12,7 +12,7 @@
 **PROVEN**: Simple scoring and deduplication achieves great results without complexity
 
 **Core Components**:
-1. **Exact Search**: Ripgrep for text matching
+1. **Exact Search**: Tantivy for text matching with fuzzy support
 2. **Semantic Search**: Vector similarity with MiniLM embeddings
 3. **Simple Fusion**: Basic deduplication and scoring
 4. **3-Chunk Results**: Always return full context
@@ -136,7 +136,7 @@ impl SimpleFusion {
 **Implementation**:
 ```rust
 pub struct UnifiedSearcher {
-    ripgrep: RipgrepSearcher,
+    tantivy: TantivySearcher,
     embedder: MiniLMEmbedder,
     storage: VectorStorage,
     chunker: SimpleRegexChunker,
@@ -147,7 +147,7 @@ pub struct UnifiedSearcher {
 impl UnifiedSearcher {
     pub async fn search(&self, query: &str, project_path: &Path) -> Result<Vec<SearchResult>> {
         // 1. Run exact search
-        let exact_matches = self.ripgrep.search(query, project_path)?;
+        let exact_matches = self.tantivy.search(query, project_path)?;
         
         // 2. Run semantic search
         let query_embedding = self.embedder.embed(query)?;

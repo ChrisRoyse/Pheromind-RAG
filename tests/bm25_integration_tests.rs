@@ -204,7 +204,7 @@ async fn test_bm25_basic_search() -> Result<()> {
     let searcher = UnifiedSearcher::new_with_backend(
         project_path.clone(),
         db_path,
-        SearchBackend::Ripgrep
+        SearchBackend::Tantivy
     ).await?;
     
     // Index all files

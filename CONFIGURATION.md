@@ -67,9 +67,6 @@ The system loads configuration from multiple sources with the following priority
   - Maximum number of search results to return
   - Higher values provide more comprehensive results but slower response
 
-- **`ripgrep_fallback`** (default: true)
-  - Enable ripgrep as fallback for text-based searching
-  - When vector search fails or returns few results, use ripgrep for keyword search
 
 ### Model Configuration
 

@@ -7,7 +7,7 @@ use anyhow::{Result, Context};
 use crate::search::ExactMatch;
 
 /// Native Rust search implementation using parallel processing
-/// Replaces ripgrep dependency with fast parallel search using rayon and regex
+/// Fast parallel search using rayon and regex
 #[derive(Debug, Clone)]
 pub struct NativeSearcher {
     case_sensitive: bool,

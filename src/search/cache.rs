@@ -1,8 +1,19 @@
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
-use crate::search::unified::SearchResult;
 use crate::config::Config;
+use crate::chunking::{ChunkContext};
+// Use MatchType from fusion module
+use crate::search::fusion::MatchType;
+
+// Define SearchResult locally to avoid circular dependency
+#[derive(Debug, Clone)]
+pub struct SearchResult {
+    pub file: String,
+    pub three_chunk_context: ChunkContext,
+    pub score: f32,
+    pub match_type: MatchType,
+}
 
 struct CacheEntry {
     results: Vec<SearchResult>,
@@ -18,7 +29,7 @@ pub struct SearchCache {
 impl SearchCache {
     /// Create a new search cache using configuration values
     pub fn from_config() -> Self {
-        let config = Config::get();
+        let config = Config::get().unwrap_or_default();
         Self::new(config.search_cache_size)
     }
 

@@ -1,9 +1,11 @@
-use std::path::Path;
+#[cfg(feature = "tantivy")]
 use std::fs;
+#[cfg(feature = "tantivy")]
 use anyhow::Result;
-
+#[cfg(feature = "tantivy")]
 use embed_search::search::tantivy_search::TantivySearcher;
 
+#[cfg(feature = "tantivy")]
 #[tokio::main]
 async fn main() -> Result<()> {
     println!("🔥 Testing Tantivy Persistent Storage Implementation");
@@ -276,4 +278,10 @@ pub mod configuration {
     println!("🧹 Cleaned up test directory");
     
     Ok(())
+}
+
+#[cfg(not(feature = "tantivy"))]
+fn main() {
+    println!("❌ test_persistence requires 'tantivy' feature to be enabled");
+    std::process::exit(1);
 }

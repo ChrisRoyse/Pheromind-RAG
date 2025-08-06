@@ -22,7 +22,7 @@ A production-ready, high-performance embedding search system for code repositori
 ├─────────────────────────────────────────────────────────────────┤
 │  Core Search Layer                                             │
 │  ┌─────────────┐ ┌─────────────┐ ┌─────────────┐              │
-│  │   Ripgrep   │ │   MiniLM    │ │   Simple    │              │
+│  │  Tantivy    │ │   MiniLM    │ │   Simple    │              │
 │  │   Search    │ │  Embedder   │ │   Fusion    │              │
 │  └─────────────┘ └─────────────┘ └─────────────┘              │
 ├─────────────────────────────────────────────────────────────────┤
@@ -97,7 +97,7 @@ Turn git-based file watching on/off.
 - [ ] Three-chunk context expander
 - [ ] MiniLM embeddings integration
 - [ ] LanceDB vector storage
-- [ ] Ripgrep text search
+- [x] Tantivy full-text search with fuzzy matching
 - [ ] Search fusion and integration
 
 ## Performance Results
@@ -125,7 +125,7 @@ The system can be built in 3-4 weeks:
 - **Language**: Rust (for performance)
 - **Embeddings**: all-MiniLM-L6-v2 (384 dimensions)
 - **Vector DB**: LanceDB
-- **Text Search**: Ripgrep
+- **Text Search**: Tantivy with fuzzy matching
 - **File Watching**: Git status monitoring
 - **API**: MCP (Model Context Protocol)
 

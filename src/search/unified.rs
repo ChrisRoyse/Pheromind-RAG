@@ -3,34 +3,49 @@ use std::sync::Arc;
 use anyhow::{Result, anyhow};
 use tokio::sync::RwLock;
 
-use crate::chunking::{SimpleRegexChunker, Chunk, ThreeChunkExpander, ChunkContext};
-use crate::embedding::NomicEmbedder;
+use crate::chunking::{SimpleRegexChunker, Chunk, ThreeChunkExpander};
+#[cfg(feature = "ml")]
+use crate::embedding::nomic::NomicEmbedder;
+#[cfg(feature = "vectordb")]
 use crate::storage::lancedb_storage::LanceDBStorage;
-use crate::search::{
-    SimpleFusion, QueryPreprocessor, SearchCache, TextSearcher, create_text_searcher_with_root,
-    FusedResult, MatchType, ExactMatch,
-    symbol_index::{SymbolIndexer, SymbolDatabase, Symbol},
-    bm25::{BM25Engine, BM25Match, BM25Document, Token as BM25Token},
-    text_processor::CodeTextProcessor,
-    inverted_index::{InvertedIndex, DocumentMetadata},
-};
+use crate::search::fusion::{SimpleFusion, FusedResult, MatchType};
+// Import from basic modules with no dependencies first
+use crate::search::ExactMatch;
+use crate::search::preprocessing::QueryPreprocessor;
+use crate::search::bm25::{BM25Engine, BM25Match, BM25Document, Token as BM25Token};
+use crate::search::text_processor::CodeTextProcessor;
+
+// Import from modules that depend on basic modules
+use crate::search::inverted_index::{InvertedIndex, DocumentMetadata};
+use crate::search::cache::SearchCache;
+#[cfg(feature = "tantivy")]
+use crate::search::search_adapter::{TextSearcher, create_text_searcher_with_root};
+#[cfg(feature = "tree-sitter")]
+use crate::search::symbol_index::{SymbolIndexer, SymbolDatabase, Symbol};
 use crate::config::Config;
 
-#[derive(Debug, Clone)]
-pub struct SearchResult {
-    pub file: String,
-    pub three_chunk_context: ChunkContext,
-    pub score: f32,
-    pub match_type: MatchType,
+// Helper struct for when ml feature is not available
+#[cfg(not(feature = "ml"))]
+struct MockCacheStats {
+    entries: usize,
+    max_size: usize,
 }
 
+// Use SearchResult from cache module to avoid duplication
+pub use crate::search::cache::SearchResult;
+
 pub struct UnifiedSearcher {
+    #[cfg(feature = "tantivy")]
     text_searcher: Arc<RwLock<Box<dyn TextSearcher>>>,
+    #[cfg(feature = "ml")]
     embedder: Arc<NomicEmbedder>,
+    #[cfg(feature = "vectordb")]
     storage: Arc<RwLock<LanceDBStorage>>,
+    #[cfg(feature = "tree-sitter")]
     symbol_indexer: Arc<RwLock<SymbolIndexer>>,
+    #[cfg(feature = "tree-sitter")]
     symbol_db: Arc<RwLock<SymbolDatabase>>,
-    // BM25 components
+    // BM25 components (always available)
     bm25_engine: Arc<RwLock<BM25Engine>>,
     inverted_index: Arc<RwLock<InvertedIndex>>,
     text_processor: CodeTextProcessor,
@@ -54,7 +69,7 @@ impl UnifiedSearcher {
     }
     
     pub async fn new_with_config(project_path: PathBuf, db_path: PathBuf, include_test_files: bool) -> Result<Self> {
-        let backend = Config::search_backend();
+        let backend = Config::search_backend()?;
         Self::new_with_backend_and_config(project_path, db_path, backend, include_test_files).await
     }
     
@@ -63,16 +78,21 @@ impl UnifiedSearcher {
         println!("🔄 Initializing Unified Searcher (backend: {:?}, include_test_files: {})...", backend, include_test_files);
         
         // Initialize Nomic embedder with permanent model caching
+        #[cfg(feature = "ml")]
         let embedder = NomicEmbedder::get_global().await
             .map_err(|e| anyhow!("Failed to initialize Nomic embedder: {}", e))?;
         
+        #[cfg(feature = "vectordb")]
         let storage = Arc::new(RwLock::new(LanceDBStorage::new(db_path.clone()).await?));
         
         // Initialize storage table
+        #[cfg(feature = "vectordb")]
         storage.write().await.init_table().await?;
         
         // Initialize symbol indexer and database
+        #[cfg(feature = "tree-sitter")]
         let symbol_indexer = Arc::new(RwLock::new(SymbolIndexer::new()?));
+        #[cfg(feature = "tree-sitter")]
         let symbol_db = Arc::new(RwLock::new(SymbolDatabase::new()));
         
         // Load configuration
@@ -99,21 +119,30 @@ impl UnifiedSearcher {
         );
         let bm25_enabled = config.bm25_enabled;
         
+        #[cfg(feature = "ml")]
         println!("✅ Nomic embedder initialized with 768-dimensional embeddings");
+        #[cfg(feature = "tree-sitter")]
         println!("✅ Symbol indexer initialized with tree-sitter parsers");
         println!("✅ BM25 engine initialized with TF-IDF scoring");
         
         // Create text searcher with specified backend
+        #[cfg(feature = "tantivy")]
         let text_searcher = create_text_searcher_with_root(&backend, project_path.clone()).await
             .map_err(|e| anyhow!("Failed to create text searcher with backend {:?}: {}", backend, e))?;
         
+        #[cfg(feature = "tantivy")]
         println!("✅ Text searcher initialized with backend: {:?}", backend);
             
         Ok(Self {
+            #[cfg(feature = "tantivy")]
             text_searcher: Arc::new(RwLock::new(text_searcher)),
+            #[cfg(feature = "ml")]
             embedder,
+            #[cfg(feature = "vectordb")]
             storage,
+            #[cfg(feature = "tree-sitter")]
             symbol_indexer,
+            #[cfg(feature = "tree-sitter")]
             symbol_db,
             bm25_engine,
             inverted_index,
@@ -139,43 +168,81 @@ impl UnifiedSearcher {
         let processed_query = self.preprocessor.preprocess(query);
         println!("🔍 Searching for: '{}' (preprocessed: '{}')", query, processed_query);
         
-        // Run searches based on whether BM25 is enabled
+        // Run searches based on available features
         let mut fused = if self.bm25_enabled {
-            // Run ALL FOUR searches in parallel
-            let (exact_matches, semantic_matches, symbol_matches, bm25_matches) = tokio::join!(
-                self.search_exact(&processed_query),
-                self.search_semantic(&processed_query),
-                self.search_symbols(&processed_query),
-                self.search_bm25(&processed_query)
-            );
-            
-            let exact_matches = exact_matches?;
-            let semantic_matches = semantic_matches?;
-            let symbol_matches = symbol_matches?;
-            let bm25_matches = bm25_matches?;
-            
-            println!("📊 Found {} exact, {} semantic, {} symbol, and {} BM25 matches", 
-                     exact_matches.len(), semantic_matches.len(), symbol_matches.len(), bm25_matches.len());
-            
-            // Fuse all four types of results
-            self.fusion.fuse_all_results_with_bm25(exact_matches, semantic_matches, symbol_matches, bm25_matches)
+            #[cfg(all(feature = "tantivy", feature = "vectordb", feature = "tree-sitter"))]
+            {
+                // Run ALL FOUR searches in parallel
+                let (exact_matches, semantic_matches, symbol_matches, bm25_matches) = tokio::join!(
+                    self.search_exact(&processed_query),
+                    self.search_semantic(&processed_query),
+                    self.search_symbols(&processed_query),
+                    self.search_bm25(&processed_query)
+                );
+                
+                let exact_matches = exact_matches?;
+                let semantic_matches = semantic_matches?;
+                let symbol_matches = symbol_matches?;
+                let bm25_matches = bm25_matches?;
+                
+                println!("📊 Found {} exact, {} semantic, {} symbol, and {} BM25 matches", 
+                         exact_matches.len(), semantic_matches.len(), symbol_matches.len(), bm25_matches.len());
+                
+                // Fuse all four types of results
+                self.fusion.fuse_all_results_with_bm25(exact_matches, semantic_matches, symbol_matches, bm25_matches)
+            }
+            #[cfg(not(all(feature = "tantivy", feature = "vectordb", feature = "tree-sitter")))]
+            {
+                // Fallback to BM25 only when other features are missing
+                let bm25_matches = self.search_bm25(&processed_query).await?;
+                println!("📊 Found {} BM25 matches (limited features)", bm25_matches.len());
+                
+                // Convert BM25 matches to fused results using inverted index
+                let mut results = Vec::new();
+                let index = self.inverted_index.read().await;
+                
+                for bm25_match in bm25_matches {
+                    if let Some(doc_metadata) = index.get_document_metadata(&bm25_match.doc_id) {
+                        results.push(FusedResult {
+                            file_path: doc_metadata.file_path.clone(),
+                            score: bm25_match.score,
+                            match_type: MatchType::Statistical,
+                            line_number: Some(doc_metadata.chunk_index * 50), // Approximate line from chunk
+                            start_line: doc_metadata.chunk_index * 50,
+                            end_line: (doc_metadata.chunk_index + 1) * 50,
+                            chunk_index: Some(doc_metadata.chunk_index),
+                            content: format!("BM25 match in {} (score: {:.3})", doc_metadata.file_path, bm25_match.score),
+                        });
+                    }
+                }
+                results
+            }
         } else {
-            // Run original three searches
-            let (exact_matches, semantic_matches, symbol_matches) = tokio::join!(
-                self.search_exact(&processed_query),
-                self.search_semantic(&processed_query),
-                self.search_symbols(&processed_query)
-            );
-            
-            let exact_matches = exact_matches?;
-            let semantic_matches = semantic_matches?;
-            let symbol_matches = symbol_matches?;
-            
-            println!("📊 Found {} exact, {} semantic, and {} symbol matches", 
-                     exact_matches.len(), semantic_matches.len(), symbol_matches.len());
-            
-            // Fuse three types of results
-            self.fusion.fuse_all_results(exact_matches, semantic_matches, symbol_matches)
+            #[cfg(all(feature = "tantivy", feature = "vectordb", feature = "tree-sitter"))]
+            {
+                // Run original three searches
+                let (exact_matches, semantic_matches, symbol_matches) = tokio::join!(
+                    self.search_exact(&processed_query),
+                    self.search_semantic(&processed_query),
+                    self.search_symbols(&processed_query)
+                );
+                
+                let exact_matches = exact_matches?;
+                let semantic_matches = semantic_matches?;
+                let symbol_matches = symbol_matches?;
+                
+                println!("📊 Found {} exact, {} semantic, and {} symbol matches", 
+                         exact_matches.len(), semantic_matches.len(), symbol_matches.len());
+                
+                // Fuse three types of results
+                self.fusion.fuse_all_results(exact_matches, semantic_matches, symbol_matches)
+            }
+            #[cfg(not(all(feature = "tantivy", feature = "vectordb", feature = "tree-sitter")))]
+            {
+                // Minimal functionality fallback
+                println!("📊 Running with minimal features enabled");
+                Vec::new()
+            }
         };
         
         // Optimize ranking
@@ -198,10 +265,18 @@ impl UnifiedSearcher {
     }
     
     async fn search_exact(&self, query: &str) -> Result<Vec<ExactMatch>> {
-        let searcher = self.text_searcher.read().await;
-        searcher.search(query).await
+        #[cfg(feature = "tantivy")]
+        {
+            let searcher = self.text_searcher.read().await;
+            searcher.search(query).await
+        }
+        #[cfg(not(feature = "tantivy"))]
+        {
+            Ok(Vec::new())
+        }
     }
     
+    #[cfg(all(feature = "ml", feature = "vectordb"))]
     async fn search_semantic(&self, query: &str) -> Result<Vec<crate::storage::lancedb_storage::LanceEmbeddingRecord>> {
         // Generate query embedding using cached embedder
         let query_embedding = self.embedder.embed(query)
@@ -213,6 +288,12 @@ impl UnifiedSearcher {
             .map_err(|e| anyhow::anyhow!("Vector search failed: {}", e))
     }
     
+    #[cfg(not(all(feature = "ml", feature = "vectordb")))]
+    async fn search_semantic(&self, _query: &str) -> Result<Vec<()>> {
+        Ok(Vec::new())
+    }
+    
+    #[cfg(feature = "tree-sitter")]
     async fn search_symbols(&self, query: &str) -> Result<Vec<Symbol>> {
         // Search in symbol database
         let db = self.symbol_db.read().await;
@@ -227,6 +308,11 @@ impl UnifiedSearcher {
         
         // Return owned symbols
         Ok(symbols)
+    }
+    
+    #[cfg(not(feature = "tree-sitter"))]
+    async fn search_symbols(&self, _query: &str) -> Result<Vec<()>> {
+        Ok(Vec::new())
     }
     
     async fn search_bm25(&self, query: &str) -> Result<Vec<BM25Match>> {
@@ -303,6 +389,7 @@ impl UnifiedSearcher {
         }
         
         // Extract and index symbols if it's a supported language
+        #[cfg(feature = "tree-sitter")]
         if let Some(ext) = file_path.extension().and_then(|s| s.to_str()) {
             // Detect language from file extension
             let language = match ext {
@@ -342,30 +429,33 @@ impl UnifiedSearcher {
         }
         
         // Prepare chunk contents for batch embedding
-        let chunk_contents: Vec<&str> = chunks.iter().map(|c| c.content.as_str()).collect();
-        
-        // Generate embeddings using Nomic embedder
-        let embeddings = self.embedder.embed_batch(&chunk_contents)
-            .map_err(|e| anyhow!("Failed to generate embeddings for file {:?}: {}", file_path, e))?;
-        
-        // Create records with embeddings
-        let mut records = Vec::with_capacity(chunks.len());
-        for ((idx, chunk), embedding) in chunks.iter().enumerate().zip(embeddings.into_iter()) {
-            records.push(crate::storage::lancedb_storage::LanceEmbeddingRecord {
-                id: format!("{}-{}", file_path.to_string_lossy(), idx),
-                file_path: file_path.to_string_lossy().to_string(),
-                chunk_index: idx as u64,
-                content: chunk.content.clone(),
-                embedding,
-                start_line: chunk.start_line as u64,
-                end_line: chunk.end_line as u64,
-                similarity_score: None,
-            });
+        #[cfg(all(feature = "ml", feature = "vectordb"))]
+        {
+            let chunk_contents: Vec<&str> = chunks.iter().map(|c| c.content.as_str()).collect();
+            
+            // Generate embeddings using Nomic embedder
+            let embeddings = self.embedder.embed_batch(&chunk_contents)
+                .map_err(|e| anyhow!("Failed to generate embeddings for file {:?}: {}", file_path, e))?;
+            
+            // Create records with embeddings
+            let mut records = Vec::with_capacity(chunks.len());
+            for ((idx, chunk), embedding) in chunks.iter().enumerate().zip(embeddings.into_iter()) {
+                records.push(crate::storage::lancedb_storage::LanceEmbeddingRecord {
+                    id: format!("{}-{}", file_path.to_string_lossy(), idx),
+                    file_path: file_path.to_string_lossy().to_string(),
+                    chunk_index: idx as u64,
+                    content: chunk.content.clone(),
+                    embedding,
+                    start_line: chunk.start_line as u64,
+                    end_line: chunk.end_line as u64,
+                    similarity_score: None,
+                });
+            }
+            
+            // Insert all records in batch
+            let storage = self.storage.write().await;
+            storage.insert_batch(records).await?;
         }
-        
-        // Insert all records in batch
-        let storage = self.storage.write().await;
-        storage.insert_batch(records).await?;
         
         // Index for BM25 if enabled
         if self.bm25_enabled {
@@ -434,8 +524,11 @@ impl UnifiedSearcher {
         }
         
         // Index file for text search (important for backends like Tantivy)
-        let mut text_searcher = self.text_searcher.write().await;
-        text_searcher.index_file(file_path).await?;
+        #[cfg(feature = "tantivy")]
+        {
+            let mut text_searcher = self.text_searcher.write().await;
+            text_searcher.index_file(file_path).await?;
+        }
         
         println!("✅ Indexed {} chunks from {:?}", chunks.len(), file_path);
         Ok(())
@@ -548,30 +641,52 @@ impl UnifiedSearcher {
     }
     
     pub async fn clear_index(&self) -> Result<()> {
-        let storage = self.storage.write().await;
-        storage.clear_all().await?;
+        #[cfg(feature = "vectordb")]
+        {
+            let storage = self.storage.write().await;
+            storage.clear_all().await?;
+        }
         self.cache.clear();
         
         // Clear text searcher index
-        let mut text_searcher = self.text_searcher.write().await;
-        text_searcher.clear_index().await?;
+        #[cfg(feature = "tantivy")]
+        {
+            let mut text_searcher = self.text_searcher.write().await;
+            text_searcher.clear_index().await?;
+        }
         
         // Clear symbol database
-        let mut symbol_db = self.symbol_db.write().await;
-        symbol_db.clear();
+        #[cfg(feature = "tree-sitter")]
+        {
+            let mut symbol_db = self.symbol_db.write().await;
+            symbol_db.clear();
+        }
         
         println!("🧹 Cleared all indexed data");
         Ok(())
     }
     
     pub async fn get_stats(&self) -> Result<SearcherStats> {
-        let storage = self.storage.read().await;
-        let total_embeddings = storage.count().await?;
+        #[cfg(feature = "vectordb")]
+        let total_embeddings = {
+            let storage = self.storage.read().await;
+            storage.count().await?
+        };
+        #[cfg(not(feature = "vectordb"))]
+        let total_embeddings = 0;
+        
         let search_cache_stats = self.cache.stats();
+        
+        #[cfg(feature = "ml")]
         let embedding_cache_stats = crate::embedding::CacheStats {
             entries: 0,
             max_size: 100_000,
             hit_ratio: 0.0,
+        };
+        #[cfg(not(feature = "ml"))]
+        let embedding_cache_stats = MockCacheStats {
+            entries: 0,
+            max_size: 0,
         };
         
         Ok(SearcherStats {
@@ -579,6 +694,9 @@ impl UnifiedSearcher {
             cache_entries: search_cache_stats.valid_entries,
             cache_max_size: search_cache_stats.max_size,
             embedding_cache_entries: embedding_cache_stats.entries,
+            #[cfg(feature = "ml")]
+            embedding_cache_max_size: embedding_cache_stats.max_size,
+            #[cfg(not(feature = "ml"))]
             embedding_cache_max_size: embedding_cache_stats.max_size,
         })
     }

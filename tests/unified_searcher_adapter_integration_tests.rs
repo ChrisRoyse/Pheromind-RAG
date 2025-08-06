@@ -83,16 +83,7 @@ fn handle_request() {
 }
 "#).unwrap();
 
-    // Test with Ripgrep backend
-    let mut ripgrep_searcher = create_text_searcher_with_root(&SearchBackend::Ripgrep, project_path.clone()).await
-        .expect("Failed to create Ripgrep searcher");
-    
-    ripgrep_searcher.index_file(&test_file).await.expect("Failed to index file");
-    let ripgrep_results = ripgrep_searcher.search("process_data").await.expect("Search failed");
-    
-    assert!(!ripgrep_results.is_empty(), "Ripgrep should find results");
-    
-    // Test with Tantivy backend  
+    // Test with Tantivy backend
     let mut tantivy_searcher = create_text_searcher_with_root(&SearchBackend::Tantivy, project_path.clone()).await
         .expect("Failed to create Tantivy searcher");
     
@@ -101,13 +92,12 @@ fn handle_request() {
     
     assert!(!tantivy_results.is_empty(), "Tantivy should find results");
     
-    println!("✅ Both adapters work: Ripgrep found {}, Tantivy found {} results", 
-             ripgrep_results.len(), tantivy_results.len());
+    println!("✅ Tantivy adapter works: found {} results", tantivy_results.len());
 }
 
 #[tokio::test]
-async fn test_backend_switching_equivalence() {
-    println!("🔄 Testing backend switching produces equivalent results");
+async fn test_tantivy_search_functionality() {
+    println!("🔄 Testing Tantivy search functionality");
     
     let temp_dir = TempDir::new().expect("Failed to create temp directory");
     let project_path = temp_dir.path().to_path_buf();
@@ -166,27 +156,19 @@ pub fn format_message(msg: &str) -> String {
     for query in &test_queries {
         println!("  Testing query: '{}'", query);
         
-        // Test with Ripgrep
-        let mut ripgrep_searcher = create_text_searcher_with_root(&SearchBackend::Ripgrep, project_path.clone()).await
-            .expect("Failed to create Ripgrep searcher");
-        ripgrep_searcher.index_file(&test_file).await.expect("Failed to index with Ripgrep");
-        let ripgrep_results = ripgrep_searcher.search(query).await.expect("Ripgrep search failed");
-        
         // Test with Tantivy
         let mut tantivy_searcher = create_text_searcher_with_root(&SearchBackend::Tantivy, project_path.clone()).await
             .expect("Failed to create Tantivy searcher");
         tantivy_searcher.index_file(&test_file).await.expect("Failed to index with Tantivy");
         let tantivy_results = tantivy_searcher.search(query).await.expect("Tantivy search failed");
         
-        // Both should find results for these queries
-        assert!(!ripgrep_results.is_empty(), "Ripgrep should find results for '{}'", query);
+        // Should find results for these queries
         assert!(!tantivy_results.is_empty(), "Tantivy should find results for '{}'", query);
         
-        println!("    Ripgrep: {} results, Tantivy: {} results", 
-                 ripgrep_results.len(), tantivy_results.len());
+        println!("    Tantivy: {} results", tantivy_results.len());
     }
     
-    println!("✅ Backend switching equivalence verified for all test queries");
+    println!("✅ Tantivy search functionality verified for all test queries");
 }
 
 /// Test the UnifiedSearcher with backend switching (post-migration)
@@ -211,8 +193,8 @@ pub fn approximate_search() {
 }
 "#).unwrap();
 
-    // Test with different backends
-    let backends = vec![SearchBackend::Ripgrep, SearchBackend::Tantivy];
+    // Test with Tantivy backend
+    let backends = vec![SearchBackend::Tantivy];
     
     for backend in backends {
         println!("  Testing with backend: {:?}", backend);

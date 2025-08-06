@@ -62,9 +62,10 @@ include_test_files = false
 # Higher values provide more comprehensive results but slower response
 max_search_results = 20
 
-# Enable ripgrep as fallback for text-based searching
-# When vector search fails or returns few results, use ripgrep for keyword search
-ripgrep_fallback = true
+# Search backend (optional, defaults to "tantivy")
+# Currently only "tantivy" is supported (case-insensitive)
+# search_backend = "tantivy"
+
 
 # Model Configuration
 # ===================

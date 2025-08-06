@@ -1,14 +1,21 @@
 use std::path::PathBuf;
-use std::sync::Arc;
 use anyhow::Result;
-use tokio::sync::RwLock;
 use clap::{Parser, Subcommand};
+
+#[cfg(feature = "vectordb")]
+use std::sync::Arc;
+#[cfg(feature = "vectordb")]
+use tokio::sync::RwLock;
 
 use embed_search::{
     search::unified::UnifiedSearcher,
-    storage::lancedb_storage::LanceDBStorage,
-    git::WatchCommand,
     config::Config,
+};
+
+#[cfg(feature = "vectordb")]
+use embed_search::{
+    storage::lancedb_storage::LanceDBStorage,
+    git::watcher::WatchCommand,
 };
 
 #[derive(Parser)]
@@ -73,7 +80,7 @@ async fn main() -> Result<()> {
     }
     
     // Validate configuration
-    let config = Config::get();
+    let config = Config::get()?;
     config.validate()?;
     
     println!("🚀 Embed Search System - Production Ready");
@@ -154,7 +161,7 @@ async fn search_command(query: &str, project_path: PathBuf, db_path: PathBuf) ->
     
     println!("\n📊 Found {} results:\n", results.len());
     
-    let max_display = std::cmp::min(5, Config::max_search_results());
+    let max_display = std::cmp::min(5, Config::max_search_results()?);
     for (idx, result) in results.iter().take(max_display).enumerate() {
         println!("{}. {} (score: {:.2})", idx + 1, result.file, result.score);
         println!("   Type: {:?}", result.match_type);
@@ -179,6 +186,7 @@ async fn search_command(query: &str, project_path: PathBuf, db_path: PathBuf) ->
     Ok(())
 }
 
+#[cfg(feature = "vectordb")]
 async fn watch_command(project_path: PathBuf, db_path: PathBuf) -> Result<()> {
     println!("👁️  Starting file watch mode...");
     
@@ -199,6 +207,13 @@ async fn watch_command(project_path: PathBuf, db_path: PathBuf) -> Result<()> {
     Ok(())
 }
 
+#[cfg(not(feature = "vectordb"))]
+async fn watch_command(_project_path: PathBuf, _db_path: PathBuf) -> Result<()> {
+    println!("❌ Watch functionality requires 'vectordb' feature to be enabled");
+    std::process::exit(1);
+}
+
+#[cfg(feature = "vectordb")]
 async fn update_command(project_path: PathBuf, db_path: PathBuf) -> Result<()> {
     println!("🔄 Checking for file changes...");
     
@@ -211,6 +226,12 @@ async fn update_command(project_path: PathBuf, db_path: PathBuf) -> Result<()> {
     println!("✅ {}", stats);
     
     Ok(())
+}
+
+#[cfg(not(feature = "vectordb"))]
+async fn update_command(_project_path: PathBuf, _db_path: PathBuf) -> Result<()> {
+    println!("❌ Update functionality requires 'vectordb' feature to be enabled");
+    std::process::exit(1);
 }
 
 async fn clear_command(project_path: PathBuf, db_path: PathBuf) -> Result<()> {
@@ -313,7 +334,7 @@ async fn test_command(project_path: PathBuf, db_path: PathBuf) -> Result<()> {
 }
 
 async fn config_command(json: bool) -> Result<()> {
-    let config = Config::get();
+    let config = Config::get()?;
     
     if json {
         println!("{}", serde_json::to_string_pretty(&config)?);
@@ -330,7 +351,7 @@ async fn validate_config_command(file: Option<PathBuf>) -> Result<()> {
         (Config::load_from_file(&path)?, true)
     } else {
         println!("📋 Validating current configuration...");
-        (Config::get(), false)
+        (Config::get()?, false)
     };
     
     match config.validate() {

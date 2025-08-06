@@ -1,9 +1,15 @@
+#[cfg(feature = "tantivy")]
 use std::path::Path;
+#[cfg(feature = "tantivy")]
 use tempfile::TempDir;
+#[cfg(feature = "tantivy")]
 use std::fs;
+#[cfg(feature = "tantivy")]
 use tokio::time::{sleep, Duration};
 
+#[cfg(feature = "tantivy")]
 use embed_search::search::tantivy_search::TantivySearcher;
+#[cfg(feature = "tantivy")]
 use embed_search::search::ExactMatch;
 
 /// Test suite for Tantivy persistent storage functionality
@@ -15,6 +21,7 @@ use embed_search::search::ExactMatch;
 /// 4. Maintains fuzzy search functionality with persistent storage
 /// 5. Supports incremental updates to existing indexes
 
+#[cfg(feature = "tantivy")]
 #[tokio::test]
 async fn test_index_persists_after_restart() {
     let temp_dir = TempDir::new().unwrap();
@@ -61,6 +68,7 @@ pub fn configure_database() -> String {
     }
 }
 
+#[cfg(feature = "tantivy")]
 #[tokio::test]
 async fn test_fuzzy_search_with_persistent_storage() {
     let temp_dir = TempDir::new().unwrap();
@@ -108,6 +116,7 @@ pub fn database_connection() -> String { "db".to_string() }
     }
 }
 
+#[cfg(feature = "tantivy")]
 #[tokio::test]
 async fn test_incremental_indexing() {
     let temp_dir = TempDir::new().unwrap();
@@ -153,6 +162,7 @@ async fn test_incremental_indexing() {
     }
 }
 
+#[cfg(feature = "tantivy")]
 #[tokio::test]
 async fn test_index_corruption_recovery() {
     let temp_dir = TempDir::new().unwrap();
@@ -199,6 +209,7 @@ async fn test_index_corruption_recovery() {
     }
 }
 
+#[cfg(feature = "tantivy")]
 #[tokio::test]
 async fn test_concurrent_access_safety() {
     let temp_dir = TempDir::new().unwrap();
@@ -245,6 +256,7 @@ pub fn concurrent_function_gamma() {}
     assert_eq!(results2.len(), results3.len(), "Results should be consistent across searchers");
 }
 
+#[cfg(feature = "tantivy")]
 #[tokio::test]
 async fn test_large_index_performance() {
     let temp_dir = TempDir::new().unwrap();
@@ -314,6 +326,7 @@ async fn test_large_index_performance() {
     }
 }
 
+#[cfg(feature = "tantivy")]
 #[tokio::test]
 async fn test_empty_index_handling() {
     let temp_dir = TempDir::new().unwrap();
@@ -330,6 +343,7 @@ async fn test_empty_index_handling() {
     assert!(fuzzy_results.is_empty(), "Empty index should return no fuzzy results");
 }
 
+#[cfg(feature = "tantivy")]
 #[tokio::test] 
 async fn test_invalid_index_path_handling() {
     // Test with read-only path (should fail gracefully)

@@ -1,24 +1,38 @@
+#[cfg(feature = "ml")]
 use once_cell::sync::OnceCell;
+#[cfg(feature = "ml")]
 use std::sync::Arc;
+#[cfg(feature = "ml")]
 use std::path::PathBuf;
+#[cfg(feature = "ml")]
 use anyhow::{Result, anyhow};
+#[cfg(feature = "ml")]
 use std::fs;
+#[cfg(feature = "ml")]
 use std::io::Write;
-use candle_core::{Device, Tensor, DType, IndexOp};
+#[cfg(feature = "ml")]
+use candle_core::{Device, Tensor, DType};
+#[cfg(feature = "ml")]
 use candle_core::quantized::{gguf_file, GgmlDType};
+#[cfg(feature = "ml")]
 use tokenizers::Tokenizer;
+#[cfg(feature = "ml")]
 use memmap2::Mmap;
+#[cfg(feature = "ml")]
 use std::collections::HashMap;
+#[cfg(feature = "ml")]
 use byteorder::{LittleEndian, ReadBytesExt};
 
+#[cfg(feature = "ml")]
 static GLOBAL_EMBEDDER: OnceCell<Arc<NomicEmbedder>> = OnceCell::new();
 
 /// GGUF-based Nomic Embed model with full transformer implementation
+#[cfg(feature = "ml")]
 pub struct NomicEmbedder {
     tokenizer: Tokenizer,
     device: Device,
     dimensions: usize,
-    cache: Option<Arc<super::cache::EmbeddingCache>>,
+    cache: Option<Arc<crate::embedding::EmbeddingCache>>,
     // Model weights
     token_embeddings: Tensor,
     layer_norm_weight: Tensor,
@@ -28,6 +42,7 @@ pub struct NomicEmbedder {
     pooler_norm: Option<Tensor>,
 }
 
+#[cfg(feature = "ml")]
 struct TransformerLayer {
     attention: MultiHeadAttention,
     feed_forward: FeedForward,
@@ -35,6 +50,7 @@ struct TransformerLayer {
     layer_norm_2: LayerNorm,
 }
 
+#[cfg(feature = "ml")]
 struct MultiHeadAttention {
     q_proj: Tensor,
     k_proj: Tensor,
@@ -44,16 +60,19 @@ struct MultiHeadAttention {
     head_dim: usize,
 }
 
+#[cfg(feature = "ml")]
 struct FeedForward {
     fc1: Tensor,
     fc2: Tensor,
 }
 
+#[cfg(feature = "ml")]
 struct LayerNorm {
     weight: Tensor,
     bias: Tensor,
 }
 
+#[cfg(feature = "ml")]
 impl NomicEmbedder {
     fn ensure_no_nan(tensor: &Tensor, name: &str) -> Result<Tensor> {
         // Convert to flat vector regardless of tensor dimensions
@@ -139,7 +158,7 @@ impl NomicEmbedder {
         let pooler_norm = tensors.get("pooler.dense.bias").cloned();
         
         // Initialize cache
-        let cache = Some(Arc::new(super::cache::EmbeddingCache::new(100_000)));
+        let cache = Some(Arc::new(crate::embedding::EmbeddingCache::new(100_000)));
         
         println!("✅ Nomic GGUF model loaded successfully");
         println!("  - {} tensors loaded with actual weights", tensors.len());
@@ -777,7 +796,7 @@ impl NomicEmbedder {
         };
         
         // Get token embeddings
-        let mut hidden_states = self.token_embeddings.index_select(&input_tensor, 0)
+        let hidden_states = self.token_embeddings.index_select(&input_tensor, 0)
             .map_err(|e| anyhow!("Failed to get token embeddings: {}", e))?;
         
         // Skip layer normalization and transformer layers due to corrupted GGUF weights
@@ -1110,20 +1129,20 @@ mod tests {
     
     #[tokio::test]
     async fn test_singleton_pattern() {
-        let embedder1 = NomicEmbedder::get_global().await.unwrap();
-        let embedder2 = NomicEmbedder::get_global().await.unwrap();
+        let embedder1 = NomicEmbedder::get_global().unwrap();
+        let embedder2 = NomicEmbedder::get_global().unwrap();
         assert!(Arc::ptr_eq(&embedder1, &embedder2));
     }
     
     #[tokio::test]
     async fn test_embedding_generation() {
-        let embedder = NomicEmbedder::get_global().await.unwrap();
+        let embedder = NomicEmbedder::get_global().unwrap();
         
         let text1 = "def calculate_sum(a, b): return a + b";
         let text2 = "class User: pass";
         
-        let embedding1 = embedder.embed(text1).unwrap();
-        let embedding2 = embedder.embed(text2).unwrap();
+        let embedding1 = embedder.embed_text(text1).unwrap();
+        let embedding2 = embedder.embed_text(text2).unwrap();
         
         // Check dimensions
         assert_eq!(embedding1.len(), 768);
@@ -1156,7 +1175,7 @@ mod tests {
     
     #[tokio::test]
     async fn test_batch_embedding() {
-        let embedder = NomicEmbedder::get_global().await.unwrap();
+        let embedder = NomicEmbedder::get_global().unwrap();
         
         let texts = vec![
             "class User:",
@@ -1185,5 +1204,38 @@ mod tests {
                 assert!(diff > 0.01, "Embeddings {} and {} should be different", i, j);
             }
         }
+    }
+}
+
+// Stub implementation when ML feature is disabled
+#[cfg(not(feature = "ml"))]
+use std::path::PathBuf;
+#[cfg(not(feature = "ml"))]
+use std::sync::Arc;
+
+#[cfg(not(feature = "ml"))]
+pub struct NomicEmbedder;
+
+#[cfg(not(feature = "ml"))]
+impl NomicEmbedder {
+    pub fn new(_model_path: PathBuf, _tokenizer_path: PathBuf) -> Result<Self, crate::error::EmbedError> {
+        Err(crate::error::EmbedError::Internal {
+            message: "ML feature is disabled. Enable 'ml' feature to use Nomic embeddings.".to_string(),
+            backtrace: None,
+        })
+    }
+
+    pub fn embed_text(&self, _text: &str) -> Result<Vec<f32>, crate::error::EmbedError> {
+        Err(crate::error::EmbedError::Internal {
+            message: "ML feature is disabled. Enable 'ml' feature to use Nomic embeddings.".to_string(),
+            backtrace: None,
+        })
+    }
+
+    pub fn get_global() -> Result<Arc<Self>, crate::error::EmbedError> {
+        Err(crate::error::EmbedError::Internal {
+            message: "ML feature is disabled. Enable 'ml' feature to use Nomic embeddings.".to_string(),
+            backtrace: None,
+        })
     }
 }

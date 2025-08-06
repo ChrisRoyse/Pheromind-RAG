@@ -70,7 +70,7 @@ With ALL biases removed and real embeddings:
 
 | Search Type | Expected Accuracy | Why |
 |------------|------------------|-----|
-| **Exact keyword match** | 85-95% | Ripgrep is excellent at text search |
+| **Exact keyword match** | 85-95% | Tantivy provides excellent indexed text search |
 | **Filename similarity** | 0% | Filenames don't match queries anymore |
 | **True semantic search** | 40-60% | MiniLM-L6-v2 is general-purpose, not code-specific |
 | **Hybrid (combined)** | 55-70% | Fusion helps but can't overcome embedding limitations |

@@ -1,10 +1,19 @@
+#[cfg(feature = "vectordb")]
 use std::path::PathBuf;
-use std::collections::HashMap;
-use anyhow::{Result, anyhow};
+#[cfg(feature = "vectordb")]
+use std::sync::Arc;
+#[cfg(feature = "vectordb")]
+use parking_lot::RwLock;
+#[cfg(feature = "vectordb")]
+use anyhow::Result;
+#[cfg(feature = "vectordb")]
 use serde::{Deserialize, Serialize};
+#[cfg(feature = "vectordb")]
 use crate::chunking::Chunk;
+#[cfg(feature = "vectordb")]
 use crate::config::Config;
 
+#[cfg(feature = "vectordb")]
 #[derive(Debug)]
 pub enum StorageError {
     DatabaseError(String),
@@ -14,6 +23,7 @@ pub enum StorageError {
     InvalidInput(String),
 }
 
+#[cfg(feature = "vectordb")]
 impl std::fmt::Display for StorageError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
@@ -26,14 +36,17 @@ impl std::fmt::Display for StorageError {
     }
 }
 
+#[cfg(feature = "vectordb")]
 impl std::error::Error for StorageError {}
 
+#[cfg(feature = "vectordb")]
 impl From<sled::Error> for StorageError {
     fn from(err: sled::Error) -> Self {
         StorageError::DatabaseError(err.to_string())
     }
 }
 
+#[cfg(feature = "vectordb")]
 impl From<serde_json::Error> for StorageError {
     fn from(err: serde_json::Error) -> Self {
         StorageError::DatabaseError(err.to_string())
@@ -41,6 +54,7 @@ impl From<serde_json::Error> for StorageError {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg(feature = "vectordb")]
 pub struct EmbeddingRecord {
     pub id: String,
     pub file_path: String,
@@ -52,17 +66,20 @@ pub struct EmbeddingRecord {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg(feature = "vectordb")]
 pub struct VectorSchema {
     pub version: u32,
     pub embedding_dim: usize,
     pub created_at: String,
 }
 
+#[cfg(feature = "vectordb")]
 pub struct VectorStorage {
     db: sled::Db,
-    schema: Option<VectorSchema>,
+    schema: Arc<RwLock<Option<VectorSchema>>>,
 }
 
+#[cfg(feature = "vectordb")]
 impl VectorStorage {
     pub async fn new(db_path: PathBuf) -> Result<Self, StorageError> {
         // Ensure parent directory exists
@@ -75,36 +92,36 @@ impl VectorStorage {
         
         Ok(Self {
             db,
-            schema: None,
+            schema: Arc::new(RwLock::new(None)),
         })
     }
     
-    pub async fn init_schema(&mut self) -> Result<(), StorageError> {
+    pub async fn init_schema(&self) -> Result<(), StorageError> {
         let schema = VectorSchema {
             version: 1,
-            embedding_dim: Config::embedding_dimensions(),
+            embedding_dim: Config::embedding_dimensions().unwrap_or(768),
             created_at: chrono::Utc::now().to_rfc3339(),
         };
         
         let schema_json = serde_json::to_vec(&schema)?;
         self.db.insert(b"__schema__", schema_json)?;
-        self.schema = Some(schema);
+        *self.schema.write() = Some(schema);
         
         Ok(())
     }
     
-    pub fn get_schema(&self) -> Option<&VectorSchema> {
-        self.schema.as_ref()
+    pub fn get_schema(&self) -> Option<VectorSchema> {
+        self.schema.read().clone()
     }
     
     pub async fn insert_embedding(
-        &mut self,
+        &self,
         file_path: &str,
         chunk_index: usize,
         chunk: &Chunk,
         embedding: Vec<f32>
     ) -> Result<(), StorageError> {
-        let expected_dim = Config::embedding_dimensions();
+        let expected_dim = Config::embedding_dimensions().unwrap_or(768);
         if embedding.len() != expected_dim {
             return Err(StorageError::InvalidInput(
                 format!("Embedding must be {}-dimensional, got {}", expected_dim, embedding.len())
@@ -130,7 +147,7 @@ impl VectorStorage {
     }
     
     pub async fn insert_batch(
-        &mut self,
+        &self,
         embeddings_data: Vec<(&str, usize, Chunk, Vec<f32>)>
     ) -> Result<(), StorageError> {
         if embeddings_data.is_empty() {
@@ -138,7 +155,7 @@ impl VectorStorage {
         }
         
         // Validate all embeddings match expected dimensions
-        let expected_dim = Config::embedding_dimensions();
+        let expected_dim = Config::embedding_dimensions().unwrap_or(768);
         for (_, _, _, embedding) in &embeddings_data {
             if embedding.len() != expected_dim {
                 return Err(StorageError::InvalidInput(
@@ -170,7 +187,7 @@ impl VectorStorage {
         Ok(())
     }
     
-    pub async fn delete_by_file(&mut self, file_path: &str) -> Result<(), StorageError> {
+    pub async fn delete_by_file(&self, file_path: &str) -> Result<(), StorageError> {
         let mut batch = sled::Batch::default();
         
         // Find all keys for this file
@@ -187,7 +204,7 @@ impl VectorStorage {
         Ok(())
     }
     
-    pub async fn clear_all(&mut self) -> Result<(), StorageError> {
+    pub async fn clear_all(&self) -> Result<(), StorageError> {
         let mut batch = sled::Batch::default();
         
         // Remove all embedding records but keep schema
@@ -205,7 +222,7 @@ impl VectorStorage {
         Ok(count)
     }
     
-    pub async fn prepare_for_search(&mut self) -> Result<(), StorageError> {
+    pub async fn prepare_for_search(&self) -> Result<(), StorageError> {
         // For now, this is a no-op since we don't have complex indexing
         // In a real implementation, this would create vector indexes
         Ok(())
@@ -224,7 +241,7 @@ impl VectorStorage {
     }
     
     pub async fn search_similar(&self, query_embedding: Vec<f32>, limit: usize) -> Result<Vec<EmbeddingRecord>, StorageError> {
-        let expected_dim = Config::embedding_dimensions();
+        let expected_dim = Config::embedding_dimensions().unwrap_or(768);
         if query_embedding.len() != expected_dim {
             return Err(StorageError::InvalidInput(
                 format!("Query embedding must be {}-dimensional, got {}", expected_dim, query_embedding.len())
@@ -272,9 +289,7 @@ fn cosine_similarity(a: &[f32], b: &[f32]) -> f32 {
     dot_product / (norm_a * norm_b)
 }
 
-// Thread-safe implementation
-unsafe impl Send for VectorStorage {}
-unsafe impl Sync for VectorStorage {}
+// Thread safety is automatically provided by Arc<RwLock<>> and sled::Db
 
 #[cfg(test)]
 mod tests {
@@ -295,7 +310,7 @@ mod tests {
         let temp_dir = TempDir::new().unwrap();
         let db_path = temp_dir.path().join("test_schema.db");
         
-        let mut storage = VectorStorage::new(db_path).await.unwrap();
+        let storage = VectorStorage::new(db_path).await.unwrap();
         let result = storage.init_schema().await;
         assert!(result.is_ok());
         
@@ -309,7 +324,7 @@ mod tests {
         let temp_dir = TempDir::new().unwrap();
         let db_path = temp_dir.path().join("test_insert.db");
         
-        let mut storage = VectorStorage::new(db_path).await.unwrap();
+        let storage = VectorStorage::new(db_path).await.unwrap();
         storage.init_schema().await.unwrap();
         
         let chunk = Chunk {
@@ -331,7 +346,7 @@ mod tests {
         let temp_dir = TempDir::new().unwrap();
         let db_path = temp_dir.path().join("test_search.db");
         
-        let mut storage = VectorStorage::new(db_path).await.unwrap();
+        let storage = VectorStorage::new(db_path).await.unwrap();
         storage.init_schema().await.unwrap();
         
         // Insert test embeddings

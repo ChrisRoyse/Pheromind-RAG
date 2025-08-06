@@ -1,6 +1,9 @@
+#[cfg(feature = "tree-sitter")]
 use std::path::PathBuf;
+#[cfg(feature = "tree-sitter")]
 use embed_search::search::symbol_index::{SymbolIndexer, SymbolDatabase, SymbolKind};
 
+#[cfg(feature = "tree-sitter")]
 #[test]
 fn test_rust_symbol_extraction() {
     let mut indexer = SymbolIndexer::new().unwrap();
@@ -24,6 +27,7 @@ fn test_rust_symbol_extraction() {
     }
 }
 
+#[cfg(feature = "tree-sitter")]
 #[test]
 fn test_python_symbol_extraction() {
     let mut indexer = SymbolIndexer::new().unwrap();
@@ -43,6 +47,7 @@ fn test_python_symbol_extraction() {
              symbols.len(), classes.len(), functions.len());
 }
 
+#[cfg(feature = "tree-sitter")]
 #[test]
 fn test_javascript_symbol_extraction() {
     let mut indexer = SymbolIndexer::new().unwrap();
@@ -60,6 +65,7 @@ fn test_javascript_symbol_extraction() {
     }
 }
 
+#[cfg(feature = "tree-sitter")]
 #[test]
 fn test_typescript_symbol_extraction() {
     let mut indexer = SymbolIndexer::new().unwrap();
@@ -77,6 +83,7 @@ fn test_typescript_symbol_extraction() {
     println!("Found {} TypeScript symbols", symbols.len());
 }
 
+#[cfg(feature = "tree-sitter")]
 #[test]
 fn test_go_symbol_extraction() {
     let mut indexer = SymbolIndexer::new().unwrap();
@@ -94,6 +101,7 @@ fn test_go_symbol_extraction() {
     }
 }
 
+#[cfg(feature = "tree-sitter")]
 #[test]
 fn test_java_symbol_extraction() {
     let mut indexer = SymbolIndexer::new().unwrap();
@@ -112,6 +120,7 @@ fn test_java_symbol_extraction() {
     println!("Found {} Java symbols", symbols.len());
 }
 
+#[cfg(feature = "tree-sitter")]
 #[test]
 fn test_cpp_symbol_extraction() {
     let mut indexer = SymbolIndexer::new().unwrap();
@@ -126,6 +135,7 @@ fn test_cpp_symbol_extraction() {
     println!("Found {} C++ symbols", symbols.len());
 }
 
+#[cfg(feature = "tree-sitter")]
 #[test]
 fn test_c_symbol_extraction() {
     let mut indexer = SymbolIndexer::new().unwrap();
@@ -162,6 +172,7 @@ fn test_c_symbol_extraction() {
     println!("Found {} C symbols", symbols.len());
 }
 
+#[cfg(feature = "tree-sitter")]
 #[test]
 fn test_symbol_database_operations() {
     let mut indexer = SymbolIndexer::new().unwrap();
@@ -199,6 +210,7 @@ fn test_symbol_database_operations() {
     println!("  Classes: {}", classes.len());
 }
 
+#[cfg(feature = "tree-sitter")]
 #[test]
 fn test_tsx_symbol_extraction() {
     let mut indexer = SymbolIndexer::new().unwrap();
@@ -217,6 +229,7 @@ fn test_tsx_symbol_extraction() {
     }
 }
 
+#[cfg(feature = "tree-sitter")]
 #[test]
 fn test_realistic_test_directory() {
     let mut indexer = SymbolIndexer::new().unwrap();
@@ -250,9 +263,11 @@ fn test_realistic_test_directory() {
     println!("  Total symbols: {}", db.total_symbols());
 }
 
+#[cfg(feature = "tree-sitter")]
 #[test]
 fn test_language_detection() {
     use std::path::Path;
+    #[cfg(feature = "tree-sitter")]
     use embed_search::search::symbol_index::SymbolIndexer;
     
     // Test file extension detection
@@ -275,6 +290,7 @@ fn test_language_detection() {
     assert_eq!(SymbolIndexer::detect_language(Path::new("test.xyz")), None);
 }
 
+#[cfg(feature = "tree-sitter")]
 #[test]
 fn test_html_css_json_extraction() {
     let mut indexer = SymbolIndexer::new().unwrap();
@@ -339,6 +355,7 @@ fn test_html_css_json_extraction() {
     println!("JSON symbols: {}", json_symbols.len());
 }
 
+#[cfg(feature = "tree-sitter")]
 #[test]
 fn test_bash_script_extraction() {
     let mut indexer = SymbolIndexer::new().unwrap();
@@ -376,6 +393,7 @@ fn test_bash_script_extraction() {
     println!("Found {} Bash symbols", symbols.len());
 }
 
+#[cfg(feature = "tree-sitter")]
 #[test]
 fn test_symbol_search_performance() {
     use std::time::Instant;

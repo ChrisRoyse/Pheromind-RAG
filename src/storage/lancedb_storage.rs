@@ -1,20 +1,34 @@
+#[cfg(feature = "vectordb")]
 use std::path::PathBuf;
+#[cfg(feature = "vectordb")]
 use std::sync::Arc;
-use anyhow::{Result, anyhow};
+#[cfg(feature = "vectordb")]
+use anyhow::Result;
+#[cfg(feature = "vectordb")]
 use serde::{Deserialize, Serialize};
+#[cfg(feature = "vectordb")]
 use arrow_array::{RecordBatch, StringArray, UInt64Array, Float32Array, FixedSizeListArray, RecordBatchIterator};
+#[cfg(feature = "vectordb")]
 use futures::TryStreamExt;
+#[cfg(feature = "vectordb")]
 use arrow_schema::{DataType, Field, Schema};
-use lancedb::{Connection, Table};
+#[cfg(feature = "vectordb")]
+use lancedb::Connection;
+#[cfg(feature = "vectordb")]
 use lancedb::query::{QueryBase, ExecutableQuery};
 // use lancedb::index::Index; // Not used due to API changes
+#[cfg(feature = "vectordb")]
 use crate::chunking::Chunk;
+#[cfg(feature = "vectordb")]
 use crate::config::Config;
-use crate::utils::retry::{retry_database_operation, RetryConfig};
-use crate::observability::metrics;
-use tracing::{info, debug, warn};
+// use crate::utils::retry::{retry_database_operation, RetryConfig}; // Module doesn't exist
+// use crate::observability::metrics; // Module doesn't exist  
+#[cfg(feature = "vectordb")]
+use tracing::info;
+#[cfg(feature = "vectordb")]
 use std::time::Instant;
 
+#[cfg(feature = "vectordb")]
 #[derive(Debug)]
 pub enum LanceStorageError {
     DatabaseError(String),
@@ -24,6 +38,7 @@ pub enum LanceStorageError {
     InvalidInput(String),
 }
 
+#[cfg(feature = "vectordb")]
 impl std::fmt::Display for LanceStorageError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
@@ -36,8 +51,10 @@ impl std::fmt::Display for LanceStorageError {
     }
 }
 
+#[cfg(feature = "vectordb")]
 impl std::error::Error for LanceStorageError {}
 
+#[cfg(feature = "vectordb")]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct LanceEmbeddingRecord {
     pub id: String,
@@ -51,6 +68,7 @@ pub struct LanceEmbeddingRecord {
 }
 
 /// Search options for vector similarity search
+#[cfg(feature = "vectordb")]
 #[derive(Debug, Clone)]
 pub struct SearchOptions {
     pub limit: usize,
@@ -60,6 +78,7 @@ pub struct SearchOptions {
     pub use_index: bool,
 }
 
+#[cfg(feature = "vectordb")]
 impl Default for SearchOptions {
     fn default() -> Self {
         Self {
@@ -73,6 +92,7 @@ impl Default for SearchOptions {
 }
 
 /// Vector index configuration
+#[cfg(feature = "vectordb")]
 #[derive(Debug, Clone)]
 pub struct IndexConfig {
     pub index_type: IndexType,
@@ -86,6 +106,7 @@ pub enum IndexType {
     Flat,     // Flat (exact) search
 }
 
+#[cfg(feature = "vectordb")]
 impl Default for IndexConfig {
     fn default() -> Self {
         Self {
@@ -97,6 +118,7 @@ impl Default for IndexConfig {
 }
 
 /// Real LanceDB vector storage for configurable dimensional embeddings
+#[cfg(feature = "vectordb")]
 pub struct LanceDBStorage {
     connection: Arc<Connection>,
     table_name: String,
@@ -105,6 +127,7 @@ pub struct LanceDBStorage {
     compression_enabled: bool,
 }
 
+#[cfg(feature = "vectordb")]
 impl LanceDBStorage {
     /// Create new LanceDB storage connection
     pub async fn new(db_path: PathBuf) -> Result<Self, LanceStorageError> {
@@ -127,20 +150,12 @@ impl LanceDBStorage {
         
         // Connect to LanceDB with retry logic
         let uri = db_path.to_string_lossy().to_string();
-        let connection = retry_database_operation(
-            "lancedb_connect",
-            || {
-                let uri = uri.clone();
-                Box::pin(async move {
-                    lancedb::connect(&uri).execute().await
-                        .map_err(|e| anyhow::anyhow!("Connection failed: {}", e))
-                })
-            },
-            Some(RetryConfig::new().max_retries(3))
-        ).await.map_err(|e| LanceStorageError::DatabaseError(e.to_string()))?;
+        // Direct connection without retry for now
+        let connection = lancedb::connect(&uri).execute().await
+            .map_err(|e| LanceStorageError::DatabaseError(format!("Connection failed: {}", e)))?;
         
         // Define schema for configurable dimensional embeddings
-        let embedding_dim = Config::embedding_dimensions();
+        let embedding_dim = Config::embedding_dimensions().unwrap_or(768);
         let schema = Arc::new(Schema::new(vec![
             Field::new("id", DataType::Utf8, false),
             Field::new("file_path", DataType::Utf8, false),
@@ -234,7 +249,7 @@ impl LanceDBStorage {
         chunk: &Chunk,
         embedding: Vec<f32>
     ) -> Result<(), LanceStorageError> {
-        let expected_dim = Config::embedding_dimensions();
+        let expected_dim = Config::embedding_dimensions().unwrap_or(768);
         if embedding.len() != expected_dim {
             return Err(LanceStorageError::InvalidInput(
                 format!("Embedding must be {}-dimensional, got {}", expected_dim, embedding.len())
@@ -262,7 +277,7 @@ impl LanceDBStorage {
         }
         
         // Validate all embeddings match expected dimensions
-        let expected_dim = Config::embedding_dimensions();
+        let expected_dim = Config::embedding_dimensions().unwrap_or(768);
         for record in &records {
             if record.embedding.len() != expected_dim {
                 return Err(LanceStorageError::InvalidInput(
@@ -280,7 +295,7 @@ impl LanceDBStorage {
         let end_lines: Vec<u64> = records.iter().map(|r| r.end_line).collect();
         
         // Flatten embeddings for FixedSizeListArray
-        let embedding_dim = Config::embedding_dimensions();
+        let embedding_dim = Config::embedding_dimensions().unwrap_or(768);
         let mut flat_embeddings = Vec::with_capacity(records.len() * embedding_dim);
         for record in &records {
             flat_embeddings.extend_from_slice(&record.embedding);
@@ -322,24 +337,15 @@ impl LanceDBStorage {
         
         let start = Instant::now();
         
-        retry_database_operation(
-            "insert_batch",
-            || {
-                let table = table.clone();
-                let batch_reader = RecordBatchIterator::new(vec![Ok(batch.clone())].into_iter(), self.schema.clone());
-                Box::pin(async move {
-                    table.add(batch_reader).execute().await
-                        .map_err(|e| anyhow::anyhow!("Insert failed: {}", e))
-                })
-            },
-            Some(RetryConfig::new().max_retries(2))
-        ).await.map_err(|e| LanceStorageError::InsertError(e.to_string()))?;
+        let batch_reader = RecordBatchIterator::new(vec![Ok(batch.clone())].into_iter(), self.schema.clone());
+        table.add(batch_reader).execute().await
+            .map_err(|e| LanceStorageError::InsertError(format!("Insert failed: {}", e)))?;
         
         let duration = start.elapsed();
         info!("✅ Inserted {} records into LanceDB in {:.3}s", records.len(), duration.as_secs_f64());
         
-        // Record metrics
-        metrics::metrics().record_embedding(duration, false);
+        // TODO: Add metrics back when available
+        // metrics::metrics().record_embedding(duration, false);
         
         Ok(())
     }
@@ -355,7 +361,7 @@ impl LanceDBStorage {
 
     /// Perform vector similarity search with advanced options
     pub async fn search_similar_with_options(&self, query_embedding: Vec<f32>, options: SearchOptions) -> Result<Vec<LanceEmbeddingRecord>, LanceStorageError> {
-        let expected_dim = Config::embedding_dimensions();
+        let expected_dim = Config::embedding_dimensions().unwrap_or(768);
         if query_embedding.len() != expected_dim {
             return Err(LanceStorageError::InvalidInput(
                 format!("Query embedding must be {}-dimensional, got {}", expected_dim, query_embedding.len())
@@ -381,18 +387,9 @@ impl LanceDBStorage {
         //         .map_err(|e| LanceStorageError::SearchError(format!("Filter failed: {}", e)))?;
         // }
         
-        // Execute search with retry logic
-        let mut stream = retry_database_operation(
-            "vector_search",
-            || {
-                let query = query.clone();
-                Box::pin(async move {
-                    query.execute().await
-                        .map_err(|e| anyhow::anyhow!("Search execution failed: {}", e))
-                })
-            },
-            Some(RetryConfig::new().max_retries(2))
-        ).await.map_err(|e| LanceStorageError::SearchError(e.to_string()))?;
+        // Execute search directly
+        let mut stream = query.execute().await
+            .map_err(|e| LanceStorageError::SearchError(format!("Search execution failed: {}", e)))?;
         
         // Convert results back to records
         let mut records = Vec::new();
@@ -429,7 +426,7 @@ impl LanceDBStorage {
                 let embedding_list = embedding_array.value(i);
                 let embedding_values = embedding_list.as_any().downcast_ref::<Float32Array>()
                     .ok_or_else(|| LanceStorageError::SearchError("Failed to extract embedding values".to_string()))?;
-                let embedding: Vec<f32> = (0..Config::embedding_dimensions()).map(|j| embedding_values.value(j)).collect();
+                let embedding: Vec<f32> = (0..Config::embedding_dimensions().unwrap_or(768)).map(|j| embedding_values.value(j)).collect();
                 
                 // Extract similarity score from the _distance column if available
                 let similarity_score = batch.column_by_name("_distance")
@@ -479,7 +476,8 @@ impl LanceDBStorage {
         info!("🔍 Vector search completed: {} results in {:.3}s", filtered_records.len(), duration.as_secs_f64());
         
         // Record search metrics
-        metrics::metrics().record_search(duration, filtered_records.len(), true);
+        // TODO: Add metrics back when available
+        // metrics::metrics().record_search(duration, filtered_records.len(), true);
         
         Ok(filtered_records)
     }
@@ -520,13 +518,12 @@ impl LanceDBStorage {
     
     /// Get storage info
     pub fn storage_info(&self) -> String {
-        format!("LanceDB vector storage ({}-dimensional embeddings)", Config::embedding_dimensions())
+        format!("LanceDB vector storage ({}-dimensional embeddings)", 
+                 Config::embedding_dimensions().unwrap_or(768))
     }
 }
 
-// Thread safety
-unsafe impl Send for LanceDBStorage {}
-unsafe impl Sync for LanceDBStorage {}
+// Thread safety is automatically provided by Arc<Connection> and Arc<Schema>
 
 #[cfg(test)]
 mod tests {
@@ -562,7 +559,7 @@ mod tests {
         };
         
         // Create real-looking embedding (normalized)
-        let mut embedding = vec![0.1f32; Config::embedding_dimensions()];
+        let mut embedding = vec![0.1f32; Config::embedding_dimensions().unwrap_or(768)];
         let norm = embedding.iter().map(|x| x * x).sum::<f32>().sqrt();
         for val in &mut embedding {
             *val /= norm;

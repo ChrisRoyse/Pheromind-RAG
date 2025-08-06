@@ -267,8 +267,8 @@ impl ThreeChunkExpander {
 
 ### **Integration Tasks (006-010): Bringing It Together**
 
-#### **Task 006: Ripgrep Integration**
-**Goal**: Set up ripgrep for exact text search  
+#### **Task 006: Tantivy Integration**
+**Goal**: Set up tantivy for exact text search and fuzzy matching  
 **Duration**: 2 hours  
 **Dependencies**: None
 
@@ -276,18 +276,12 @@ impl ThreeChunkExpander {
 ```rust
 use std::process::Command;
 
-pub struct RipgrepSearcher;
+pub struct TantivySearcher;
 
-impl RipgrepSearcher {
+impl TantivySearcher {
     pub fn search(&self, query: &str, path: &Path) -> Result<Vec<Match>> {
-        let output = Command::new("rg")
-            .args(&[
-                "--json",
-                "--max-count", "100",
-                query,
-                path.to_str().unwrap()
-            ])
-            .output()?;
+        // Use tantivy for text search with fuzzy matching
+        let results = self.tantivy_engine.search(query)?;
         
         let mut matches = Vec::new();
         
@@ -320,13 +314,13 @@ pub struct SimpleSearcher {
     embedder: MiniLMEmbedder,
     storage: VectorStorage,
     expander: ThreeChunkExpander,
-    ripgrep: RipgrepSearcher,
+    tantivy: TantivySearcher,
 }
 
 impl SimpleSearcher {
     pub async fn search(&self, query: &str) -> Result<Vec<SearchResult>> {
-        // 1. Exact search with ripgrep
-        let exact_matches = self.ripgrep.search(query, &self.project_path)?;
+        // 1. Exact and fuzzy search with tantivy
+        let exact_matches = self.tantivy.search(query, &self.project_path)?;
         
         // 2. Semantic search
         let query_embedding = self.embedder.embed(query)?;
@@ -377,7 +371,7 @@ impl SimpleSearcher {
 - **MiniLM Setup**: Embedder producing 384-dim vectors
 - **Vector Storage**: LanceDB initialized and storing embeddings
 - **3-Chunk Context**: All results include context
-- **Basic Search**: Ripgrep integration working
+- **Basic Search**: Tantivy integration working
 
 ### **Performance Requirements**
 - Chunking: <50ms per file
@@ -424,6 +418,6 @@ pub struct Match {
 2. **MiniLM Embeddings**: Single model setup complete  
 3. **Vector Storage**: LanceDB storing embeddings
 4. **3-Chunk Context**: Every result has context
-5. **Basic Search**: Ripgrep integration functional
+5. **Basic Search**: Tantivy integration functional
 
 **Next Phase**: Simple fusion and improved search accuracy

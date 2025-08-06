@@ -26,7 +26,7 @@ pub struct EmbeddingCache {
 impl EmbeddingCache {
     /// Create a new embedding cache using configuration values
     pub fn from_config() -> Self {
-        let config = Config::get();
+        let config = Config::get().unwrap_or_default();
         Self::new_with_persistence(config.embedding_cache_size, &config.cache_dir)
     }
 

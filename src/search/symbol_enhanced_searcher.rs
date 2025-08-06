@@ -5,7 +5,8 @@ use tokio::sync::RwLock;
 
 use crate::search::symbol_index::{SymbolIndexer, SymbolDatabase, Symbol, SymbolKind};
 use crate::search::unified::UnifiedSearcher;
-use crate::search::{SearchResult, FusedResult, MatchType};
+use crate::search::MatchType;
+use crate::search::unified::SearchResult;
 use crate::chunking::ChunkContext;
 
 /// Enhanced searcher that combines the existing hybrid search with symbol indexing

@@ -2,13 +2,12 @@ use std::path::Path;
 use anyhow::Result;
 use async_trait::async_trait;
 
-use crate::search::ExactMatch;
+use crate::search::{ExactMatch, TantivySearcher};
 
 /// Trait for text search backends that can be used interchangeably
 /// 
-/// This trait provides a unified interface for different search implementations
-/// including RipgrepSearcher and TantivySearcher, enabling seamless backend switching
-/// based on configuration without changing calling code.
+/// This trait provides a unified interface for TantivySearcher and other search implementations,
+/// enabling seamless backend switching based on configuration without changing calling code.
 #[async_trait]
 pub trait TextSearcher: Send + Sync {
     /// Search for the given query and return matching results
@@ -45,27 +44,11 @@ pub trait TextSearcher: Send + Sync {
 /// * `Result<Box<dyn TextSearcher>>` - A boxed trait object for the searcher
 pub async fn create_text_searcher(backend: &crate::config::SearchBackend) -> Result<Box<dyn TextSearcher>> {
     use crate::config::SearchBackend;
-    use crate::search::{RipgrepTextSearcher, TantivySearcher};
     
     match backend {
-        SearchBackend::Ripgrep => {
-            let searcher = RipgrepTextSearcher::new_with_current_dir()?;
-            Ok(Box::new(searcher))
-        },
         SearchBackend::Tantivy => {
             let searcher = TantivySearcher::new().await?;
             Ok(Box::new(searcher))
-        },
-        SearchBackend::Auto => {
-            // Try Tantivy first, fallback to Ripgrep if it fails
-            match TantivySearcher::new().await {
-                Ok(searcher) => Ok(Box::new(searcher)),
-                Err(_) => {
-                    eprintln!("⚠️  Failed to initialize Tantivy searcher, falling back to Ripgrep");
-                    let searcher = RipgrepTextSearcher::new_with_current_dir()?;
-                    Ok(Box::new(searcher))
-                }
-            }
         }
     }
 }
@@ -73,27 +56,11 @@ pub async fn create_text_searcher(backend: &crate::config::SearchBackend) -> Res
 /// Create a text searcher with a specific project root directory
 pub async fn create_text_searcher_with_root(backend: &crate::config::SearchBackend, project_root: std::path::PathBuf) -> Result<Box<dyn TextSearcher>> {
     use crate::config::SearchBackend;
-    use crate::search::{RipgrepTextSearcher, TantivySearcher};
     
     match backend {
-        SearchBackend::Ripgrep => {
-            let searcher = RipgrepTextSearcher::new(project_root);
-            Ok(Box::new(searcher))
-        },
         SearchBackend::Tantivy => {
             let searcher = TantivySearcher::new().await?;
             Ok(Box::new(searcher))
-        },
-        SearchBackend::Auto => {
-            // Try Tantivy first, fallback to Ripgrep if it fails
-            match TantivySearcher::new().await {
-                Ok(searcher) => Ok(Box::new(searcher)),
-                Err(_) => {
-                    eprintln!("⚠️  Failed to initialize Tantivy searcher, falling back to Ripgrep");
-                    let searcher = RipgrepTextSearcher::new(project_root);
-                    Ok(Box::new(searcher))
-                }
-            }
         }
     }
 }
@@ -106,19 +73,6 @@ mod tests {
     use std::fs;
 
     #[tokio::test]
-    async fn test_create_ripgrep_searcher() {
-        let searcher = create_text_searcher(&SearchBackend::Ripgrep).await.unwrap();
-        
-        // Basic trait object functionality test
-        let temp_dir = TempDir::new().unwrap();
-        let test_file = temp_dir.path().join("test.rs");
-        fs::write(&test_file, "fn test() { println!(\"hello\"); }").unwrap();
-        
-        // This should work without panicking (actual functionality tested elsewhere)
-        assert!(searcher.search("test").await.is_ok());
-    }
-
-    #[tokio::test]
     async fn test_create_tantivy_searcher() {
         let searcher = create_text_searcher(&SearchBackend::Tantivy).await.unwrap();
         
@@ -128,19 +82,6 @@ mod tests {
         fs::write(&test_file, "fn test() { println!(\"hello\"); }").unwrap();
         
         // This should work without panicking (actual functionality tested elsewhere)
-        assert!(searcher.search("test").await.is_ok());
-    }
-
-    #[tokio::test]
-    async fn test_auto_backend_selection() {
-        let searcher = create_text_searcher(&SearchBackend::Auto).await.unwrap();
-        
-        // Auto should successfully create some searcher
-        let temp_dir = TempDir::new().unwrap();
-        let test_file = temp_dir.path().join("test.rs");
-        fs::write(&test_file, "fn test() { println!(\"hello\"); }").unwrap();
-        
-        // This should work without panicking
         assert!(searcher.search("test").await.is_ok());
     }
 }

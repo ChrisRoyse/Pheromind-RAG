@@ -84,8 +84,8 @@ Our testing revealed the **TRUE** high-impact features:
 #### **P.1: Simple Search with 3-Chunk Context**
 ```
 function search_code(query: str) -> SearchResults:
-    // 1. Get exact matches with ripgrep
-    exact_matches = ripgrep_search(query)
+    // 1. Get exact and fuzzy matches with tantivy
+    exact_matches = tantivy_search(query)
     
     // 2. Generate query embedding
     query_embedding = minilm_embedder.encode(query)
@@ -171,7 +171,7 @@ function simple_fusion(exact_matches, semantic_matches) -> FusedResults:
 ├─────────────────────────────────────────────────────────────────┤
 │  Core Search Layer                                             │
 │  ┌─────────────┐ ┌─────────────┐ ┌─────────────┐              │
-│  │   Ripgrep   │ │   MiniLM    │ │   Simple    │              │
+│  │   Tantivy   │ │   MiniLM    │ │   Simple    │              │
 │  │   Search    │ │  Embedder   │ │   Fusion    │              │
 │  └─────────────┘ └─────────────┘ └─────────────┘              │
 ├─────────────────────────────────────────────────────────────────┤
@@ -231,7 +231,7 @@ function simple_fusion(exact_matches, semantic_matches) -> FusedResults:
 ### **Phase 2: Search & Simple Fusion (Week 2)**  
 **Tasks**: 011-020
 **Goal**: Implement search with simple fusion
-**Key Features**: Ripgrep integration, vector search, simple scoring
+**Key Features**: Tantivy integration, vector search, simple scoring
 
 ### **Phase 3: Git File Watching (Week 3)**
 **Tasks**: 021-030  
@@ -316,7 +316,7 @@ function simple_fusion(exact_matches, semantic_matches) -> FusedResults:
 - **Embeddings**: all-MiniLM-L6-v2 (384 dimensions)
 - **Chunking**: Pure regex patterns
 - **Storage**: LanceDB vector database
-- **Search**: Ripgrep for exact matching
+- **Search**: Tantivy for exact matching
 - **Watching**: Git status monitoring
 - **API**: MCP protocol
 

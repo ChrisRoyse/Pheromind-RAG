@@ -5,3 +5,26 @@
 *.cache
 config.toml
 .embedrc
+
+# Agent files (too many to track)
+.claude/agents/
+
+# Test directories and databases
+test_bm25_accuracy_db/
+vectortest/
+
+# Documentation files (temporary/generated)
+COMPILATION_FIX_SUMMARY.md
+GGUF_ARCHITECTURE_BLUEPRINT.md
+MODEL_INTEGRITY_FRAMEWORK.md
+PERFORMANCE_OPTIMIZATION_STRATEGY.md
+TESTING_STRATEGY.md
+TRANSFORMER_IMPLEMENTATION_PLAN.md
+
+# Docs subdirectories
+docs/fixissues/
+docs/subagent_list.md
+docs/systemstatus.md
+
+# Miscellaneous
+nul
