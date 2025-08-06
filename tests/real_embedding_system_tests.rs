@@ -1,9 +1,12 @@
 use embed_search::embedding::NomicEmbedder;
 use embed_search::storage::{LanceDBStorage, LanceEmbeddingRecord};
 use embed_search::chunking::{SimpleRegexChunker, Chunk};
+use embed_search::search::unified::UnifiedSearcher;
+use embed_search::git::{GitWatcher, VectorUpdater, WatchCommand, FileChange};
 use std::path::PathBuf;
 use std::fs;
 use std::sync::Arc;
+use tokio::sync::RwLock;
 use tempfile::TempDir;
 
 /// Test the REAL embedding system with actual Nomic Embed Text v1.5 model
@@ -280,4 +283,183 @@ fn cosine_similarity(a: &[f32], b: &[f32]) -> f32 {
     } else {
         dot_product / (norm_a * norm_b)
     }
+}
+
+#[tokio::test]
+async fn test_git_tracking_with_768d_nomic_embeddings() {
+    println!("\n🔍 TESTING GIT TRACKING WITH 768D NOMIC EMBEDDINGS");
+    println!("{}", "=".repeat(60));
+    
+    // Step 1: Initialize Nomic embedder (768D)
+    println!("\n1️⃣ Initializing Nomic embedder...");
+    let embedder = match NomicEmbedder::get_global().await {
+        Ok(model) => {
+            assert_eq!(model.dimensions(), 768, "Should be 768D Nomic embeddings");
+            println!("   ✅ Nomic embedder initialized with 768D embeddings");
+            model
+        },
+        Err(e) => {
+            println!("   ⚠️ Skipping git tracking test - model not available: {}", e);
+            return;
+        }
+    };
+    
+    // Step 2: Create temporary git repository for testing
+    println!("\n2️⃣ Setting up test git repository...");
+    let temp_dir = TempDir::new().expect("Failed to create temp directory");
+    let repo_path = temp_dir.path().to_path_buf();
+    let db_path = repo_path.join("test_vectors_768d.db");
+    
+    // Initialize git repository
+    std::process::Command::new("git")
+        .args(&["init"])
+        .current_dir(&repo_path)
+        .output()
+        .expect("Failed to initialize git repository");
+    println!("   ✅ Git repository initialized at: {:?}", repo_path);
+    
+    // Step 3: Create test files
+    println!("\n3️⃣ Creating test files...");
+    let test_file1 = repo_path.join("example.py");
+    fs::write(&test_file1, "def hello():\n    print('Hello World')\n").unwrap();
+    
+    let test_file2 = repo_path.join("data.sql");
+    fs::write(&test_file2, "SELECT * FROM users WHERE active = true;\n").unwrap();
+    
+    let test_file3 = repo_path.join("app.js");
+    fs::write(&test_file3, "function processData(data) { return data.map(x => x * 2); }\n").unwrap();
+    
+    println!("   ✅ Created 3 test files");
+    
+    // Step 4: Initialize UnifiedSearcher with 768D configuration
+    println!("\n4️⃣ Initializing UnifiedSearcher with 768D support...");
+    let searcher = Arc::new(
+        UnifiedSearcher::new(repo_path.clone(), db_path.clone()).await
+            .expect("Failed to create searcher")
+    );
+    let storage = Arc::new(RwLock::new(
+        LanceDBStorage::new(db_path.clone()).await
+            .expect("Failed to create storage")
+    ));
+    
+    // Verify storage accepts 768D embeddings
+    storage.write().await.init_table().await.expect("Failed to init table");
+    println!("   ✅ Storage initialized for 768D embeddings");
+    
+    // Step 5: Index initial files
+    println!("\n5️⃣ Indexing initial files...");
+    for file in &[&test_file1, &test_file2, &test_file3] {
+        searcher.index_file(file).await.expect("Failed to index file");
+    }
+    println!("   ✅ Indexed 3 files with 768D embeddings");
+    
+    // Step 6: Test GitWatcher detects changes
+    println!("\n6️⃣ Testing GitWatcher change detection...");
+    let watcher = GitWatcher::new(repo_path.clone());
+    
+    // Add files to git staging
+    std::process::Command::new("git")
+        .args(&["add", "."])
+        .current_dir(&repo_path)
+        .output()
+        .expect("Failed to add files to git");
+    
+    // Commit initial files
+    std::process::Command::new("git")
+        .args(&["commit", "-m", "Initial commit"])
+        .current_dir(&repo_path)
+        .output()
+        .expect("Failed to commit");
+    
+    // Modify a file
+    fs::write(&test_file1, "def hello():\n    print('Hello 768D World!')\n    return 768\n").unwrap();
+    
+    // Check for changes
+    let changes = watcher.get_changes().expect("Failed to get changes");
+    assert_eq!(changes.len(), 1, "Should detect 1 modified file");
+    
+    match &changes[0] {
+        FileChange::Modified(path) => {
+            assert_eq!(path.file_name().unwrap().to_str().unwrap(), "example.py");
+            println!("   ✅ Detected modification of example.py");
+        },
+        _ => panic!("Expected Modified change type"),
+    }
+    
+    // Step 7: Test VectorUpdater with 768D embeddings
+    println!("\n7️⃣ Testing VectorUpdater with 768D embeddings...");
+    let updater = VectorUpdater::new(searcher.clone(), storage.clone());
+    
+    // Update the modified file
+    for change in &changes {
+        match change {
+            FileChange::Modified(path) => {
+                updater.update_file(path, change).await
+                    .expect("Failed to update file embeddings");
+            },
+            _ => {},
+        }
+    }
+    println!("   ✅ Updated embeddings for modified file");
+    
+    // Step 8: Verify new 768D embeddings were created
+    println!("\n8️⃣ Verifying new 768D embeddings...");
+    
+    // Search for the updated content
+    let search_results = searcher.search("768D World").await
+        .expect("Failed to search");
+    
+    assert!(!search_results.is_empty(), "Should find results for updated content");
+    assert!(search_results[0].file.contains("example.py"), 
+            "Should find the updated Python file");
+    println!("   ✅ Found updated content with 768D embeddings");
+    
+    // Step 9: Test batch update with multiple changes
+    println!("\n9️⃣ Testing batch update with multiple files...");
+    
+    // Create more changes
+    fs::write(&test_file2, "SELECT * FROM users WHERE active = true AND created > '2024-01-01';\n").unwrap();
+    fs::write(&test_file3, "function processData(data) { return data.map(x => x * 768); }\n").unwrap();
+    
+    let batch_changes = watcher.get_changes().expect("Failed to get batch changes");
+    assert!(batch_changes.len() >= 2, "Should detect multiple changes");
+    
+    let stats = updater.batch_update(batch_changes).await
+        .expect("Failed to batch update");
+    
+    println!("   ✅ Batch update complete: {} files updated", stats.updated_files);
+    assert!(stats.updated_files >= 2, "Should update at least 2 files");
+    
+    // Step 10: Test WatchCommand integration
+    println!("\n🔟 Testing WatchCommand with 768D system...");
+    let watch_command = WatchCommand::new(repo_path.clone(), searcher.clone(), storage.clone());
+    
+    // Create another change
+    let new_file = repo_path.join("new_feature.rs");
+    fs::write(&new_file, "fn process_embeddings() -> Vec<f32> {\n    vec![0.0; 768]\n}\n").unwrap();
+    
+    // Run once to detect and process the new file
+    let final_stats = watch_command.run_once().await
+        .expect("Failed to run watch command");
+    
+    assert!(final_stats.updated_files > 0, "Should detect and index new file");
+    println!("   ✅ WatchCommand processed {} files", final_stats.updated_files);
+    
+    // Verify the new file was indexed with 768D embeddings
+    let rust_results = searcher.search("process_embeddings 768").await
+        .expect("Failed to search for new content");
+    
+    assert!(!rust_results.is_empty(), "Should find the new Rust file");
+    println!("   ✅ New file indexed with 768D embeddings");
+    
+    println!("\n" + &"=".repeat(60));
+    println!("✅ GIT TRACKING WITH 768D NOMIC EMBEDDINGS: ALL TESTS PASSED!");
+    println!(&"=".repeat(60));
+    println!("\n📊 Summary:");
+    println!("  • GitWatcher detects file changes ✓");
+    println!("  • VectorUpdater re-embeds with 768D ✓");
+    println!("  • Batch updates work correctly ✓");
+    println!("  • WatchCommand integrates properly ✓");
+    println!("  • Search finds updated content ✓");
+    println!("\n🚀 Git tracking system fully compatible with 768D Nomic embeddings!");
 }

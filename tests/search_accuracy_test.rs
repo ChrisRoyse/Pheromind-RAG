@@ -2,8 +2,7 @@ use std::path::PathBuf;
 use std::sync::Arc;
 use once_cell::sync::Lazy;
 use tokio::sync::OnceCell;
-use embed_lib::search::unified::{UnifiedSearcher, SearchResult};
-use embed_lib::storage::lancedb_storage::LanceDBStorage;
+use embed_search::search::unified::{UnifiedSearcher, IndexStats};
 
 /// Shared test setup that only indexes once
 static TEST_SETUP: Lazy<OnceCell<Arc<TestEnvironment>>> = Lazy::new(|| OnceCell::new());
@@ -36,11 +35,17 @@ impl TestEnvironment {
             
             // Index the vectortest directory ONCE
             println!("📚 Indexing vectortest directory (one-time operation)...");
-            let stats = searcher.index_directory(&vectortest_path)
-                .await
-                .expect("Failed to index directory");
-            
-            println!("✅ Indexed {} files with {} chunks", stats.files_indexed, stats.chunks_created);
+            println!("📚 vectortest_path: {:?}", vectortest_path);
+            println!("📚 vectortest exists: {}", vectortest_path.exists());
+            match searcher.index_directory(&vectortest_path).await {
+                Ok(stats) => {
+                    println!("✅ Indexed {} files with {} chunks", stats.files_indexed, stats.chunks_created);
+                },
+                Err(e) => {
+                    println!("❌ Failed to index directory: {}", e);
+                    panic!("Index failed: {}", e);
+                }
+            }
             
             Arc::new(Self {
                 searcher,
@@ -64,7 +69,61 @@ mod accuracy_tests {
     
     #[tokio::test]
     async fn test_search_accuracy_suite() {
-        let env = TestEnvironment::get_or_init().await;
+        // Temporarily use direct setup to see debug output
+        println!("🔧 Initializing test environment (direct setup for debugging)...");
+        
+        let project_root = std::env::current_dir().unwrap();
+        let vectortest_path = project_root.join("vectortest");
+        let db_path = project_root.join("test_accuracy_db");
+        
+        // Clean up any existing test database
+        if db_path.exists() {
+            std::fs::remove_dir_all(&db_path).ok();
+        }
+        
+        // Create searcher with test file exclusion disabled to index everything
+        let searcher = UnifiedSearcher::new_with_config(
+            project_root.clone(),
+            db_path,
+            true // include test files for comprehensive testing
+        ).await.expect("Failed to create searcher");
+        
+        // Index the vectortest directory ONCE
+        println!("📚 Indexing vectortest directory (direct setup)...");
+        println!("📚 vectortest_path: {:?}", vectortest_path);
+        println!("📚 vectortest exists: {}", vectortest_path.exists());
+        println!("📚 vectortest is_dir: {}", vectortest_path.is_dir());
+        
+        // Try to list directory contents manually
+        match std::fs::read_dir(&vectortest_path) {
+            Ok(entries) => {
+                println!("📚 Directory contents:");
+                for entry in entries {
+                    if let Ok(entry) = entry {
+                        println!("  - {:?}", entry.path());
+                    }
+                }
+            },
+            Err(e) => println!("❌ Cannot read directory: {}", e),
+        }
+        
+        println!("📚 About to call index_directory...");
+        let stats = match searcher.index_directory(&vectortest_path).await {
+            Ok(stats) => {
+                println!("✅ Indexed {} files with {} chunks", stats.files_indexed, stats.chunks_created);
+                stats
+            },
+            Err(e) => {
+                println!("❌ Failed to index directory: {}", e);
+                panic!("Index failed: {}", e);
+            }
+        };
+        println!("📚 index_directory call completed successfully");
+        
+        let env = Arc::new(TestEnvironment {
+            searcher,
+            vectortest_path: vectortest_path.clone(),
+        });
         
         let test_cases = vec![
             // Language-specific searches

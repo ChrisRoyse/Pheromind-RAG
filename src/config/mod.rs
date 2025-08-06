@@ -58,7 +58,7 @@ impl Default for Config {
             max_search_results: 20,
             ripgrep_fallback: true,
             model_name: "sentence-transformers/all-MiniLM-L6-v2".to_string(),
-            embedding_dimensions: 384,
+            embedding_dimensions: 768,
             log_level: "info".to_string(),
         }
     }

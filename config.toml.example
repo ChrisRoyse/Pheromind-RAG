@@ -77,8 +77,8 @@ model_name = "sentence-transformers/all-MiniLM-L6-v2"
 
 # Dimensions of the embedding vectors
 # Must match the model's output dimensions
-# all-MiniLM-L6-v2 produces 384-dimensional embeddings
-embedding_dimensions = 384
+# Nomic embeddings produce 768-dimensional embeddings
+embedding_dimensions = 768
 
 # Logging Configuration
 # =====================

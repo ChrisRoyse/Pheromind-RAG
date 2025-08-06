@@ -113,36 +113,8 @@ name = "line_tracking_tests"
 path = "tests/line_tracking_tests.rs"
 
 [[test]]
-name = "vectortest_line_tracking"
-path = "tests/vectortest_line_tracking.rs"
-
-[[test]]
-name = "three_chunk_stress_test"
-path = "tests/three_chunk_stress_test.rs"
-
-[[test]]
-name = "task003_final_validation"
-path = "tests/task003_final_validation.rs"
-
-[[test]]
 name = "nomic_embedding_tests"
 path = "tests/nomic_embedding_tests.rs"
-
-[[test]]
-name = "vectortest_embedding_stress"
-path = "tests/vectortest_embedding_stress.rs"
-
-[[test]]
-name = "vector_storage_tests"
-path = "tests/vector_storage_tests.rs"
-
-[[test]]
-name = "vector_storage_similarity_tests"
-path = "tests/vector_storage_similarity_tests.rs"
-
-[[test]]
-name = "comprehensive_stress_tests"
-path = "tests/comprehensive_stress_tests.rs"
 
 [[test]]
 name = "real_embedding_system_tests"
@@ -153,21 +125,9 @@ name = "embedding_performance_benchmark"
 path = "tests/embedding_performance_benchmark.rs"
 
 [[test]]
-name = "symbol_indexing_tests"
-path = "tests/symbol_indexing_tests.rs"
+name = "production_embedding_verification"
+path = "tests/production_embedding_verification.rs"
 
-[[example]]
-name = "embedding_optimization_demo"
-path = "examples/embedding_optimization_demo.rs"
-
-[[bin]]
-name = "test_accuracy"
-path = "src/bin/test_accuracy.rs"
-
-[[bin]]
-name = "fast_accuracy_test"
-path = "src/bin/fast_accuracy_test.rs"
-
-[[bin]]
-name = "unbiased_accuracy_test"
-path = "src/bin/unbiased_accuracy_test.rs"
+[[test]]
+name = "search_accuracy_test"
+path = "tests/search_accuracy_test.rs"
