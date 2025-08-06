@@ -2,12 +2,14 @@ use std::collections::HashSet;
 use crate::search::ripgrep::ExactMatch;
 use crate::storage::lancedb_storage::LanceEmbeddingRecord;
 use crate::search::symbol_index::Symbol;
+use crate::search::bm25::BM25Match;
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum MatchType {
     Exact,
     Semantic,
     Symbol,
+    Statistical,  // BM25/TF-IDF matches
 }
 
 #[derive(Debug, Clone)]
@@ -174,6 +176,142 @@ impl SimpleFusion {
         // Take top 20 results
         results.truncate(20);
         results
+    }
+    
+    /// Enhanced fusion with BM25 results (4-way fusion)
+    pub fn fuse_all_results_with_bm25(
+        &self,
+        exact_matches: Vec<ExactMatch>,
+        semantic_matches: Vec<LanceEmbeddingRecord>,
+        symbol_matches: Vec<Symbol>,
+        bm25_matches: Vec<BM25Match>,
+    ) -> Vec<FusedResult> {
+        let mut seen = HashSet::new();
+        let mut results = Vec::new();
+        
+        // 1. Process exact matches first (highest priority)
+        for exact in exact_matches {
+            let key = format!("{}-{}", exact.file_path, exact.line_number);
+            if seen.insert(key) {
+                results.push(FusedResult {
+                    file_path: exact.file_path,
+                    line_number: Some(exact.line_number),
+                    chunk_index: None,
+                    score: 1.0, // Exact matches get perfect score
+                    match_type: MatchType::Exact,
+                    content: exact.content,
+                    start_line: exact.line_number,
+                    end_line: exact.line_number,
+                });
+            }
+        }
+        
+        // 2. Process BM25 matches (high priority for statistical relevance)
+        for bm25 in bm25_matches {
+            // Extract file path and chunk index from doc_id (format: "filepath-chunkindex")
+            let parts: Vec<&str> = bm25.doc_id.rsplitn(2, '-').collect();
+            let (file_path, chunk_index) = if parts.len() == 2 {
+                (parts[1].to_string(), parts[0].parse::<usize>().ok())
+            } else {
+                (bm25.doc_id.clone(), None)
+            };
+            
+            let key = format!("bm25-{}", bm25.doc_id);
+            if seen.insert(key) {
+                // Normalize BM25 score (typically ranges from 0-20, normalize to 0-0.9)
+                let normalized_score = (bm25.score / 10.0).min(0.9);
+                
+                results.push(FusedResult {
+                    file_path,
+                    line_number: None,
+                    chunk_index,
+                    score: normalized_score,
+                    match_type: MatchType::Statistical,
+                    content: format!("BM25 match (score: {:.2})", bm25.score),
+                    start_line: 0,
+                    end_line: 0,
+                });
+            }
+        }
+        
+        // 3. Process symbol matches
+        for symbol in symbol_matches {
+            let key = format!("{}-{}", symbol.file_path, symbol.line_start);
+            if seen.insert(key.clone()) {
+                results.push(FusedResult {
+                    file_path: symbol.file_path.clone(),
+                    line_number: Some(symbol.line_start),
+                    chunk_index: None,
+                    score: 0.95, // Symbol matches get high score
+                    match_type: MatchType::Symbol,
+                    content: format!("{} ({:?})", symbol.name, symbol.kind),
+                    start_line: symbol.line_start,
+                    end_line: symbol.line_end,
+                });
+            }
+        }
+        
+        // 4. Process semantic matches
+        for (idx, semantic) in semantic_matches.into_iter().enumerate() {
+            // Skip if we already have a better match for this location
+            let file_has_better_match = results.iter().any(|r| {
+                r.file_path == semantic.file_path && 
+                (r.match_type == MatchType::Exact || 
+                 r.match_type == MatchType::Symbol ||
+                 r.match_type == MatchType::Statistical) &&
+                r.start_line <= semantic.end_line as usize &&
+                r.end_line >= semantic.start_line as usize
+            });
+            
+            if !file_has_better_match {
+                let key = format!("{}-{}", semantic.file_path, semantic.chunk_index);
+                if seen.insert(key) {
+                    // Calculate similarity score based on position in results
+                    let similarity = 1.0 - (idx as f32 / 100.0);
+                    
+                    results.push(FusedResult {
+                        file_path: semantic.file_path,
+                        line_number: None,
+                        chunk_index: Some(semantic.chunk_index as usize),
+                        score: similarity * 0.7, // Semantic scores are reduced
+                        match_type: MatchType::Semantic,
+                        content: semantic.content,
+                        start_line: semantic.start_line as usize,
+                        end_line: semantic.end_line as usize,
+                    });
+                }
+            }
+        }
+        
+        // Apply weighted fusion scoring
+        self.apply_weighted_fusion(&mut results, 0.4, 0.25, 0.25, 0.1);
+        
+        // Sort by final score
+        results.sort_by(|a, b| b.score.partial_cmp(&a.score).unwrap());
+        
+        // Take top 20 results
+        results.truncate(20);
+        results
+    }
+    
+    /// Apply weighted fusion to combine scores from different search types
+    fn apply_weighted_fusion(
+        &self,
+        results: &mut Vec<FusedResult>,
+        exact_weight: f32,
+        bm25_weight: f32,
+        semantic_weight: f32,
+        symbol_weight: f32,
+    ) {
+        for result in results.iter_mut() {
+            let base_score = result.score;
+            result.score = match result.match_type {
+                MatchType::Exact => base_score * exact_weight,
+                MatchType::Statistical => base_score * bm25_weight,
+                MatchType::Semantic => base_score * semantic_weight,
+                MatchType::Symbol => base_score * symbol_weight,
+            };
+        }
     }
     
     pub fn optimize_ranking(&self, results: &mut Vec<FusedResult>, query: &str) {

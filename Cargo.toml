@@ -37,6 +37,7 @@ tokio = { version = "1.43", features = ["full"] }
 futures = "0.3"
 chrono = { version = "0.4", features = ["serde"] }
 once_cell = "1.19"
+async-trait = "0.1"
 
 # Configuration management
 toml = "0.8"
@@ -47,9 +48,19 @@ clap = { version = "4.4", features = ["derive"] }
 lru = "0.12"
 sha2 = "0.10"
 
+# BM25 and text processing
+rust-stemmers = "1.2"
+bincode = "1.3"
+unicode-normalization = "0.1"
+unicode-segmentation = "1.10"
+
 # Native search and parallel processing
 rayon = "1.7"
 walkdir = "2.4"
+
+# Tantivy for text search with fuzzy matching
+tantivy = "0.24"
+tantivy-jieba = "0.16"
 
 # Retry logic with exponential backoff
 backoff = "0.4"
@@ -92,6 +103,10 @@ tree-sitter-bash = "0.23"
 # tree-sitter-ocaml = "0.22" 
 # tree-sitter-haskell = "0.15"
 # tree-sitter-zig = "1.0"
+
+[[bin]]
+name = "tantivy_migrator"
+path = "src/bin/tantivy_migrator.rs"
 
 [features]
 default = []

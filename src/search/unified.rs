@@ -7,10 +7,14 @@ use crate::chunking::{SimpleRegexChunker, Chunk, ThreeChunkExpander, ChunkContex
 use crate::embedding::NomicEmbedder;
 use crate::storage::lancedb_storage::LanceDBStorage;
 use crate::search::{
-    RipgrepSearcher, SimpleFusion, QueryPreprocessor, SearchCache,
-    FusedResult, MatchType,
-    symbol_index::{SymbolIndexer, SymbolDatabase, Symbol, SymbolKind},
+    SimpleFusion, QueryPreprocessor, SearchCache, TextSearcher, create_text_searcher_with_root,
+    FusedResult, MatchType, ExactMatch,
+    symbol_index::{SymbolIndexer, SymbolDatabase, Symbol},
+    bm25::{BM25Engine, BM25Match, BM25Document, Token as BM25Token},
+    text_processor::CodeTextProcessor,
+    inverted_index::{InvertedIndex, DocumentMetadata},
 };
+use crate::config::Config;
 
 #[derive(Debug, Clone)]
 pub struct SearchResult {
@@ -21,13 +25,17 @@ pub struct SearchResult {
 }
 
 pub struct UnifiedSearcher {
-    ripgrep: RipgrepSearcher,
+    text_searcher: Arc<RwLock<Box<dyn TextSearcher>>>,
     embedder: Arc<NomicEmbedder>,
     storage: Arc<RwLock<LanceDBStorage>>,
     symbol_indexer: Arc<RwLock<SymbolIndexer>>,
     symbol_db: Arc<RwLock<SymbolDatabase>>,
+    // BM25 components
+    bm25_engine: Arc<RwLock<BM25Engine>>,
+    inverted_index: Arc<RwLock<InvertedIndex>>,
+    text_processor: CodeTextProcessor,
+    bm25_enabled: bool,
     chunker: SimpleRegexChunker,
-    expander: ThreeChunkExpander,
     fusion: SimpleFusion,
     preprocessor: QueryPreprocessor,
     cache: SearchCache,
@@ -40,14 +48,25 @@ impl UnifiedSearcher {
         Self::new_with_config(project_path, db_path, false).await
     }
     
+    /// Create a new UnifiedSearcher with a specific search backend
+    pub async fn new_with_backend(project_path: PathBuf, db_path: PathBuf, backend: crate::config::SearchBackend) -> Result<Self> {
+        Self::new_with_backend_and_config(project_path, db_path, backend, false).await
+    }
+    
     pub async fn new_with_config(project_path: PathBuf, db_path: PathBuf, include_test_files: bool) -> Result<Self> {
-        println!("🔄 Initializing Unified Searcher (include_test_files: {})...", include_test_files);
+        let backend = Config::search_backend();
+        Self::new_with_backend_and_config(project_path, db_path, backend, include_test_files).await
+    }
+    
+    /// Create a new UnifiedSearcher with a specific backend and config
+    pub async fn new_with_backend_and_config(project_path: PathBuf, db_path: PathBuf, backend: crate::config::SearchBackend, include_test_files: bool) -> Result<Self> {
+        println!("🔄 Initializing Unified Searcher (backend: {:?}, include_test_files: {})...", backend, include_test_files);
         
         // Initialize Nomic embedder with permanent model caching
         let embedder = NomicEmbedder::get_global().await
             .map_err(|e| anyhow!("Failed to initialize Nomic embedder: {}", e))?;
         
-        let storage = Arc::new(RwLock::new(LanceDBStorage::new(db_path).await?));
+        let storage = Arc::new(RwLock::new(LanceDBStorage::new(db_path.clone()).await?));
         
         // Initialize storage table
         storage.write().await.init_table().await?;
@@ -56,17 +75,51 @@ impl UnifiedSearcher {
         let symbol_indexer = Arc::new(RwLock::new(SymbolIndexer::new()?));
         let symbol_db = Arc::new(RwLock::new(SymbolDatabase::new()));
         
+        // Load configuration
+        let config = Config::default();
+        
+        // Initialize BM25 components
+        let bm25_engine = Arc::new(RwLock::new(BM25Engine::with_params(config.bm25_k1, config.bm25_b)));
+        let bm25_index_path = db_path.join(&config.bm25_index_path);
+        let mut inverted_index = InvertedIndex::new(bm25_index_path, config.bm25_cache_size)?;
+        
+        // Try to load existing index
+        if let Err(e) = inverted_index.load().await {
+            println!("⚠️ Could not load existing BM25 index: {}. Starting fresh.", e);
+        }
+        
+        let inverted_index = Arc::new(RwLock::new(inverted_index));
+        let text_processor = CodeTextProcessor::with_config(
+            config.enable_stemming,
+            config.enable_ngrams,
+            config.max_ngram_size,
+            config.bm25_min_term_length,
+            config.bm25_max_term_length,
+            config.bm25_stop_words.clone(),
+        );
+        let bm25_enabled = config.bm25_enabled;
+        
         println!("✅ Nomic embedder initialized with 768-dimensional embeddings");
         println!("✅ Symbol indexer initialized with tree-sitter parsers");
+        println!("✅ BM25 engine initialized with TF-IDF scoring");
         
+        // Create text searcher with specified backend
+        let text_searcher = create_text_searcher_with_root(&backend, project_path.clone()).await
+            .map_err(|e| anyhow!("Failed to create text searcher with backend {:?}: {}", backend, e))?;
+        
+        println!("✅ Text searcher initialized with backend: {:?}", backend);
+            
         Ok(Self {
-            ripgrep: RipgrepSearcher::new(),
+            text_searcher: Arc::new(RwLock::new(text_searcher)),
             embedder,
             storage,
             symbol_indexer,
             symbol_db,
+            bm25_engine,
+            inverted_index,
+            text_processor,
+            bm25_enabled,
             chunker: SimpleRegexChunker::new(),
-            expander: ThreeChunkExpander,
             fusion: SimpleFusion::new(),
             preprocessor: QueryPreprocessor::new(),
             cache: SearchCache::new(100),
@@ -86,22 +139,44 @@ impl UnifiedSearcher {
         let processed_query = self.preprocessor.preprocess(query);
         println!("🔍 Searching for: '{}' (preprocessed: '{}')", query, processed_query);
         
-        // Run ALL THREE searches in parallel
-        let (exact_matches, semantic_matches, symbol_matches) = tokio::join!(
-            self.search_exact(&processed_query),
-            self.search_semantic(&processed_query),
-            self.search_symbols(&processed_query)
-        );
-        
-        let exact_matches = exact_matches?;
-        let semantic_matches = semantic_matches?;
-        let symbol_matches = symbol_matches?;
-        
-        println!("📊 Found {} exact matches, {} semantic matches, and {} symbol matches", 
-                 exact_matches.len(), semantic_matches.len(), symbol_matches.len());
-        
-        // Fuse all three types of results
-        let mut fused = self.fusion.fuse_all_results(exact_matches, semantic_matches, symbol_matches);
+        // Run searches based on whether BM25 is enabled
+        let mut fused = if self.bm25_enabled {
+            // Run ALL FOUR searches in parallel
+            let (exact_matches, semantic_matches, symbol_matches, bm25_matches) = tokio::join!(
+                self.search_exact(&processed_query),
+                self.search_semantic(&processed_query),
+                self.search_symbols(&processed_query),
+                self.search_bm25(&processed_query)
+            );
+            
+            let exact_matches = exact_matches?;
+            let semantic_matches = semantic_matches?;
+            let symbol_matches = symbol_matches?;
+            let bm25_matches = bm25_matches?;
+            
+            println!("📊 Found {} exact, {} semantic, {} symbol, and {} BM25 matches", 
+                     exact_matches.len(), semantic_matches.len(), symbol_matches.len(), bm25_matches.len());
+            
+            // Fuse all four types of results
+            self.fusion.fuse_all_results_with_bm25(exact_matches, semantic_matches, symbol_matches, bm25_matches)
+        } else {
+            // Run original three searches
+            let (exact_matches, semantic_matches, symbol_matches) = tokio::join!(
+                self.search_exact(&processed_query),
+                self.search_semantic(&processed_query),
+                self.search_symbols(&processed_query)
+            );
+            
+            let exact_matches = exact_matches?;
+            let semantic_matches = semantic_matches?;
+            let symbol_matches = symbol_matches?;
+            
+            println!("📊 Found {} exact, {} semantic, and {} symbol matches", 
+                     exact_matches.len(), semantic_matches.len(), symbol_matches.len());
+            
+            // Fuse three types of results
+            self.fusion.fuse_all_results(exact_matches, semantic_matches, symbol_matches)
+        };
         
         // Optimize ranking
         self.fusion.optimize_ranking(&mut fused, &processed_query);
@@ -122,13 +197,9 @@ impl UnifiedSearcher {
         Ok(results)
     }
     
-    async fn search_exact(&self, query: &str) -> Result<Vec<crate::search::ripgrep::ExactMatch>> {
-        tokio::task::spawn_blocking({
-            let ripgrep = RipgrepSearcher::new();
-            let project_path = self.project_path.clone();
-            let query = query.to_string();
-            move || ripgrep.search(&query, &project_path)
-        }).await?
+    async fn search_exact(&self, query: &str) -> Result<Vec<ExactMatch>> {
+        let searcher = self.text_searcher.read().await;
+        searcher.search(query).await
     }
     
     async fn search_semantic(&self, query: &str) -> Result<Vec<crate::storage::lancedb_storage::LanceEmbeddingRecord>> {
@@ -158,6 +229,15 @@ impl UnifiedSearcher {
         Ok(symbols)
     }
     
+    async fn search_bm25(&self, query: &str) -> Result<Vec<BM25Match>> {
+        if !self.bm25_enabled {
+            return Ok(Vec::new());
+        }
+        
+        let engine = self.bm25_engine.read().await;
+        Ok(engine.search(query, 50))  // Get top 50 BM25 matches
+    }
+    
     async fn expand_to_three_chunk(&self, fused_match: FusedResult) -> Result<SearchResult> {
         // Read file content
         let file_path = PathBuf::from(&fused_match.file_path);
@@ -183,6 +263,10 @@ impl UnifiedSearcher {
             MatchType::Symbol => {
                 // Find chunk containing the symbol's line
                 self.find_chunk_for_line(&chunks, fused_match.line_number.unwrap_or(fused_match.start_line))
+            },
+            MatchType::Statistical => {
+                // Use the chunk index from BM25 match
+                fused_match.chunk_index.unwrap_or(0).min(chunks.len().saturating_sub(1))
             }
         };
         
@@ -282,6 +366,76 @@ impl UnifiedSearcher {
         // Insert all records in batch
         let storage = self.storage.write().await;
         storage.insert_batch(records).await?;
+        
+        // Index for BM25 if enabled
+        if self.bm25_enabled {
+            // Process chunks for BM25 indexing
+            for (idx, chunk) in chunks.iter().enumerate() {
+                let doc_id = format!("{}-{}", file_path.to_string_lossy(), idx);
+                
+                // Detect language for optimal processing
+                let language = file_path.extension()
+                    .and_then(|s| s.to_str())
+                    .and_then(|ext| match ext {
+                        "rs" => Some("rust"),
+                        "py" => Some("python"),
+                        "js" => Some("javascript"),
+                        "ts" => Some("typescript"),
+                        "go" => Some("go"),
+                        "java" => Some("java"),
+                        "cpp" | "cc" | "cxx" => Some("cpp"),
+                        "c" | "h" => Some("c"),
+                        _ => None,
+                    });
+                
+                // Tokenize chunk content for BM25
+                let processed_tokens = self.text_processor.tokenize_code(&chunk.content, language);
+                let bm25_tokens: Vec<BM25Token> = processed_tokens.iter()
+                    .map(|pt| BM25Token {
+                        text: pt.text.clone(),
+                        position: pt.position,
+                        importance_weight: pt.importance_weight,
+                    })
+                    .collect();
+                
+                // Create BM25 document
+                let bm25_doc = BM25Document {
+                    id: doc_id.clone(),
+                    file_path: file_path.to_string_lossy().to_string(),
+                    chunk_index: idx,
+                    tokens: bm25_tokens.clone(),
+                    start_line: chunk.start_line,
+                    end_line: chunk.end_line,
+                    language: language.map(|s| s.to_string()),
+                };
+                
+                // Add to BM25 engine
+                let mut engine = self.bm25_engine.write().await;
+                engine.add_document(bm25_doc)?;
+                
+                // Add to inverted index
+                let metadata = DocumentMetadata {
+                    file_path: file_path.to_string_lossy().to_string(),
+                    chunk_index: idx,
+                    length: bm25_tokens.len(),
+                    language: language.map(|s| s.to_string()),
+                    last_modified: chrono::Utc::now(),
+                };
+                
+                let mut index = self.inverted_index.write().await;
+                index.index_document(doc_id, bm25_tokens, metadata)?;
+            }
+            
+            // Save inverted index periodically
+            let mut index = self.inverted_index.write().await;
+            index.save().await?;
+            
+            println!("✅ Indexed {} chunks for BM25 from {:?}", chunks.len(), file_path);
+        }
+        
+        // Index file for text search (important for backends like Tantivy)
+        let mut text_searcher = self.text_searcher.write().await;
+        text_searcher.index_file(file_path).await?;
         
         println!("✅ Indexed {} chunks from {:?}", chunks.len(), file_path);
         Ok(())
@@ -397,6 +551,10 @@ impl UnifiedSearcher {
         let storage = self.storage.write().await;
         storage.clear_all().await?;
         self.cache.clear();
+        
+        // Clear text searcher index
+        let mut text_searcher = self.text_searcher.write().await;
+        text_searcher.clear_index().await?;
         
         // Clear symbol database
         let mut symbol_db = self.symbol_db.write().await;

@@ -1,9 +1,8 @@
 use embed_search::embedding::NomicEmbedder;
-use embed_search::storage::{LanceDBStorage, LanceEmbeddingRecord};
-use embed_search::chunking::{SimpleRegexChunker, Chunk};
+use embed_search::storage::lancedb_storage::{LanceDBStorage, LanceEmbeddingRecord};
+use embed_search::chunking::SimpleRegexChunker;
 use embed_search::search::unified::UnifiedSearcher;
-use embed_search::git::{GitWatcher, VectorUpdater, WatchCommand, FileChange};
-use std::path::PathBuf;
+use embed_search::git::watcher::{GitWatcher, VectorUpdater, WatchCommand, FileChange};
 use std::fs;
 use std::sync::Arc;
 use tokio::sync::RwLock;
@@ -190,7 +189,7 @@ async fn test_real_lancedb_integration() {
     // Process and store embeddings
     let mut stored_records = Vec::new();
     for (filename, code) in &test_codes {
-        let chunks = chunker.chunk_text(code);
+        let chunks = chunker.chunk_file(code);
         
         for (chunk_idx, chunk) in chunks.iter().enumerate() {
             let embedding = embedder.embed(&chunk.content).unwrap();
@@ -198,15 +197,15 @@ async fn test_real_lancedb_integration() {
             let record = LanceEmbeddingRecord {
                 id: format!("{}_{}", filename, chunk_idx),
                 file_path: filename.to_string(),
-                chunk_index: chunk_idx,
+                chunk_index: chunk_idx as u64,
                 content: chunk.content.clone(),
                 embedding,
-                start_line: chunk.start_line,
-                end_line: chunk.end_line,
-                metadata: serde_json::Value::Object(serde_json::Map::new()),
+                start_line: chunk.start_line as u64,
+                end_line: chunk.end_line as u64,
+                similarity_score: None,
             };
             
-            storage.store(&record).await.expect("Failed to store record");
+            storage.insert_batch(vec![record.clone()]).await.expect("Failed to store record");
             stored_records.push(record);
         }
     }
@@ -217,12 +216,12 @@ async fn test_real_lancedb_integration() {
     let query = "calculate mathematical operations";
     let query_embedding = embedder.embed(query).unwrap();
     
-    let search_results = storage.search(&query_embedding, 3).await.expect("Failed to search");
+    let search_results = storage.search_similar(query_embedding, 3).await.expect("Failed to search");
     assert!(!search_results.is_empty(), "Should find some search results");
     
     println!("🔍 Found {} search results for query: '{}'", search_results.len(), query);
     for (i, result) in search_results.iter().enumerate() {
-        println!("  {}. {} (similarity: {:.4})", i+1, result.file_path, result.similarity);
+        println!("  {}. {} (similarity: {:.4})", i+1, result.file_path, result.similarity_score.unwrap_or(0.0));
     }
     
     println!("✅ Real LanceDB integration test passed");
@@ -452,9 +451,9 @@ async fn test_git_tracking_with_768d_nomic_embeddings() {
     assert!(!rust_results.is_empty(), "Should find the new Rust file");
     println!("   ✅ New file indexed with 768D embeddings");
     
-    println!("\n" + &"=".repeat(60));
+    println!("\n{}", "=".repeat(60));
     println!("✅ GIT TRACKING WITH 768D NOMIC EMBEDDINGS: ALL TESTS PASSED!");
-    println!(&"=".repeat(60));
+    println!("{}", "=".repeat(60));
     println!("\n📊 Summary:");
     println!("  • GitWatcher detects file changes ✓");
     println!("  • VectorUpdater re-embeds with 768D ✓");

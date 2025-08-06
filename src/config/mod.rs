@@ -4,6 +4,46 @@ use anyhow::{Result, anyhow};
 use once_cell::sync::Lazy;
 use std::sync::RwLock;
 
+/// Search backend options
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub enum SearchBackend {
+    /// Use ripgrep for text search
+    Ripgrep,
+    /// Use Tantivy for full-text search with fuzzy matching
+    Tantivy,
+    /// Try Tantivy first, fallback to Ripgrep on failure
+    Auto,
+}
+
+impl Default for SearchBackend {
+    fn default() -> Self {
+        SearchBackend::Auto
+    }
+}
+
+impl std::fmt::Display for SearchBackend {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            SearchBackend::Ripgrep => write!(f, "Ripgrep"),
+            SearchBackend::Tantivy => write!(f, "Tantivy"),
+            SearchBackend::Auto => write!(f, "Auto"),
+        }
+    }
+}
+
+impl std::str::FromStr for SearchBackend {
+    type Err = anyhow::Error;
+    
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s.to_lowercase().as_str() {
+            "ripgrep" => Ok(SearchBackend::Ripgrep),
+            "tantivy" => Ok(SearchBackend::Tantivy),
+            "auto" => Ok(SearchBackend::Auto),
+            _ => Err(anyhow!("Invalid search backend '{}'. Valid options: ripgrep, tantivy, auto", s)),
+        }
+    }
+}
+
 /// Global configuration singleton
 pub static CONFIG: Lazy<RwLock<Config>> = Lazy::new(|| {
     RwLock::new(Config::default())
@@ -33,7 +73,10 @@ pub struct Config {
     /// Search configuration
     pub include_test_files: bool,
     pub max_search_results: usize,
-    pub ripgrep_fallback: bool,
+    pub search_backend: SearchBackend,
+    /// Legacy setting for backward compatibility
+    #[serde(default)]
+    pub ripgrep_fallback: Option<bool>,
     
     /// Model configuration
     pub model_name: String,
@@ -41,6 +84,27 @@ pub struct Config {
     
     /// Logging configuration
     pub log_level: String,
+    
+    /// BM25 configuration
+    pub bm25_enabled: bool,
+    pub bm25_k1: f32,
+    pub bm25_b: f32,
+    pub bm25_index_path: String,
+    pub bm25_cache_size: usize,
+    pub bm25_min_term_length: usize,
+    pub bm25_max_term_length: usize,
+    pub bm25_stop_words: Vec<String>,
+    
+    /// Enhanced fusion weights
+    pub fusion_exact_weight: f32,
+    pub fusion_bm25_weight: f32,
+    pub fusion_semantic_weight: f32,
+    pub fusion_symbol_weight: f32,
+    
+    /// Text processing configuration
+    pub enable_stemming: bool,
+    pub enable_ngrams: bool,
+    pub max_ngram_size: usize,
 }
 
 impl Default for Config {
@@ -56,10 +120,40 @@ impl Default for Config {
             enable_git_watch: true,
             include_test_files: false,
             max_search_results: 20,
-            ripgrep_fallback: true,
+            search_backend: SearchBackend::Auto,
+            ripgrep_fallback: None,
             model_name: "sentence-transformers/all-MiniLM-L6-v2".to_string(),
             embedding_dimensions: 768,
             log_level: "info".to_string(),
+            
+            // BM25 defaults (tuned for code search)
+            bm25_enabled: true,
+            bm25_k1: 1.2,
+            bm25_b: 0.75,
+            bm25_index_path: ".embed_bm25_index".to_string(),
+            bm25_cache_size: 100_000,
+            bm25_min_term_length: 2,
+            bm25_max_term_length: 50,
+            bm25_stop_words: vec![
+                // Only truly common English words, not programming keywords
+                "the".to_string(), "and".to_string(), "or".to_string(),
+                "a".to_string(), "an".to_string(), "is".to_string(),
+                "it".to_string(), "in".to_string(), "to".to_string(),
+                "of".to_string(), "as".to_string(), "at".to_string(),
+                "by".to_string(), "with".to_string(), "this".to_string(),
+                "that".to_string(), "from".to_string(),
+            ],
+            
+            // Fusion weights (optimized through testing)
+            fusion_exact_weight: 0.4,
+            fusion_bm25_weight: 0.25,
+            fusion_semantic_weight: 0.25,
+            fusion_symbol_weight: 0.1,
+            
+            // Text processing
+            enable_stemming: true,
+            enable_ngrams: true,
+            max_ngram_size: 3,
         }
     }
 }
@@ -207,9 +301,21 @@ impl Config {
         CONFIG.read().unwrap().max_search_results
     }
 
-    /// Check if ripgrep fallback is enabled
+    /// Get the search backend configuration
+    pub fn search_backend() -> SearchBackend {
+        CONFIG.read().unwrap().search_backend.clone()
+    }
+    
+    /// Check if ripgrep fallback is enabled (legacy compatibility)
     pub fn ripgrep_fallback() -> bool {
-        CONFIG.read().unwrap().ripgrep_fallback
+        let config = CONFIG.read().unwrap();
+        // Handle backward compatibility
+        if let Some(legacy_ripgrep) = config.ripgrep_fallback {
+            legacy_ripgrep
+        } else {
+            // Default behavior based on search_backend
+            matches!(config.search_backend, SearchBackend::Ripgrep | SearchBackend::Auto)
+        }
     }
 
     /// Get model name
@@ -274,6 +380,9 @@ impl Config {
             "error" | "warn" | "info" | "debug" | "trace" => {},
             _ => return Err(anyhow!("log_level must be one of: error, warn, info, debug, trace")),
         }
+        
+        // Validate search backend - SearchBackend enum already handles validation via FromStr
+        // No additional validation needed here
 
         Ok(())
     }
@@ -304,7 +413,8 @@ Git Watching:
 Search:
   include_test_files: {}
   max_search_results: {}
-  ripgrep_fallback: {}
+  search_backend: {}
+  ripgrep_fallback: {} (legacy)
 
 Model:
   model_name: {}
@@ -323,7 +433,8 @@ Logging:
             self.git_poll_interval_secs,
             self.include_test_files,
             self.max_search_results,
-            self.ripgrep_fallback,
+            self.search_backend,
+            self.ripgrep_fallback.map(|b| b.to_string()).unwrap_or_else(|| "none".to_string()),
             self.model_name,
             self.embedding_dimensions,
             self.log_level
@@ -342,7 +453,9 @@ mod tests {
         assert_eq!(config.chunk_size, 100);
         assert_eq!(config.embedding_cache_size, 10000);
         assert_eq!(config.batch_size, 32);
-        assert_eq!(config.embedding_dimensions, 384);
+        assert_eq!(config.embedding_dimensions, 768);
+        assert_eq!(config.search_backend, SearchBackend::Auto);
+        assert_eq!(config.ripgrep_fallback, None);
         assert!(config.validate().is_ok());
     }
 
@@ -362,6 +475,61 @@ mod tests {
         // Test valid config
         config = Config::default();
         assert!(config.validate().is_ok());
+    }
+
+    #[test]
+    fn test_search_backend_enum() {
+        use std::str::FromStr;
+        
+        // Test string parsing
+        assert_eq!(SearchBackend::from_str("ripgrep").unwrap(), SearchBackend::Ripgrep);
+        assert_eq!(SearchBackend::from_str("TANTIVY").unwrap(), SearchBackend::Tantivy);
+        assert_eq!(SearchBackend::from_str("Auto").unwrap(), SearchBackend::Auto);
+        assert!(SearchBackend::from_str("invalid").is_err());
+        
+        // Test display
+        assert_eq!(SearchBackend::Ripgrep.to_string(), "Ripgrep");
+        assert_eq!(SearchBackend::Tantivy.to_string(), "Tantivy");
+        assert_eq!(SearchBackend::Auto.to_string(), "Auto");
+        
+        // Test default
+        assert_eq!(SearchBackend::default(), SearchBackend::Auto);
+    }
+
+    #[test]
+    fn test_backward_compatibility() {
+        let mut config = Config::default();
+        
+        // Test with no legacy setting
+        config.search_backend = SearchBackend::Auto;
+        config.ripgrep_fallback = None;
+        assert!(Config::ripgrep_fallback()); // Auto should return true for backward compatibility
+        
+        // Test with legacy setting true
+        config.search_backend = SearchBackend::Tantivy;
+        config.ripgrep_fallback = Some(true);
+        *CONFIG.write().unwrap() = config.clone();
+        assert!(Config::ripgrep_fallback()); // Legacy override should work
+        
+        // Test with legacy setting false
+        config.ripgrep_fallback = Some(false);
+        *CONFIG.write().unwrap() = config.clone();
+        assert!(!Config::ripgrep_fallback()); // Legacy override should work
+        
+        // Reset to default for other tests
+        *CONFIG.write().unwrap() = Config::default();
+    }
+
+    #[test]
+    fn test_search_backend_method() {
+        let mut config = Config::default();
+        config.search_backend = SearchBackend::Tantivy;
+        *CONFIG.write().unwrap() = config;
+        
+        assert_eq!(Config::search_backend(), SearchBackend::Tantivy);
+        
+        // Reset to default for other tests
+        *CONFIG.write().unwrap() = Config::default();
     }
 
     #[test]

@@ -2,6 +2,7 @@ use std::path::Path;
 use std::process::Command;
 use anyhow::{Result, anyhow};
 use serde::{Deserialize, Serialize};
+use async_trait::async_trait;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ExactMatch {
@@ -172,6 +173,45 @@ impl RipgrepSearcher {
             ),
             None => false,
         }
+    }
+}
+
+pub struct RipgrepTextSearcher {
+    ripgrep: RipgrepSearcher,
+    project_root: std::path::PathBuf,
+}
+
+impl RipgrepTextSearcher {
+    pub fn new(project_root: std::path::PathBuf) -> Self {
+        Self {
+            ripgrep: RipgrepSearcher::new(),
+            project_root,
+        }
+    }
+    
+    pub fn new_with_current_dir() -> Result<Self> {
+        let current_dir = std::env::current_dir()?;
+        Ok(Self::new(current_dir))
+    }
+}
+
+#[async_trait]
+impl crate::search::search_adapter::TextSearcher for RipgrepTextSearcher {
+    async fn search(&self, query: &str) -> Result<Vec<ExactMatch>> {
+        // For RipgrepSearcher, we search in the configured project root
+        // Since ripgrep doesn't maintain an index, we search on-demand
+        self.ripgrep.search(query, &self.project_root)
+    }
+    
+    async fn index_file(&mut self, _file_path: &Path) -> Result<()> {
+        // RipgrepSearcher doesn't maintain an index, so this is a no-op
+        // The search is performed on-demand against the filesystem
+        Ok(())
+    }
+    
+    async fn clear_index(&mut self) -> Result<()> {
+        // RipgrepSearcher doesn't maintain an index, so this is a no-op
+        Ok(())
     }
 }
 
