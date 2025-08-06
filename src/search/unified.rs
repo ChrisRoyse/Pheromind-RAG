@@ -9,6 +9,7 @@ use crate::storage::lancedb_storage::LanceDBStorage;
 use crate::search::{
     RipgrepSearcher, SimpleFusion, QueryPreprocessor, SearchCache,
     FusedResult, MatchType,
+    symbol_index::{SymbolIndexer, SymbolDatabase, Symbol, SymbolKind},
 };
 
 #[derive(Debug, Clone)]
@@ -23,6 +24,8 @@ pub struct UnifiedSearcher {
     ripgrep: RipgrepSearcher,
     embedder: Arc<NomicEmbedder>,
     storage: Arc<RwLock<LanceDBStorage>>,
+    symbol_indexer: Arc<RwLock<SymbolIndexer>>,
+    symbol_db: Arc<RwLock<SymbolDatabase>>,
     chunker: SimpleRegexChunker,
     expander: ThreeChunkExpander,
     fusion: SimpleFusion,
@@ -49,12 +52,19 @@ impl UnifiedSearcher {
         // Initialize storage table
         storage.write().await.init_table().await?;
         
+        // Initialize symbol indexer and database
+        let symbol_indexer = Arc::new(RwLock::new(SymbolIndexer::new()?));
+        let symbol_db = Arc::new(RwLock::new(SymbolDatabase::new()));
+        
         println!("✅ Nomic embedder initialized with 768-dimensional embeddings");
+        println!("✅ Symbol indexer initialized with tree-sitter parsers");
         
         Ok(Self {
             ripgrep: RipgrepSearcher::new(),
             embedder,
             storage,
+            symbol_indexer,
+            symbol_db,
             chunker: SimpleRegexChunker::new(),
             expander: ThreeChunkExpander,
             fusion: SimpleFusion::new(),
@@ -76,20 +86,22 @@ impl UnifiedSearcher {
         let processed_query = self.preprocessor.preprocess(query);
         println!("🔍 Searching for: '{}' (preprocessed: '{}')", query, processed_query);
         
-        // Run searches in parallel
-        let (exact_matches, semantic_matches) = tokio::join!(
+        // Run ALL THREE searches in parallel
+        let (exact_matches, semantic_matches, symbol_matches) = tokio::join!(
             self.search_exact(&processed_query),
-            self.search_semantic(&processed_query)
+            self.search_semantic(&processed_query),
+            self.search_symbols(&processed_query)
         );
         
         let exact_matches = exact_matches?;
         let semantic_matches = semantic_matches?;
+        let symbol_matches = symbol_matches?;
         
-        println!("📊 Found {} exact matches and {} semantic matches", 
-                 exact_matches.len(), semantic_matches.len());
+        println!("📊 Found {} exact matches, {} semantic matches, and {} symbol matches", 
+                 exact_matches.len(), semantic_matches.len(), symbol_matches.len());
         
-        // Fuse results
-        let mut fused = self.fusion.fuse_results(exact_matches, semantic_matches);
+        // Fuse all three types of results
+        let mut fused = self.fusion.fuse_all_results(exact_matches, semantic_matches, symbol_matches);
         
         // Optimize ranking
         self.fusion.optimize_ranking(&mut fused, &processed_query);
@@ -130,6 +142,22 @@ impl UnifiedSearcher {
             .map_err(|e| anyhow::anyhow!("Vector search failed: {}", e))
     }
     
+    async fn search_symbols(&self, query: &str) -> Result<Vec<Symbol>> {
+        // Search in symbol database
+        let db = self.symbol_db.read().await;
+        
+        // Try to find exact definition first
+        if let Some(symbol) = db.find_definition(query) {
+            return Ok(vec![symbol]);
+        }
+        
+        // Otherwise find all references
+        let symbols = db.find_all_references(query);
+        
+        // Return owned symbols
+        Ok(symbols)
+    }
+    
     async fn expand_to_three_chunk(&self, fused_match: FusedResult) -> Result<SearchResult> {
         // Read file content
         let file_path = PathBuf::from(&fused_match.file_path);
@@ -151,6 +179,10 @@ impl UnifiedSearcher {
             MatchType::Semantic => {
                 // Use the chunk index directly
                 fused_match.chunk_index.unwrap_or(0).min(chunks.len().saturating_sub(1))
+            },
+            MatchType::Symbol => {
+                // Find chunk containing the symbol's line
+                self.find_chunk_for_line(&chunks, fused_match.line_number.unwrap_or(fused_match.start_line))
             }
         };
         
@@ -184,6 +216,45 @@ impl UnifiedSearcher {
         if chunks.is_empty() {
             println!("⏭️  Skipping empty file: {:?}", file_path);
             return Ok(());
+        }
+        
+        // Extract and index symbols if it's a supported language
+        if let Some(ext) = file_path.extension().and_then(|s| s.to_str()) {
+            // Detect language from file extension
+            let language = match ext {
+                "rs" => Some("rust"),
+                "py" => Some("python"),
+                "js" => Some("javascript"),
+                "ts" => Some("typescript"),
+                "tsx" => Some("tsx"),
+                "go" => Some("go"),
+                "java" => Some("java"),
+                "cpp" | "cc" | "cxx" => Some("cpp"),
+                "c" | "h" => Some("c"),
+                "html" | "htm" => Some("html"),
+                "css" => Some("css"),
+                "json" => Some("json"),
+                "sh" | "bash" => Some("bash"),
+                _ => None,
+            };
+            
+            if let Some(lang) = language {
+                // Extract symbols using the indexer
+                let mut indexer = self.symbol_indexer.write().await;
+                match indexer.extract_symbols(&content, lang, file_path.to_str().unwrap_or("")) {
+                    Ok(symbols) => {
+                        if !symbols.is_empty() {
+                            // Add symbols to the database
+                            let mut db = self.symbol_db.write().await;
+                            db.add_symbols(symbols.clone());
+                            println!("🔍 Indexed {} symbols from {:?}", symbols.len(), file_path);
+                        }
+                    }
+                    Err(e) => {
+                        eprintln!("⚠️  Failed to extract symbols from {:?}: {}", file_path, e);
+                    }
+                }
+            }
         }
         
         // Prepare chunk contents for batch embedding
@@ -326,6 +397,11 @@ impl UnifiedSearcher {
         let storage = self.storage.write().await;
         storage.clear_all().await?;
         self.cache.clear();
+        
+        // Clear symbol database
+        let mut symbol_db = self.symbol_db.write().await;
+        symbol_db.clear();
+        
         println!("🧹 Cleared all indexed data");
         Ok(())
     }

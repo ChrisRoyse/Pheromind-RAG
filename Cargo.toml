@@ -11,8 +11,14 @@ reqwest = { version = "0.11", features = ["stream"] }
 dirs = "5.0"
 memmap2 = "0.9"
 
-# For actual GGUF inference (optional - comment out if build fails)
-# llama-cpp-rs = { version = "0.2", features = ["static"] }
+# Candle for GGUF inference
+candle-core = { version = "0.9" }
+candle-nn = "0.9"
+candle-transformers = "0.9"
+tokenizers = { version = "0.21", default-features = false, features = ["onig"] }
+hf-hub = { version = "0.3", features = ["tokio"] }
+byteorder = "1.5"
+rand = "0.8"
 
 # LanceDB vector database  
 lancedb = "0.21.2"

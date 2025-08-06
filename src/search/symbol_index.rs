@@ -542,21 +542,27 @@ impl SymbolDatabase {
         }
     }
     
-    pub fn find_definition(&self, name: &str) -> Option<&Symbol> {
-        self.symbols_by_name.get(name)?.first()
+    pub fn find_definition(&self, name: &str) -> Option<Symbol> {
+        self.symbols_by_name.get(name)?.first().cloned()
     }
     
-    pub fn find_all_references(&self, name: &str) -> Vec<&Symbol> {
+    pub fn find_all_references(&self, name: &str) -> Vec<Symbol> {
         self.symbols_by_name
             .get(name)
-            .map(|v| v.iter().collect())
+            .map(|v| v.iter().cloned().collect())
             .unwrap_or_default()
     }
     
-    pub fn find_by_kind(&self, kind: SymbolKind) -> Vec<&Symbol> {
+    pub fn clear(&mut self) {
+        self.symbols_by_name.clear();
+        self.symbols_by_file.clear();
+        self.symbols_by_kind.clear();
+    }
+    
+    pub fn find_by_kind(&self, kind: SymbolKind) -> Vec<Symbol> {
         self.symbols_by_kind
             .get(&kind)
-            .map(|v| v.iter().collect())
+            .map(|v| v.iter().cloned().collect())
             .unwrap_or_default()
     }
     

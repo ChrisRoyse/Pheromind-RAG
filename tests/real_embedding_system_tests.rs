@@ -1,4 +1,4 @@
-use embed_search::embedding::RealMiniLMEmbedder;
+use embed_search::embedding::NomicEmbedder;
 use embed_search::storage::{LanceDBStorage, LanceEmbeddingRecord};
 use embed_search::chunking::{SimpleRegexChunker, Chunk};
 use std::path::PathBuf;
@@ -6,17 +6,17 @@ use std::fs;
 use std::sync::Arc;
 use tempfile::TempDir;
 
-/// Test the REAL embedding system with actual all-MiniLM-L6-v2 model
+/// Test the REAL embedding system with actual Nomic Embed Text v1.5 model
 /// This requires internet connection to download the model
 
 #[tokio::test]
 async fn test_real_model_loading_and_basic_inference() {
-    println!("🔬 Testing REAL all-MiniLM-L6-v2 model loading...");
+    println!("🔬 Testing REAL Nomic Embed Text v1.5 model loading...");
     
     // Try to load the real model
-    let embedder = match RealMiniLMEmbedder::get_global().await {
+    let embedder = match NomicEmbedder::get_global().await {
         Ok(model) => {
-            println!("✅ Successfully loaded real all-MiniLM-L6-v2 model");
+            println!("✅ Successfully loaded real Nomic Embed Text v1.5 model");
             model
         }
         Err(e) => {
@@ -31,7 +31,7 @@ async fn test_real_model_loading_and_basic_inference() {
     let embedding = embedder.embed(test_text).expect("Should generate embedding");
     
     // Verify it's the correct dimensions
-    assert_eq!(embedding.len(), 384, "Real model should produce 384-dimensional embeddings");
+    assert_eq!(embedding.len(), 768, "Real model should produce 768-dimensional embeddings");
     
     // Verify it's normalized (L2 norm should be 1.0)
     let norm: f32 = embedding.iter().map(|x| x * x).sum::<f32>().sqrt();
@@ -48,242 +48,236 @@ async fn test_real_model_loading_and_basic_inference() {
 async fn test_real_semantic_similarity() {
     println!("🧠 Testing REAL semantic similarity with actual model...");
     
-    let embedder = match RealMiniLMEmbedder::get_global().await {
+    let embedder = match NomicEmbedder::get_global().await {
         Ok(model) => model,
-        Err(e) => {
-            println!("⚠️  Skipping semantic test - model not available: {}", e);
+        Err(_) => {
+            println!("⏭️ Skipping semantic similarity test - model not available");
             return;
         }
     };
     
-    // Test real semantic understanding
-    let sentences = [
-        "The cat sits on the mat",           // A
-        "A feline rests on the carpet",      // B - similar to A  
-        "Python is a programming language",  // C - different domain
-        "JavaScript code execution",         // D - similar to C
+    // Test semantic similarity between related texts
+    let similar_texts = vec![
+        "def calculate_sum(a, b): return a + b",
+        "def add_numbers(x, y): return x + y",
     ];
     
-    println!("🔍 Generating real embeddings for test sentences...");
-    let mut embeddings = Vec::new();
-    for sentence in &sentences {
-        let emb = embedder.embed(sentence).expect("Should generate embedding");
-        println!("   '{}' -> {} dims", sentence, emb.len());
-        embeddings.push(emb);
-    }
+    let different_texts = vec![
+        "def calculate_sum(a, b): return a + b",
+        "class DatabaseConnection: pass",
+    ];
     
-    // Calculate cosine similarities  
-    let cosine_sim = |a: &[f32], b: &[f32]| -> f32 {
-        a.iter().zip(b.iter()).map(|(x, y)| x * y).sum()
+    // Get embeddings
+    let similar_embeddings: Vec<_> = similar_texts.iter()
+        .map(|text| embedder.embed(text).unwrap())
+        .collect();
+    
+    let different_embeddings: Vec<_> = different_texts.iter()
+        .map(|text| embedder.embed(text).unwrap())
+        .collect();
+    
+    // Calculate cosine similarities
+    let similar_similarity = cosine_similarity(&similar_embeddings[0], &similar_embeddings[1]);
+    let different_similarity = cosine_similarity(&different_embeddings[0], &different_embeddings[1]);
+    
+    println!("📊 Similar functions similarity: {:.4}", similar_similarity);
+    println!("📊 Different code types similarity: {:.4}", different_similarity);
+    
+    // Similar code should have higher similarity than completely different code
+    assert!(similar_similarity > different_similarity, 
+            "Similar functions should have higher similarity ({:.4}) than different code types ({:.4})", 
+            similar_similarity, different_similarity);
+    
+    // But they should still be different enough to distinguish
+    assert!(similar_similarity < 0.99, "Even similar functions should not be identical: {:.4}", similar_similarity);
+    assert!(different_similarity < 0.95, "Different code types should have low similarity: {:.4}", different_similarity);
+    
+    println!("✅ Real semantic similarity test passed");
+}
+
+#[tokio::test]
+async fn test_real_embedding_determinism() {
+    println!("🔁 Testing REAL embedding determinism...");
+    
+    let embedder = match NomicEmbedder::get_global().await {
+        Ok(model) => model,
+        Err(_) => {
+            println!("⏭️ Skipping determinism test - model not available");
+            return;
+        }
     };
     
-    let sim_cat_feline = cosine_sim(&embeddings[0], &embeddings[1]);      // Should be high
-    let sim_cat_python = cosine_sim(&embeddings[0], &embeddings[2]);      // Should be low
-    let sim_python_js = cosine_sim(&embeddings[2], &embeddings[3]);       // Should be medium-high
+    let test_text = "function processData(data) { return data.filter(x => x > 0); }";
     
-    println!("🔍 Real semantic similarities:");
-    println!("   Cat ↔ Feline: {:.4}", sim_cat_feline);
-    println!("   Cat ↔ Python: {:.4}", sim_cat_python);
-    println!("   Python ↔ JavaScript: {:.4}", sim_python_js);
+    // Generate embedding multiple times
+    let embedding1 = embedder.embed(test_text).unwrap();
+    let embedding2 = embedder.embed(test_text).unwrap();
+    let embedding3 = embedder.embed(test_text).unwrap();
     
-    // Real semantic model should show these relationships
-    assert!(sim_cat_feline > sim_cat_python, 
-        "Cat/feline should be more similar than cat/python (got {:.4} vs {:.4})", 
-        sim_cat_feline, sim_cat_python);
+    // All should be identical
+    assert_eq!(embedding1, embedding2, "Embeddings should be deterministic");
+    assert_eq!(embedding1, embedding3, "Embeddings should be deterministic");
+    assert_eq!(embedding2, embedding3, "Embeddings should be deterministic");
     
-    assert!(sim_cat_feline > 0.4, 
-        "Semantically similar sentences should have decent similarity: {:.4}", sim_cat_feline);
+    println!("✅ Real embedding determinism test passed");
+}
+
+#[tokio::test]
+async fn test_real_batch_processing() {
+    println!("📦 Testing REAL batch processing...");
     
-    assert!(sim_python_js > sim_cat_python,
-        "Programming languages should be more similar to each other than to cats");
+    let embedder = match NomicEmbedder::get_global().await {
+        Ok(model) => model,
+        Err(_) => {
+            println!("⏭️ Skipping batch processing test - model not available");
+            return;
+        }
+    };
     
-    println!("✅ Real semantic similarity test passed - model shows semantic understanding!");
+    let test_texts = vec![
+        "def hello_world(): print('Hello, World!')",
+        "class Person: def __init__(self, name): self.name = name",
+        "SELECT * FROM users WHERE active = true",
+        "function fibonacci(n) { return n <= 1 ? n : fibonacci(n-1) + fibonacci(n-2); }",
+    ];
+    
+    // Process individually
+    let individual_embeddings: Vec<_> = test_texts.iter()
+        .map(|text| embedder.embed(text).unwrap())
+        .collect();
+    
+    // Process as batch
+    let batch_embeddings = embedder.embed_batch(&test_texts).unwrap();
+    
+    // Results should be identical
+    assert_eq!(individual_embeddings.len(), batch_embeddings.len());
+    for (i, (individual, batch)) in individual_embeddings.iter().zip(batch_embeddings.iter()).enumerate() {
+        assert_eq!(individual, batch, "Batch embedding {} should match individual embedding", i);
+    }
+    
+    println!("✅ Real batch processing test passed");
 }
 
 #[tokio::test]
 async fn test_real_lancedb_integration() {
-    println!("🗄️  Testing REAL LanceDB integration...");
+    println!("🗄️ Testing REAL LanceDB integration with actual embeddings...");
     
-    let embedder = match RealMiniLMEmbedder::get_global().await {
+    let embedder = match NomicEmbedder::get_global().await {
         Ok(model) => model,
-        Err(e) => {
-            println!("⚠️  Skipping LanceDB test - model not available: {}", e);
+        Err(_) => {
+            println!("⏭️ Skipping LanceDB integration test - model not available");
             return;
         }
     };
     
-    // Create temporary LanceDB
-    let temp_dir = TempDir::new().expect("Should create temp dir");
-    let db_path = temp_dir.path().join("real_test.lancedb");
+    // Create temporary directory for test database
+    let temp_dir = TempDir::new().expect("Failed to create temp directory");
+    let db_path = temp_dir.path().join("test_real_embeddings.db");
     
-    let storage = LanceDBStorage::new(db_path).await.expect("Should create LanceDB storage");
-    storage.init_table().await.expect("Should initialize table");
+    let storage = LanceDBStorage::new(db_path.clone()).await.expect("Failed to create storage");
+    let chunker = SimpleRegexChunker::new();
     
-    println!("✅ LanceDB storage created and initialized");
-    
-    // Create test chunks with diverse content
-    let test_chunks = vec![
-        Chunk { content: "fn main() { println!(\"Hello Rust\"); }".to_string(), start_line: 1, end_line: 1 },
-        Chunk { content: "def hello(): print('Hello Python')".to_string(), start_line: 1, end_line: 1 },
-        Chunk { content: "function hello() { console.log('Hello JS'); }".to_string(), start_line: 1, end_line: 1 },
-        Chunk { content: "SELECT * FROM users WHERE active = true".to_string(), start_line: 1, end_line: 1 },
+    // Test code samples
+    let test_codes = vec![
+        ("python_function.py", "def calculate_area(radius):\n    return 3.14159 * radius ** 2"),
+        ("javascript_class.js", "class Rectangle {\n    constructor(width, height) {\n        this.width = width;\n        this.height = height;\n    }\n}"),
+        ("sql_query.sql", "SELECT users.name, COUNT(orders.id) as order_count\nFROM users\nLEFT JOIN orders ON users.id = orders.user_id\nGROUP BY users.id"),
     ];
     
-    let file_names = ["main.rs", "hello.py", "app.js", "query.sql"];
-    
-    // Generate real embeddings and store in LanceDB
-    println!("🔄 Generating real embeddings and storing in LanceDB...");
-    for (i, (chunk, file_name)) in test_chunks.iter().zip(file_names.iter()).enumerate() {
-        let embedding = embedder.embed(&chunk.content).expect("Should generate real embedding");
+    // Process and store embeddings
+    let mut stored_records = Vec::new();
+    for (filename, code) in &test_codes {
+        let chunks = chunker.chunk_text(code);
         
-        storage.insert_embedding(file_name, i, chunk, embedding).await
-            .expect("Should store in LanceDB");
-        
-        println!("   Stored: {} -> {} chars, 384 dims", file_name, chunk.content.len());
+        for (chunk_idx, chunk) in chunks.iter().enumerate() {
+            let embedding = embedder.embed(&chunk.content).unwrap();
+            
+            let record = LanceEmbeddingRecord {
+                id: format!("{}_{}", filename, chunk_idx),
+                file_path: filename.to_string(),
+                chunk_index: chunk_idx,
+                content: chunk.content.clone(),
+                embedding,
+                start_line: chunk.start_line,
+                end_line: chunk.end_line,
+                metadata: serde_json::Value::Object(serde_json::Map::new()),
+            };
+            
+            storage.store(&record).await.expect("Failed to store record");
+            stored_records.push(record);
+        }
     }
     
-    // Verify storage
-    let count = storage.count().await.expect("Should get count");
-    assert_eq!(count, 4, "Should have stored 4 embeddings");
+    println!("📊 Stored {} records in LanceDB", stored_records.len());
     
-    // Test real semantic search
-    println!("🔍 Testing real semantic search...");
+    // Test semantic search
+    let query = "calculate mathematical operations";
+    let query_embedding = embedder.embed(query).unwrap();
     
-    // Search for Rust-like content
-    let rust_query = "Rust programming language function";
-    let rust_query_embedding = embedder.embed(rust_query).expect("Should embed query");
+    let search_results = storage.search(&query_embedding, 3).await.expect("Failed to search");
+    assert!(!search_results.is_empty(), "Should find some search results");
     
-    let rust_results = storage.search_similar(rust_query_embedding, 4).await
-        .expect("Should perform search");
-    
-    println!("   Query: '{}' found {} results", rust_query, rust_results.len());
-    for (i, result) in rust_results.iter().enumerate() {
-        println!("     {}. {} - '{}'", i+1, result.file_path, 
-                 if result.content.len() > 50 { &result.content[..50] } else { &result.content });
+    println!("🔍 Found {} search results for query: '{}'", search_results.len(), query);
+    for (i, result) in search_results.iter().enumerate() {
+        println!("  {}. {} (similarity: {:.4})", i+1, result.file_path, result.similarity);
     }
     
-    // The real model should rank the Rust code higher
-    assert!(!rust_results.is_empty(), "Should find results");
-    
-    // Search for Python-like content  
-    let python_query = "Python script function definition";
-    let python_query_embedding = embedder.embed(python_query).expect("Should embed query");
-    
-    let python_results = storage.search_similar(python_query_embedding, 4).await
-        .expect("Should perform search");
-    
-    println!("   Query: '{}' found {} results", python_query, python_results.len());
-    for (i, result) in python_results.iter().enumerate() {
-        println!("     {}. {} - '{}'", i+1, result.file_path,
-                 if result.content.len() > 50 { &result.content[..50] } else { &result.content });
-    }
-    
-    assert!(!python_results.is_empty(), "Should find results");
-    
-    println!("✅ Real LanceDB integration test passed!");
+    println!("✅ Real LanceDB integration test passed");
 }
 
 #[tokio::test]
-async fn test_real_vectortest_directory_processing() {
-    println!("📁 Testing REAL embedding processing of vectortest directory...");
+async fn test_real_code_differentiation() {
+    println!("🎯 Testing REAL code differentiation capabilities...");
     
-    let embedder = match RealMiniLMEmbedder::get_global().await {
+    let embedder = match NomicEmbedder::get_global().await {
         Ok(model) => model,
-        Err(e) => {
-            println!("⚠️  Skipping vectortest processing - model not available: {}", e);
+        Err(_) => {
+            println!("⏭️ Skipping code differentiation test - model not available");
             return;
         }
     };
     
-    // Create LanceDB storage
-    let temp_dir = TempDir::new().expect("Should create temp dir");
-    let db_path = temp_dir.path().join("vectortest_real.lancedb");
+    // Test different types of code constructs
+    let code_samples = vec![
+        ("function_def", "def process_data(data): return sorted(data)"),
+        ("class_def", "class DataProcessor: def __init__(self): pass"),
+        ("sql_query", "SELECT * FROM users WHERE created_at > '2023-01-01'"),
+        ("comment", "# This function processes user data efficiently"),
+        ("variable_assignment", "user_count = len(active_users)"),
+        ("control_flow", "if user.is_active: return user.profile"),
+    ];
     
-    let storage = LanceDBStorage::new(db_path).await.expect("Should create storage");
-    storage.init_table().await.expect("Should init table");
+    let mut embeddings = Vec::new();
+    for (code_type, code) in &code_samples {
+        let embedding = embedder.embed(code).unwrap();
+        embeddings.push((code_type, embedding));
+    }
     
-    // Process actual vectortest files
-    let vectortest_path = PathBuf::from("C:\\code\\embed\\vectortest");
-    let chunker = SimpleRegexChunker::new();
-    
-    let mut total_chunks = 0;
-    let mut processed_files = 0;
-    
-    // Read and process some files (not all to keep test time reasonable)
-    let test_files = ["user_controller.js", "auth_service.py", "memory_cache.rs", "API_DOCUMENTATION.md"];
-    
-    println!("🔄 Processing vectortest files with REAL embeddings...");
-    
-    for filename in &test_files {
-        let file_path = vectortest_path.join(filename);
-        
-        if let Ok(content) = fs::read_to_string(&file_path) {
-            let chunks = chunker.chunk_file(&content);
-            println!("   {} -> {} chunks", filename, chunks.len());
+    // Verify that different code types produce different embeddings
+    for i in 0..embeddings.len() {
+        for j in i+1..embeddings.len() {
+            let similarity = cosine_similarity(&embeddings[i].1, &embeddings[j].1);
+            println!("📊 {} vs {}: {:.4} similarity", embeddings[i].0, embeddings[j].0, similarity);
             
-            // Process first few chunks to keep test reasonable
-            let chunks_to_process = chunks.into_iter().take(3).collect::<Vec<_>>();
-            
-            for (idx, chunk) in chunks_to_process.iter().enumerate() {
-                // Generate REAL embedding
-                let embedding = embedder.embed(&chunk.content).expect("Should generate real embedding");
-                
-                // Store in LanceDB
-                storage.insert_embedding(filename, idx, chunk, embedding).await
-                    .expect("Should store embedding");
-                
-                total_chunks += 1;
-            }
-            
-            processed_files += 1;
+            // Different code types should be distinguishable (not too similar)
+            assert!(similarity < 0.95, 
+                    "{} and {} are too similar: {:.4} - model may not be differentiating code types well", 
+                    embeddings[i].0, embeddings[j].0, similarity);
         }
     }
     
-    println!("✅ Processed {} files, {} chunks with real embeddings", processed_files, total_chunks);
+    println!("✅ Real code differentiation test passed");
+}
+
+// Helper function
+fn cosine_similarity(a: &[f32], b: &[f32]) -> f32 {
+    let dot_product: f32 = a.iter().zip(b.iter()).map(|(x, y)| x * y).sum();
+    let norm_a: f32 = a.iter().map(|x| x * x).sum::<f32>().sqrt();
+    let norm_b: f32 = b.iter().map(|x| x * x).sum::<f32>().sqrt();
     
-    // Verify storage
-    let stored_count = storage.count().await.expect("Should get count");
-    assert_eq!(stored_count, total_chunks, "Should have stored all chunks");
-    
-    // Test semantic search on real code
-    println!("🔍 Testing semantic search on real code...");
-    
-    // Search for function-related content
-    let function_query = "function definition implementation";
-    let function_embedding = embedder.embed(function_query).expect("Should embed function query");
-    
-    let function_results = storage.search_similar(function_embedding, 5).await
-        .expect("Should search");
-    
-    println!("   Function query found {} results:", function_results.len());
-    for (i, result) in function_results.iter().enumerate() {
-        let preview = if result.content.len() > 60 { 
-            format!("{}...", &result.content[..60]) 
-        } else { 
-            result.content.clone() 
-        };
-        println!("     {}. {} - {}", i+1, result.file_path, preview);
+    if norm_a == 0.0 || norm_b == 0.0 {
+        0.0
+    } else {
+        dot_product / (norm_a * norm_b)
     }
-    
-    // Search for documentation content
-    let doc_query = "API documentation guide";
-    let doc_embedding = embedder.embed(doc_query).expect("Should embed doc query");
-    
-    let doc_results = storage.search_similar(doc_embedding, 5).await
-        .expect("Should search");
-    
-    println!("   Documentation query found {} results:", doc_results.len());
-    for (i, result) in doc_results.iter().enumerate() {
-        let preview = if result.content.len() > 60 { 
-            format!("{}...", &result.content[..60]) 
-        } else { 
-            result.content.clone() 
-        };
-        println!("     {}. {} - {}", i+1, result.file_path, preview);
-    }
-    
-    assert!(!function_results.is_empty(), "Should find function-related results");
-    assert!(!doc_results.is_empty(), "Should find documentation results");
-    
-    println!("✅ Real vectortest directory processing test passed!");
 }

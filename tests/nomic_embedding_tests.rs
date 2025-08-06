@@ -149,13 +149,13 @@ async fn test_nomic_matryoshka_dimensions() {
 
 #[tokio::test]
 async fn test_nomic_memory_usage() {
-    use sysinfo::{System, SystemExt, ProcessExt};
+    use sysinfo::{System, Pid};
     
     let mut system = System::new();
     system.refresh_processes();
     
-    let pid = std::process::id() as i32;
-    let initial_memory = system.process(pid.into())
+    let pid = Pid::from_u32(std::process::id());
+    let initial_memory = system.process(pid)
         .map(|p| p.memory())
         .unwrap_or(0);
     
@@ -171,7 +171,7 @@ async fn test_nomic_memory_usage() {
     let _embeddings = embedder.embed_batch(&text_refs).unwrap();
     
     system.refresh_processes();
-    let final_memory = system.process(pid.into())
+    let final_memory = system.process(pid)
         .map(|p| p.memory())
         .unwrap_or(0);
     
