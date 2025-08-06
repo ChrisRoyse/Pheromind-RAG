@@ -4,7 +4,7 @@ use anyhow::{Result, anyhow};
 use tokio::sync::RwLock;
 
 use crate::chunking::{SimpleRegexChunker, Chunk, ThreeChunkExpander, ChunkContext};
-use crate::embedding::CachedEmbedder;
+use crate::embedding::NomicEmbedder;
 use crate::storage::lancedb_storage::LanceDBStorage;
 use crate::search::{
     RipgrepSearcher, SimpleFusion, QueryPreprocessor, SearchCache,
@@ -21,7 +21,7 @@ pub struct SearchResult {
 
 pub struct UnifiedSearcher {
     ripgrep: RipgrepSearcher,
-    embedder: CachedEmbedder,
+    embedder: Arc<NomicEmbedder>,
     storage: Arc<RwLock<LanceDBStorage>>,
     chunker: SimpleRegexChunker,
     expander: ThreeChunkExpander,
@@ -40,17 +40,16 @@ impl UnifiedSearcher {
     pub async fn new_with_config(project_path: PathBuf, db_path: PathBuf, include_test_files: bool) -> Result<Self> {
         println!("🔄 Initializing Unified Searcher (include_test_files: {})...", include_test_files);
         
-        // Initialize components with caching and persistence
-        let cache_dir = project_path.join(".embed_cache");
-        let embedder = CachedEmbedder::new_with_persistence(10_000, cache_dir).await
-            .map_err(|e| anyhow!("Failed to create cached embedder: {}", e))?;
+        // Initialize Nomic embedder with permanent model caching
+        let embedder = NomicEmbedder::get_global().await
+            .map_err(|e| anyhow!("Failed to initialize Nomic embedder: {}", e))?;
         
         let storage = Arc::new(RwLock::new(LanceDBStorage::new(db_path).await?));
         
         // Initialize storage table
         storage.write().await.init_table().await?;
         
-        println!("✅ Embedder initialized with cache: {}", embedder.model_info());
+        println!("✅ Nomic embedder initialized with 768-dimensional embeddings");
         
         Ok(Self {
             ripgrep: RipgrepSearcher::new(),
@@ -190,8 +189,8 @@ impl UnifiedSearcher {
         // Prepare chunk contents for batch embedding
         let chunk_contents: Vec<&str> = chunks.iter().map(|c| c.content.as_str()).collect();
         
-        // Generate embeddings in optimized batches with caching
-        let embeddings = self.embedder.embed_batch_cached(&chunk_contents)
+        // Generate embeddings using Nomic embedder
+        let embeddings = self.embedder.embed_batch(&chunk_contents)
             .map_err(|e| anyhow!("Failed to generate embeddings for file {:?}: {}", file_path, e))?;
         
         // Create records with embeddings
@@ -335,7 +334,11 @@ impl UnifiedSearcher {
         let storage = self.storage.read().await;
         let total_embeddings = storage.count().await?;
         let search_cache_stats = self.cache.stats();
-        let embedding_cache_stats = self.embedder.cache_stats();
+        let embedding_cache_stats = crate::embedding::CacheStats {
+            entries: 0,
+            max_size: 100_000,
+            hit_ratio: 0.0,
+        };
         
         Ok(SearcherStats {
             total_embeddings,

@@ -6,12 +6,13 @@ edition = "2021"
 [dependencies]
 regex = "1.11"
 
-# Real ML embeddings with all-MiniLM-L6-v2
-candle-core = "0.9"
-candle-nn = "0.9"
-candle-transformers = "0.9"
-tokenizers = "0.21"
-hf-hub = { version = "0.3", features = ["tokio"] }
+# Nomic Embed GGUF support
+reqwest = { version = "0.11", features = ["stream"] }
+dirs = "5.0"
+memmap2 = "0.9"
+
+# For actual GGUF inference (optional - comment out if build fails)
+# llama-cpp-rs = { version = "0.2", features = ["static"] }
 
 # LanceDB vector database  
 lancedb = "0.21.2"
@@ -54,6 +55,38 @@ sysinfo = "0.30"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter", "json", "chrono"] }
 
+# Tree-sitter for symbol indexing
+tree-sitter = "0.23"
+tree-sitter-rust = "0.23"
+tree-sitter-python = "0.23"
+tree-sitter-javascript = "0.23"
+tree-sitter-typescript = "0.23"
+tree-sitter-go = "0.23"
+tree-sitter-java = "0.23"
+tree-sitter-c = "0.23"
+tree-sitter-cpp = "0.23"
+# Commented out tree-sitter dependencies with version issues
+# tree-sitter-c-sharp = "0.20"
+# tree-sitter-ruby = "0.20"
+# tree-sitter-php = "0.20"
+# tree-sitter-swift = "0.20"
+# tree-sitter-kotlin = "0.3"
+# tree-sitter-scala = "0.20"
+tree-sitter-html = "0.23"
+tree-sitter-css = "0.23"
+tree-sitter-json = "0.23"
+# tree-sitter-yaml = "0.5"
+# tree-sitter-toml = "0.5"
+# tree-sitter-xml = "0.22"
+# tree-sitter-sql = "0.0.2"
+tree-sitter-bash = "0.23"
+# tree-sitter-lua = "0.1"
+# Note: These tree-sitter languages have different version numbers
+# tree-sitter-elixir = "0.3"
+# tree-sitter-ocaml = "0.22" 
+# tree-sitter-haskell = "0.15"
+# tree-sitter-zig = "1.0"
+
 [features]
 default = []
 
@@ -86,8 +119,8 @@ name = "task003_final_validation"
 path = "tests/task003_final_validation.rs"
 
 [[test]]
-name = "embedding_tests"
-path = "tests/embedding_tests.rs"
+name = "nomic_embedding_tests"
+path = "tests/nomic_embedding_tests.rs"
 
 [[test]]
 name = "vectortest_embedding_stress"
@@ -112,6 +145,10 @@ path = "tests/real_embedding_system_tests.rs"
 [[test]]
 name = "embedding_performance_benchmark"
 path = "tests/embedding_performance_benchmark.rs"
+
+[[test]]
+name = "symbol_indexing_tests"
+path = "tests/symbol_indexing_tests.rs"
 
 [[example]]
 name = "embedding_optimization_demo"
