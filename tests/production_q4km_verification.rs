@@ -40,7 +40,7 @@ async fn test_production_q4km_embeddings_are_real() {
 
     // Step 2: Initialize embedder and verify it loads real GGUF
     println!("\n🚀 Initializing Nomic Q4_K_M embedder...");
-    let embedder = NomicEmbedder::get_global()
+    let embedder = NomicEmbedder::get_global().await
         .expect("Failed to initialize embedder");
     
     // Step 3: Verify model produces 768-dimensional embeddings
@@ -162,7 +162,7 @@ async fn test_production_q4km_embeddings_are_real() {
     // The model should be memory-mapped, not loaded entirely
     if model_path.exists() {
         // Re-initialize to test consistent loading
-        let embedder2 = NomicEmbedder::new().unwrap();
+        let embedder2 = NomicEmbedder::new().await.unwrap();
         let test_emb1 = embedder.embed("test").unwrap();
         let test_emb2 = embedder2.embed("test").unwrap();
         
@@ -201,7 +201,7 @@ async fn test_q4km_reproducibility() {
     println!("========================");
     println!("Verifying results are consistent across runs\n");
     
-    let embedder = NomicEmbedder::get_global().unwrap();
+    let embedder = NomicEmbedder::get_global().await.unwrap();
     
     // Test same input multiple times
     let test_input = "function processData(data) { return data.map(x => x * 2); }";
@@ -235,7 +235,7 @@ async fn test_q4km_weight_extraction() {
     println!("=================================");
     
     // This test verifies the actual Q4_K_M dequantization logic
-    let embedder = NomicEmbedder::get_global().unwrap();
+    let embedder = NomicEmbedder::get_global().await.unwrap();
     
     // Generate embeddings for edge cases
     let very_long_text = "x".repeat(10000);

@@ -240,6 +240,15 @@ impl Config {
         Ok(())
     }
 
+    /// TEST-ONLY: Initialize with test configuration
+    /// This should NEVER be used in production code
+    #[cfg(any(test, debug_assertions))]
+    pub fn init_test() -> Result<()> {
+        let config = Self::new_test_config();
+        *CONFIG.write().map_err(|e| anyhow!("Failed to acquire write lock for CONFIG: {}", e))? = Some(config);
+        Ok(())
+    }
+
     /// Get a copy of the global configuration
     pub fn get() -> EmbedResult<Config> {
         CONFIG.read().map_err(|e| EmbedError::Concurrency {

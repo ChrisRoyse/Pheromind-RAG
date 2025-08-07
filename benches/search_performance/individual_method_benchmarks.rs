@@ -9,7 +9,7 @@ use anyhow::Result;
 use embed::search::{UnifiedSearcher, SearchResult};
 use embed::search::bm25::{BM25Engine, BM25Document, Token as BM25Token};
 use embed::search::tantivy_search::TantivySearcher;
-use embed::config::SearchBackend;
+use embed::config::{SearchBackend, Config};
 
 /// Individual search method benchmarking suite
 pub struct IndividualMethodBenchmarks {
@@ -280,6 +280,7 @@ impl IndividualMethodBenchmarks {
         // Initialize unified searcher for semantic search
         let project_path = PathBuf::from(".");
         let db_path = PathBuf::from("./benchmark_semantic_db");
+        Config::init_test().expect("Failed to initialize test config");
         let searcher = UnifiedSearcher::new(project_path, db_path).await?;
         
         // Index test documents
@@ -337,6 +338,7 @@ impl IndividualMethodBenchmarks {
         // Initialize unified searcher for symbol search
         let project_path = PathBuf::from(".");
         let db_path = PathBuf::from("./benchmark_symbol_db");
+        Config::init_test().expect("Failed to initialize test config");
         let searcher = UnifiedSearcher::new(project_path, db_path).await?;
         
         // Index test documents
@@ -397,6 +399,7 @@ impl IndividualMethodBenchmarks {
         // Initialize unified searcher
         let project_path = PathBuf::from(".");
         let db_path = PathBuf::from("./benchmark_unified_db");
+        Config::init_test().expect("Failed to initialize test config");
         let searcher = UnifiedSearcher::new(project_path, db_path).await?;
         
         // Index test documents

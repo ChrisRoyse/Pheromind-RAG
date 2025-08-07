@@ -6,6 +6,7 @@ use once_cell::sync::Lazy;
 use tokio::sync::OnceCell;
 use embed_search::search::unified::UnifiedSearcher;
 use embed_search::search::MatchType;
+use embed_search::config::Config;
 
 /// Shared test setup that only indexes once
 static TEST_SETUP: Lazy<OnceCell<Arc<TestEnvironment>>> = Lazy::new(|| OnceCell::new());
@@ -29,7 +30,8 @@ impl TestEnvironment {
                 std::fs::remove_dir_all(&db_path).ok();
             }
             
-            // Create searcher with test file exclusion disabled to index everything
+            // Initialize config and create searcher with test file exclusion disabled to index everything
+            Config::init_test().expect("Failed to initialize test config");
             let searcher = UnifiedSearcher::new_with_config(
                 project_root.clone(),
                 db_path,
@@ -84,7 +86,8 @@ mod accuracy_tests {
             std::fs::remove_dir_all(&db_path).ok();
         }
         
-        // Create searcher with test file exclusion disabled to index everything
+        // Initialize config and create searcher with test file exclusion disabled to index everything
+        Config::init_test().expect("Failed to initialize test config");
         let searcher = UnifiedSearcher::new_with_config(
             project_root.clone(),
             db_path,
@@ -421,7 +424,8 @@ async fn test_bm25_integration_comprehensive() {
         std::fs::remove_dir_all(&db_path).ok();
     }
     
-    // Create searcher with BM25 enabled
+    // Initialize config and create searcher with BM25 enabled
+    Config::init_test().expect("Failed to initialize test config");
     let searcher = UnifiedSearcher::new_with_config(
         project_root.clone(),
         db_path,

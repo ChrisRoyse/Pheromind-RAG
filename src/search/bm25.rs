@@ -154,9 +154,14 @@ impl BM25Engine {
             let n = self.total_docs as f32;
             let df = stats.document_frequency as f32;
             // BM25 IDF formula: log((N - df + 0.5) / (df + 0.5))
-            // PRINCIPLE 0: No artificial minimums - return actual mathematical result
-            // If IDF is negative or zero, it represents true mathematical reality of term distribution
-            let idf = ((n - df + 0.5) / (df + 0.5)).ln();
+            let raw_idf = ((n - df + 0.5) / (df + 0.5)).ln();
+            
+            // FIX: Handle negative IDF (when df > N/2) which causes reverse ranking
+            // - Negative IDF causes higher TF to score lower (inverted ranking)
+            // - Use max(epsilon, raw_idf) to floor negative values while preserving positive IDF ordering
+            // - This ensures rare terms (positive IDF) still rank higher than common terms (floored at epsilon)
+            let epsilon = 0.001f32; // Small positive value for very common terms
+            let idf = epsilon.max(raw_idf);
             idf
         } else {
             // Term not in any document, return high IDF
@@ -241,13 +246,13 @@ impl BM25Engine {
                 let single_term_score = self.calculate_bm25_score(&[term.clone()], &doc_id)
                     .with_context(|| format!("Single term BM25 calculation failed for term '{}' in document '{}' - mathematical integrity compromised", term, doc_id))?;
                 
-                if single_term_score > 0.0 {
+                if single_term_score != 0.0 && single_term_score.is_finite() {
                     term_scores.insert(term.clone(), single_term_score);
                 }
                 // Note: Zero or negative scores are mathematically valid results, not errors
             }
             
-            if score > 0.0 {
+            if score != 0.0 && score.is_finite() {
                 matches.push(BM25Match {
                     doc_id,
                     score,

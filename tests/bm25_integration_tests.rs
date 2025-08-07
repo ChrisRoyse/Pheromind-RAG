@@ -1,6 +1,6 @@
 use embed_search::search::unified::{UnifiedSearcher};
 use embed_search::search::MatchType;
-use embed_search::config::SearchBackend;
+use embed_search::config::{SearchBackend, Config};
 use tempfile::TempDir;
 use std::path::PathBuf;
 use tokio::fs;
@@ -201,7 +201,8 @@ async fn test_bm25_basic_search() -> Result<()> {
     // Create test codebase
     create_test_codebase(&project_path).await?;
     
-    // Initialize searcher with BM25 enabled
+    // Initialize config and searcher with BM25 enabled
+    Config::init_test().expect("Failed to initialize test config");
     let searcher = UnifiedSearcher::new_with_backend(
         project_path.clone(),
         db_path,
@@ -283,7 +284,8 @@ async fn test_bm25_term_frequency_saturation() -> Result<()> {
     fs::write(project_path.join("repetitive.js"), file2).await?;
     fs::write(project_path.join("calculate.js"), file3).await?;
     
-    // Initialize searcher
+    // Initialize config and searcher
+    Config::init_test().expect("Failed to initialize test config");
     let searcher = UnifiedSearcher::new(project_path.clone(), db_path).await?;
     
     // Index files
@@ -325,7 +327,8 @@ fn calculate_total(items: Vec<Item>) -> f64 {
     
     fs::write(project_path.join("calculator.rs"), content).await?;
     
-    // Initialize searcher
+    // Initialize config and searcher
+    Config::init_test().expect("Failed to initialize test config");
     let searcher = UnifiedSearcher::new(project_path.clone(), db_path).await?;
     
     // Index the file
@@ -356,7 +359,8 @@ async fn test_bm25_accuracy_improvement() -> Result<()> {
     // Create test codebase
     create_test_codebase(&project_path).await?;
     
-    // Initialize searcher with BM25 enabled
+    // Initialize config and searcher with BM25 enabled
+    Config::init_test().expect("Failed to initialize test config");
     let searcher = UnifiedSearcher::new(project_path.clone(), db_path).await?;
     
     // Index all files
@@ -424,6 +428,7 @@ async fn test_bm25_persistence() -> Result<()> {
     
     // First session: Index the file
     {
+        Config::init_test().expect("Failed to initialize test config");
         let searcher = UnifiedSearcher::new(project_path.clone(), db_path.clone()).await?;
         searcher.index_file(&project_path.join("persist.rs")).await?;
         
@@ -434,6 +439,7 @@ async fn test_bm25_persistence() -> Result<()> {
     
     // Second session: Load and search without re-indexing
     {
+        Config::init_test().expect("Failed to initialize test config");
         let searcher = UnifiedSearcher::new(project_path.clone(), db_path).await?;
         
         // Search should still work with persisted index

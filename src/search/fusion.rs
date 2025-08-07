@@ -111,7 +111,7 @@ impl SimpleFusion {
                         None => {
                             return Err(SearchError::MissingSimilarityScore {
                                 file_path: semantic.file_path,
-                                chunk_index: semantic.chunk_index,
+                                chunk_index: semantic.chunk_index as u32,
                             });
                         }
                     };
@@ -212,7 +212,7 @@ impl SimpleFusion {
                         None => {
                             return Err(SearchError::MissingSimilarityScore {
                                 file_path: semantic.file_path,
-                                chunk_index: semantic.chunk_index,
+                                chunk_index: semantic.chunk_index as u32,
                             });
                         }
                     };
@@ -347,7 +347,7 @@ impl SimpleFusion {
                         None => {
                             return Err(SearchError::MissingSimilarityScore {
                                 file_path: semantic.file_path,
-                                chunk_index: semantic.chunk_index,
+                                chunk_index: semantic.chunk_index as u32,
                             });
                         }
                     };

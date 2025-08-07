@@ -10,7 +10,7 @@ use anyhow::Result;
 
 // Import the search system modules
 use embed::search::{UnifiedSearcher, SearchResult};
-use embed::config::SearchBackend;
+use embed::config::{SearchBackend, Config};
 
 /// Comprehensive performance benchmarking framework for search system
 pub struct SearchPerformanceBenchmarker {
@@ -180,6 +180,7 @@ impl SearchPerformanceBenchmarker {
         // Create test searcher
         let project_path = PathBuf::from(".");
         let db_path = PathBuf::from("./benchmark_test_db");
+        Config::init_test().expect("Failed to initialize test config");
         let searcher = UnifiedSearcher::new_with_backend(
             project_path.clone(),
             db_path.clone(),
@@ -258,6 +259,7 @@ impl SearchPerformanceBenchmarker {
         
         let project_path = PathBuf::from(".");
         let db_path = PathBuf::from("./benchmark_test_db");
+        Config::init_test().expect("Failed to initialize test config");
         let searcher = Arc::new(UnifiedSearcher::new_with_backend(
             project_path.clone(),
             db_path.clone(),
@@ -332,6 +334,7 @@ impl SearchPerformanceBenchmarker {
             
             // Create and index searcher
             let indexing_start = Instant::now();
+            Config::init_test().expect("Failed to initialize test config");
             let searcher = UnifiedSearcher::new_with_backend(
                 project_path.clone(),
                 db_path.clone(),

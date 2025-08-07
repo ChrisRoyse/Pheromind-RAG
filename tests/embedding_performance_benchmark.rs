@@ -33,7 +33,7 @@ async fn benchmark_nomic_embedding_performance() {
              test_texts.len(), 
              test_texts.iter().collect::<std::collections::HashSet<_>>().len());
     
-    let embedder = NomicEmbedder::get_global().expect("Failed to create embedder");
+    let embedder = NomicEmbedder::get_global().await.expect("Failed to create embedder");
     
     // Test 1: Sequential embedding
     println!("\n🔄 Test 1: Sequential embedding");
@@ -106,7 +106,7 @@ async fn benchmark_nomic_embedding_performance() {
 async fn test_embedding_quality() {
     println!("🎯 Testing embedding quality and differentiation...");
     
-    let embedder = NomicEmbedder::get_global().expect("Failed to create embedder");
+    let embedder = NomicEmbedder::get_global().await.expect("Failed to create embedder");
     
     let test_cases = vec![
         ("def calculate_sum(a, b): return a + b", "Python function"),

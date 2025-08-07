@@ -8,7 +8,7 @@ use sysinfo::{System, SystemExt, ProcessExt, ProcessorExt, NetworksExt, DiskExt,
 use anyhow::Result;
 
 use embed::search::{UnifiedSearcher, SearchResult};
-use embed::config::SearchBackend;
+use embed::config::{SearchBackend, Config};
 
 /// Comprehensive bottleneck identification and profiling system
 pub struct BottleneckProfiler {
@@ -929,6 +929,7 @@ pub async fn run_bottleneck_profiling() -> Result<()> {
     // Create test searcher for profiling
     let project_path = PathBuf::from(".");
     let db_path = PathBuf::from("./bottleneck_test_db");
+    Config::init_test().expect("Failed to initialize test config");
     let searcher = UnifiedSearcher::new_with_backend(
         project_path,
         db_path,

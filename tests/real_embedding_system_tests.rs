@@ -9,6 +9,8 @@ use embed_search::search::unified::UnifiedSearcher;
 #[cfg(all(feature = "ml", feature = "vectordb"))]
 use embed_search::git::watcher::{GitWatcher, VectorUpdater, WatchCommand, FileChange};
 #[cfg(all(feature = "ml", feature = "vectordb"))]
+use embed_search::config::Config;
+#[cfg(all(feature = "ml", feature = "vectordb"))]
 use std::fs;
 #[cfg(all(feature = "ml", feature = "vectordb"))]
 use std::sync::Arc;
@@ -349,8 +351,9 @@ async fn test_git_tracking_with_768d_nomic_embeddings() {
     
     println!("   ✅ Created 3 test files");
     
-    // Step 4: Initialize UnifiedSearcher with 768D configuration
+    // Step 4: Initialize Config and UnifiedSearcher with 768D configuration
     println!("\n4️⃣ Initializing UnifiedSearcher with 768D support...");
+    Config::init_test().expect("Failed to initialize test config");
     let searcher = Arc::new(
         UnifiedSearcher::new(repo_path.clone(), db_path.clone()).await
             .expect("Failed to create searcher")

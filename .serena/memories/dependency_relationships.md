@@ -1,279 +1,183 @@
-# Dependency Relationships Map
+# Dependency Relationships (Verified from Cargo.toml)
 
-## Core Module Dependencies
+## Core Dependencies (Always Enabled)
+```toml
+# Fundamental
+regex = "1.11"                    # Pattern matching
+serde = "1.0"                     # Serialization
+serde_json = "1.0"                # JSON support
+anyhow = "1.0"                    # Error handling
+thiserror = "1.0"                 # Error definitions
+tokio = "1.43"                    # Async runtime (full features)
+futures = "0.3"                   # Async primitives
+async-trait = "0.1"               # Async traits
 
-### Layer Architecture
-```
-┌─────────────────────────────────────┐
-│         CLI (main.rs)               │
-├─────────────────────────────────────┤
-│     Unified Search (unified.rs)     │
-├─────────────────────────────────────┤
-│   Search Backends │ Storage │ ML    │
-├─────────────────────────────────────┤
-│        Core Utilities               │
-└─────────────────────────────────────┘
-```
+# Configuration
+toml = "0.8"                      # TOML parsing
+config = "0.13"                   # Config management
+serde_yaml = "0.9"                # YAML support
+clap = "4.4"                      # CLI parsing (derive feature)
 
-## Module Dependency Graph
+# Data Structures
+once_cell = "1.19"                # Lazy statics
+lru = "0.12"                      # LRU cache
+parking_lot = "0.12"              # Fast mutexes
+chrono = "0.4"                    # Date/time (serde feature)
 
-### src/main.rs (Entry Point)
-**Depends on:**
-- `src/search/unified.rs` - Main search interface
-- `src/config/` - Configuration loading
-- `src/git/` - File watching
-- `clap` - CLI parsing
+# Text Processing
+unicode-normalization = "0.1"     # Unicode handling
+unicode-segmentation = "1.10"     # Text segmentation
+rust-stemmers = "1.2"             # Word stemming
 
-**Used by:** Nothing (top-level)
+# File System
+walkdir = "2.4"                   # Directory traversal
+tempfile = "3.12"                 # Temp file management
 
-### src/search/unified.rs (Orchestrator)
-**Depends on:**
-- `src/search/bm25.rs` - Text search
-- `src/search/tantivy_search.rs` - Full-text search
-- `src/search/fusion.rs` - Score combination
-- `src/embedding/` - ML embeddings (if feature enabled)
-- `src/storage/` - Vector storage (if feature enabled)
-- `src/chunking/` - File chunking
+# Parallel Processing
+rayon = "1.7"                     # Data parallelism
 
-**Used by:** 
-- `src/main.rs` - CLI commands
-- Tests in `/tests`
+# Observability
+log = "0.4"                       # Logging facade
+tracing = "0.1"                   # Structured logging
+tracing-subscriber = "0.3"        # Logging impl (env-filter, json, chrono)
 
-### src/search/bm25.rs (Core Search)
-**Depends on:**
-- `src/search/text_processor.rs` - Text preprocessing
-- `src/search/inverted_index.rs` - Index structure
-- No external features required
+# System
+sysinfo = "0.30"                  # System monitoring
+backoff = "0.4"                   # Retry logic
 
-**Used by:**
-- `src/search/unified.rs`
-- `src/search/symbol_enhanced_searcher.rs`
-
-### src/embedding/ (ML Module)
-**Depends on:**
-- `candle-*` crates (if ML feature)
-- `src/cache/` - Embedding caching
-- `tokenizers` - Text tokenization
-- Model files (~500MB)
-
-**Used by:**
-- `src/search/unified.rs`
-- `src/storage/lancedb.rs`
-
-### src/storage/lancedb.rs (Vector DB)
-**Depends on:**
-- `lancedb` crate
-- `arrow-*` crates
-- `src/embedding/` - For vector dimensions
-- Requires both 'ml' and 'vectordb' features
-
-**Used by:**
-- `src/search/unified.rs`
-
-### src/chunking/ (Text Processing)
-**Depends on:**
-- `regex` - Pattern matching
-- `tree-sitter-*` (if tree-sitter feature)
-- No heavy dependencies
-
-**Used by:**
-- `src/search/unified.rs`
-- `src/search/bm25.rs`
-- `src/embedding/`
-
-### src/config/ (Configuration)
-**Depends on:**
-- `config` crate
-- `serde` - Serialization
-- `toml` - Config format
-
-**Used by:** Almost everything
-
-### src/git/ (File Monitoring)
-**Depends on:**
-- System git command
-- `tokio` - Async runtime
-- File system access
-
-**Used by:**
-- `src/main.rs` - Watch command
-
-## Feature Flag Dependencies
-
-### No Features (Core Only)
-```
-Available:
-- BM25 search
-- Basic text processing
-- Configuration
-- File operations
-
-Not Available:
-- ML embeddings
-- Vector storage
-- Symbol indexing
-- Tantivy search
+# Serialization
+bincode = "1.3"                   # Binary encoding
+sha2 = "0.10"                     # SHA hashing
 ```
 
-### With 'ml' Feature
-```
-Adds:
-- src/embedding/nomic.rs
-- Candle framework
-- Model downloading
-- Tokenizers
+## ML Feature Dependencies (`ml` feature flag)
+```toml
+# Model Loading
+reqwest = "0.11"                  # HTTP client (stream feature)
+dirs = "5.0"                      # System directories
+memmap2 = "0.9"                   # Memory-mapped files
 
-Enables:
-- Semantic search
-- Embedding generation
-```
+# Candle ML Framework
+candle-core = "0.9"               # Core tensor ops
+candle-nn = "0.9"                 # Neural network layers
+candle-transformers = "0.9"       # Transformer models
 
-### With 'vectordb' Feature
-```
-Adds:
-- src/storage/lancedb.rs
-- Arrow integration
-- Vector persistence
+# Tokenization
+tokenizers = "0.21"               # Tokenization (onig feature)
+hf-hub = "0.3"                    # HuggingFace hub (tokio feature)
 
-Requires:
-- 'ml' feature for embeddings
+# Utils
+byteorder = "1.5"                 # Byte order conversion
+rand = "0.8"                      # Random numbers
 ```
 
-### With 'tree-sitter' Feature
-```
-Adds:
-- src/search/symbol_index.rs
-- Language parsers
-- AST analysis
+## Vector Database Feature (`vectordb` feature flag)
+```toml
+# LanceDB
+lancedb = "0.21.2"                # Vector database
+arrow = "55.0"                    # Arrow format
+arrow-array = "55.0"              # Arrow arrays
+arrow-schema = "55.0"             # Arrow schemas
 
-Enables:
-- Symbol extraction
-- Code structure search
-```
-
-### With 'tantivy' Feature  
-```
-Adds:
-- src/search/tantivy_search.rs
-- Full-text indexing
-- Fuzzy matching
-
-Enables:
-- Advanced text search
-- Query syntax
+# Legacy
+sled = "0.34"                     # Embedded database (for migration)
 ```
 
-## Critical Dependency Paths
-
-### Search Request Flow
-```
-1. main.rs (CLI)
-   ↓
-2. unified.rs (orchestrate)
-   ↓
-3. Parallel:
-   - bm25.rs (text scores)
-   - tantivy_search.rs (full-text)
-   - embedding + storage (semantic)
-   ↓
-4. fusion.rs (combine scores)
-   ↓
-5. Return results
+## Tantivy Feature (`tantivy` feature flag)
+```toml
+tantivy = "0.24"                  # Full-text search
+tantivy-jieba = "0.16"            # Chinese tokenization
 ```
 
-### Indexing Flow
-```
-1. main.rs (index command)
-   ↓
-2. File discovery (walkdir)
-   ↓
-3. Parallel processing:
-   - chunking/ (split files)
-   - symbol_index.rs (extract symbols)
-   - embedding/ (generate vectors)
-   ↓
-4. Storage:
-   - tantivy index
-   - lancedb vectors
-   - BM25 index
-```
-
-## Circular Dependency Prevention
-
-### No Circular Deps Between:
-- `search/*` modules are independent
-- `storage/` doesn't depend on `search/`
-- `embedding/` doesn't depend on `search/`
-- `config/` has no dependencies on app logic
-
-### Shared Dependencies Only:
-- `error.rs` - Used everywhere
-- `utils/` - Utility functions
-- `observability/` - Logging/metrics
-
-## Testing Dependencies
-
-### Unit Tests
-- Located in same file
-- Minimal dependencies
-- Use `#[cfg(test)]`
-
-### Integration Tests  
-**Depend on:**
-- Full feature set
-- Temp directories
-- Mock data
-
-**Located in:** `/tests`
-
-## Build Order (Important for Compilation)
-
-1. **First tier** (no internal deps):
-   - error.rs
-   - config/
-   - utils/
-   
-2. **Second tier** (basic deps):
-   - chunking/
-   - text_processor.rs
-   - cache/
-   
-3. **Third tier** (feature-gated):
-   - embedding/ (if ml)
-   - tree-sitter symbols (if tree-sitter)
-   - tantivy_search.rs (if tantivy)
-   
-4. **Fourth tier** (needs features):
-   - storage/lancedb.rs (needs ml)
-   - symbol_enhanced_searcher.rs (needs tree-sitter)
-   
-5. **Fifth tier** (orchestration):
-   - unified.rs
-   - fusion.rs
-   
-6. **Top tier**:
-   - main.rs
-
-## Finding Dependencies
-
-### Check Module Imports
-```
-# Find what a module depends on
-search_for_pattern "^use " relative_path="src/module.rs"
-
-# Find what depends on a module  
-search_for_pattern "use.*module_name"
+## Tree-Sitter Feature (`tree-sitter` feature flag)
+```toml
+tree-sitter = "0.23"              # Parsing framework
+tree-sitter-rust = "0.23"         # Rust parser
+tree-sitter-python = "0.23"       # Python parser
+tree-sitter-javascript = "0.23"   # JavaScript parser
+tree-sitter-typescript = "0.23"   # TypeScript parser
+tree-sitter-go = "0.23"           # Go parser
+tree-sitter-java = "0.23"         # Java parser
+tree-sitter-c = "0.23"            # C parser
+tree-sitter-cpp = "0.23"          # C++ parser
+tree-sitter-html = "0.23"         # HTML parser
+tree-sitter-css = "0.23"          # CSS parser
+tree-sitter-json = "0.23"         # JSON parser
+tree-sitter-bash = "0.23"         # Bash parser
 ```
 
-### Check Cargo Dependencies
-```
-# External crates used
-search_for_pattern "extern crate"
-search_for_pattern 'use [a-z_]+::'  # External crate usage
+## Node.js Dependencies (package.json)
+```json
+{
+  "dependencies": {
+    "better-sqlite3": "^11.6.0",
+    "claude-flow": "alpha",
+    "sqlite3": "^5.1.7"
+  }
+}
 ```
 
-### Check Feature Dependencies
+## Module Dependencies Within Project
+
+### Core Module Graph
 ```
-# Find feature-gated imports
-search_for_pattern '#\[cfg\(feature.*\)\].*use'
+main.rs
+  ├── lib.rs (exports)
+  ├── config/mod.rs (Config struct)
+  ├── error.rs (error types)
+  └── Commands implementations
+      ├── search/unified.rs
+      ├── storage/* (based on features)
+      └── embedding/* (if ml feature)
+
+search/unified.rs
+  ├── search/bm25.rs
+  ├── search/tantivy_search.rs (if tantivy)
+  ├── search/fusion.rs
+  └── storage/* (for persistence)
+
+storage/lancedb_storage.rs
+  ├── lancedb (if vectordb feature)
+  ├── arrow* (if vectordb feature)
+  └── error.rs
+
+embedding/nomic.rs
+  ├── candle-* (if ml feature)
+  ├── tokenizers (if ml feature)
+  └── embedding/cache.rs
 ```
+
+### Feature Flag Dependencies
+- **Default**: Only core dependencies
+- **ml**: Adds Candle, tokenizers, model loading
+- **vectordb**: Adds LanceDB, Arrow ecosystem
+- **tantivy**: Adds Tantivy search engine
+- **tree-sitter**: Adds all language parsers
+
+### Import Patterns
+```rust
+// Core imports (always available)
+use anyhow::{Result, Context};
+use serde::{Serialize, Deserialize};
+use tokio;
+use clap::{Parser, Subcommand};
+
+// Feature-gated imports
+#[cfg(feature = "ml")]
+use candle_core::{Tensor, Device};
+
+#[cfg(feature = "vectordb")]
+use lancedb::Connection;
+
+#[cfg(feature = "tantivy")]
+use tantivy::{Index, Document};
+
+#[cfg(feature = "tree-sitter")]
+use tree_sitter::{Parser, Query};
+```
+
+## Version Compatibility Notes
+- Arrow versions (55.0) must match across arrow, arrow-array, arrow-schema
+- Tree-sitter versions (0.23) must match across all parsers
+- Candle versions (0.9) must match across core, nn, transformers
+- Tokio 1.43 with full features for complete async support

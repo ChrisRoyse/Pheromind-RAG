@@ -111,12 +111,12 @@ impl NomicEmbedder {
     const NUM_HEADS: usize = 12;
     const INTERMEDIATE_SIZE: usize = 3072;
     
-    pub fn get_global() -> Result<Arc<Self>, crate::error::EmbedError> {
+    pub async fn get_global() -> Result<Arc<Self>, crate::error::EmbedError> {
         if let Some(embedder) = GLOBAL_EMBEDDER.get() {
             return Ok(embedder.clone());
         }
         
-        let embedder = Arc::new(Self::new().map_err(|e| crate::error::EmbedError::Internal {
+        let embedder = Arc::new(Self::new().await.map_err(|e| crate::error::EmbedError::Internal {
             message: format!("Failed to initialize NomicEmbedder: {}", e),
             backtrace: None,
         })?);
@@ -129,12 +129,9 @@ impl NomicEmbedder {
         }
     }
     
-    pub fn new() -> Result<Self> {
-        // Require tokio runtime to be available - do not create fallback runtime
-        let rt = tokio::runtime::Handle::try_current()
-            .map_err(|_| anyhow!("No tokio runtime available. NomicEmbedder must be created within an async runtime context"))?;
-        
-        let (model_path, tokenizer_path) = rt.block_on(Self::ensure_files_cached())?;
+    pub async fn new() -> Result<Self> {
+        // Ensure files are cached using async directly
+        let (model_path, tokenizer_path) = Self::ensure_files_cached().await?;
         
         // Setup device (CPU for GGUF)
         let device = Device::Cpu;
@@ -744,7 +741,7 @@ impl NomicEmbedder {
     pub fn embed(&self, text: &str) -> Result<Vec<f32>> {
         // Check cache first
         if let Some(cache) = &self.cache {
-            if let Some(embedding) = cache.get(text) {
+            if let Ok(Some(embedding)) = cache.get(text) {
                 return Ok(embedding);
             }
         }
@@ -1146,14 +1143,14 @@ mod tests {
     
     #[tokio::test]
     async fn test_singleton_pattern() {
-        let embedder1 = NomicEmbedder::get_global().unwrap();
-        let embedder2 = NomicEmbedder::get_global().unwrap();
+        let embedder1 = NomicEmbedder::get_global().await.unwrap();
+        let embedder2 = NomicEmbedder::get_global().await.unwrap();
         assert!(Arc::ptr_eq(&embedder1, &embedder2));
     }
     
     #[tokio::test]
     async fn test_embedding_generation() {
-        let embedder = NomicEmbedder::get_global().unwrap();
+        let embedder = NomicEmbedder::get_global().await.unwrap();
         
         let text1 = "def calculate_sum(a, b): return a + b";
         let text2 = "class User: pass";
@@ -1192,7 +1189,7 @@ mod tests {
     
     #[tokio::test]
     async fn test_batch_embedding() {
-        let embedder = NomicEmbedder::get_global().unwrap();
+        let embedder = NomicEmbedder::get_global().await.unwrap();
         
         let texts = vec![
             "class User:",

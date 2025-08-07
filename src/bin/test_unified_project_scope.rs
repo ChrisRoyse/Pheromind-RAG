@@ -1,11 +1,14 @@
 use embed_search::search::unified::UnifiedSearcher;
-use embed_search::config::SearchBackend;
+use embed_search::config::{SearchBackend, Config};
 use std::fs;
 use tempfile::TempDir;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     println!("🔍 Testing UnifiedSearcher with project scoping");
+    
+    // Initialize config
+    Config::init().expect("Failed to initialize config");
     
     // Create two separate temporary directories
     let project1_dir = TempDir::new().expect("Failed to create temp directory for project 1");

@@ -4,7 +4,7 @@ use embed_search::search::SymbolIndexer;
 use std::path::PathBuf;
 
 #[cfg(feature = "tree-sitter")]
-fn main() {
+fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("=== Symbol Extraction Verification ===\n");
     
     println!("Creating SymbolIndexer...");
@@ -15,7 +15,7 @@ fn main() {
         }
         Err(e) => {
             println!("✗ Failed to create SymbolIndexer: {}", e);
-            return;
+            return Ok(());
         }
     };
     
@@ -124,6 +124,8 @@ fn main() {
         }
         Err(e) => println!("✗ File read failed: {}", e),
     }
+    
+    Ok(())
 }
 
 #[cfg(not(feature = "tree-sitter"))]

@@ -1,242 +1,256 @@
-# Testing Patterns and Strategies
+# Testing Patterns (Verified)
 
 ## Test Organization
 
+### Integration Tests (`/tests/`)
+19 test files covering different aspects:
+```
+tests/
+├── search_validation/              # Search validation subdirectory
+├── bm25_integration_tests.rs       # BM25 search testing
+├── chunker_integration_tests.rs    # Code chunking tests
+├── compile_time_feature_tests.rs   # Feature flag compilation
+├── comprehensive_search_test.py    # Python-based search tests
+├── config_search_backend_tests.rs  # Configuration testing
+├── core_tests.rs                   # Core functionality
+├── embedding_performance_benchmark.rs # Performance benchmarks
+├── fallback_prevention_test.rs     # Fallback behavior
+├── line_tracking_tests.rs          # Line number tracking
+├── nomic_embedding_tests.rs        # Nomic model tests
+├── production_embedding_verification.rs # Production embedding
+├── production_q4km_verification.rs # Q4KM model verification
+├── real_embedding_system_tests.rs  # Real embedding tests
+├── safety_audit.rs                 # Safety checks
+├── search_accuracy_test.rs         # Search accuracy metrics
+├── symbol_indexing_tests.rs        # Symbol extraction
+├── test-better-sqlite.js           # JavaScript SQLite tests
+├── test-claude-flow-memory.js      # Claude Flow memory tests
+└── tree_sitter_feature_tests.rs    # Tree-sitter features
+```
+
 ### Unit Tests
-- **Location**: In same file as code, in `#[cfg(test)]` module
-- **Pattern**: At bottom of each .rs file
-- **Find**: `search_for_pattern "#\[cfg\(test\)\]" relative_path="src"`
+Located within source files using `#[cfg(test)]` modules
 
-### Integration Tests
-- **Location**: `/tests` directory
-- **Files**:
-  - `chunker_integration_tests.rs` - Chunking logic
-  - `line_tracking_tests.rs` - Line number tracking
-  - `nomic_embedding_tests.rs` - ML embeddings
-  - `real_embedding_system_tests.rs` - Full system
-  - `search_accuracy_test.rs` - Search quality
-  - `compile_time_feature_tests.rs` - Feature combinations
-
-### Benchmarks
-- **Location**: `/benches` directory
-- **Run**: `cargo bench`
-- **File**: `line_tracking_bench.rs`
-
-## Running Tests
-
-### Basic Commands
-```bash
-# All tests
-cargo test
-
-# With all features
-cargo test --all-features
-
-# Specific test file
-cargo test --test search_accuracy_test
-
-# Specific test function
-cargo test test_function_name
-
-# With output
-cargo test -- --nocapture
-
-# Single threaded (for debugging)
-cargo test -- --test-threads=1
-```
-
-### Feature-Specific Tests
-```bash
-# ML tests
-cargo test --features "ml,vectordb"
-
-# Symbol tests  
-cargo test --features "tree-sitter"
-
-# Full system
-cargo test --features "full-system"
-```
+### Binary Tests (`/src/bin/`)
+Standalone test executables:
+- test_persistence.rs
+- test_project_scoping.rs
+- test_unified_project_scope.rs
 
 ## Common Test Patterns
 
-### Setup Pattern
-```rust
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use tempfile::TempDir;
-    
-    fn setup() -> (TempDir, Config) {
-        let temp_dir = TempDir::new().unwrap();
-        let config = Config::default();
-        (temp_dir, config)
-    }
-    
-    #[test]
-    fn test_something() {
-        let (temp_dir, config) = setup();
-        // test code
-    }
-}
-```
-
-### Async Test Pattern
+### 1. Async Test Pattern
 ```rust
 #[tokio::test]
 async fn test_async_operation() {
-    let result = async_function().await;
-    assert!(result.is_ok());
-}
-```
-
-### Feature-Gated Tests
-```rust
-#[test]
-#[cfg(feature = "ml")]
-fn test_ml_feature() {
-    // Only runs when ml feature is enabled
-}
-```
-
-### Benchmark Pattern
-```rust
-use criterion::{black_box, criterion_group, criterion_main, Criterion};
-
-fn benchmark_function(c: &mut Criterion) {
-    c.bench_function("function_name", |b| {
-        b.iter(|| {
-            function_to_benchmark(black_box(input))
-        });
-    });
-}
-```
-
-## Test Data
-
-### Creating Test Files
-```rust
-use std::fs;
-use tempfile::TempDir;
-
-let temp_dir = TempDir::new()?;
-let test_file = temp_dir.path().join("test.rs");
-fs::write(&test_file, "fn main() {}")?;
-```
-
-### Test Fixtures
-- Look for test data in test functions
-- Common patterns: 
-  - Inline string literals for small tests
-  - Temporary files for file operations
-  - Mock structs for complex types
-
-## Debugging Failed Tests
-
-### Step 1: Identify Failure
-```bash
-# Run with backtrace
-RUST_BACKTRACE=1 cargo test failing_test
-
-# Run with full backtrace
-RUST_BACKTRACE=full cargo test failing_test
-```
-
-### Step 2: Add Debug Output
-```rust
-#[test]
-fn debug_test() {
-    dbg!(&variable);  // Debug print
-    println!("Value: {:?}", value);  // With --nocapture
-    assert_eq!(expected, actual);
-}
-```
-
-### Step 3: Check Features
-```bash
-# Ensure correct features
-cargo test --all-features failing_test
-```
-
-## Writing New Tests
-
-### Guidelines
-1. **Name clearly**: `test_specific_behavior_with_context`
-2. **One assertion focus**: Test one thing per test
-3. **Use helpers**: Extract common setup
-4. **Clean up**: Use TempDir for file operations
-5. **Document why**: Add comments for complex tests
-
-### Test Template
-```rust
-#[test]
-fn test_new_functionality() {
-    // Arrange
-    let input = prepare_test_data();
+    // Setup
+    let config = Config::default();
+    let searcher = UnifiedSearcher::new(config).await.unwrap();
     
-    // Act
-    let result = function_under_test(input);
+    // Execute
+    let results = searcher.search("query").await.unwrap();
     
     // Assert
-    assert!(result.is_ok());
-    assert_eq!(result.unwrap(), expected_value);
+    assert!(!results.is_empty());
+    assert_eq!(results[0].score, expected_score);
 }
 ```
 
-## Coverage and Quality
+### 2. Feature-Gated Tests
+```rust
+#[cfg(feature = "ml")]
+#[test]
+fn test_embedding_generation() {
+    // Test only runs when ml feature is enabled
+    let embedder = NomicEmbedder::new().unwrap();
+    let embedding = embedder.embed("test").unwrap();
+    assert_eq!(embedding.len(), 384); // Expected dimensions
+}
+```
 
-### Check What's Tested
-```
-# Find untested public functions
-search_for_pattern "^pub fn" relative_path="src"
-# Then check for corresponding tests
+### 3. Error Testing Pattern
+```rust
+#[test]
+fn test_error_handling() {
+    let result = risky_operation();
+    assert!(result.is_err());
+    
+    let err = result.unwrap_err();
+    assert!(err.to_string().contains("expected error"));
+}
 ```
 
-### Find Test Gaps
+### 4. Temporary Directory Pattern
+```rust
+use tempfile::TempDir;
+
+#[test]
+fn test_with_temp_storage() {
+    let temp_dir = TempDir::new().unwrap();
+    let config = Config {
+        vector_db_path: temp_dir.path().to_path_buf(),
+        ..Default::default()
+    };
+    
+    // Test operations
+    // temp_dir automatically cleaned up
+}
 ```
-# Find modules without tests
-search_for_pattern "#\[cfg\(test\)\]" 
-# Compare with module list
+
+### 5. Mock/Stub Pattern
+```rust
+// Common in storage tests
+struct MockStorage {
+    data: HashMap<String, Vec<u8>>,
+}
+
+impl Storage for MockStorage {
+    async fn store(&mut self, key: String, value: Vec<u8>) -> Result<()> {
+        self.data.insert(key, value);
+        Ok(())
+    }
+}
+```
+
+## Test Utilities
+
+### Common Setup Functions
+```rust
+fn setup_test_config() -> Config {
+    Config {
+        chunk_size: 100,
+        batch_size: 10,
+        max_search_results: 5,
+        ..Default::default()
+    }
+}
+
+async fn setup_test_searcher() -> UnifiedSearcher {
+    let config = setup_test_config();
+    UnifiedSearcher::new(config).await.unwrap()
+}
+```
+
+### Assertion Helpers
+```rust
+fn assert_search_result_valid(result: &SearchResult) {
+    assert!(!result.content.is_empty());
+    assert!(result.score >= 0.0 && result.score <= 1.0);
+    assert!(!result.file_path.is_empty());
+}
 ```
 
 ## Performance Testing
 
-### Profiling Tests
-```bash
-# Build with profiling
-cargo build --release --features "full-system"
-
-# Run with profiling
-cargo test --release -- --bench
-```
-
-### Memory Testing
-Check for memory leaks in tests:
+### Benchmark Pattern (benches/)
 ```rust
-#[test]
-fn test_no_memory_leak() {
-    let initial = get_memory_usage();
-    // Run operation many times
-    for _ in 0..1000 {
-        operation();
-    }
-    let final = get_memory_usage();
-    assert!(final - initial < threshold);
+use criterion::{black_box, criterion_group, criterion_main, Criterion};
+
+fn benchmark_search(c: &mut Criterion) {
+    let runtime = tokio::runtime::Runtime::new().unwrap();
+    let searcher = runtime.block_on(setup_test_searcher());
+    
+    c.bench_function("search_performance", |b| {
+        b.to_async(&runtime).iter(|| async {
+            searcher.search(black_box("test query")).await
+        });
+    });
 }
+
+criterion_group!(benches, benchmark_search);
+criterion_main!(benches);
 ```
 
-## CI/CD Test Commands
+## Test Data Management
 
-For automation:
+### Test Databases
+- `.test_bm25_db/` - BM25 test data
+- `test_accuracy_db/` - Accuracy testing data
+- Temporary databases created per test
+
+### Test Fixtures
+```rust
+const TEST_CODE: &str = r#"
+fn main() {
+    println!("Hello, world!");
+}
+"#;
+
+const TEST_QUERIES: &[&str] = &[
+    "hello world",
+    "main function",
+    "println macro",
+];
+```
+
+## Coverage Areas
+
+### Core Functionality Tests
+- Configuration loading and validation
+- Error propagation and handling
+- Async operation correctness
+
+### Search Tests
+- BM25 ranking accuracy
+- Tantivy fuzzy matching
+- Unified search result fusion
+- Symbol extraction and indexing
+
+### Storage Tests
+- LanceDB operations
+- Vector storage and retrieval
+- Database migrations
+- Concurrent access safety
+
+### Embedding Tests
+- Model loading
+- Dimension consistency
+- Caching behavior
+- Performance benchmarks
+
+## Running Tests
+
+### Commands
 ```bash
-# Full test suite
-cargo test --all-features --release
+# Run all tests
+cargo test
 
-# Format check
-cargo fmt -- --check
+# Run specific test file
+cargo test --test bm25_integration_tests
 
-# Lint check
-cargo clippy --all-features -- -D warnings
+# Run with specific features
+cargo test --features "ml,vectordb"
 
-# Security audit
-cargo audit
+# Run benchmarks
+cargo bench
+
+# Run with output
+cargo test -- --nocapture
+```
+
+### Test Environment Variables
+```bash
+RUST_LOG=debug cargo test
+RUST_BACKTRACE=1 cargo test
+```
+
+## Common Test Issues and Solutions
+
+### Issue: "Test databases not cleaned up"
+**Solution**: Use TempDir or cleanup in drop impl
+
+### Issue: "Tests fail intermittently"
+**Solution**: Check for race conditions, use serial test execution
+
+### Issue: "Feature-gated tests not running"
+**Solution**: Enable features explicitly in test command
+
+### Issue: "Async test hangs"
+**Solution**: Add timeout, check for deadlocks
+```rust
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+#[timeout(Duration::from_secs(10))]
+async fn test_with_timeout() {
+    // Test code
+}
 ```

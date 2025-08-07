@@ -162,9 +162,9 @@ impl TantivySearcher {
         // Create fully explicit IndexSettings - no fallbacks or defaults allowed
         // All settings must be explicitly configured
         let index_settings = IndexSettings {
-            sort_by_field: None,  // No pre-sorting - explicit configuration
             docstore_compression: tantivy::store::Compressor::Lz4,  // Explicit compression choice
             docstore_blocksize: 16384,  // Explicit block size - no default masking
+            docstore_compress_dedicated_thread: true,  // Required field
         };
         
         let index = Index::create(directory, schema, index_settings)

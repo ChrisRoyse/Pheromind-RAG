@@ -20,7 +20,6 @@ use lancedb::query::{QueryBase, ExecutableQuery};
 #[cfg(feature = "vectordb")]
 use crate::chunking::Chunk;
 #[cfg(feature = "vectordb")]
-use crate::config::Config;
 // use crate::utils::retry::{retry_database_operation, RetryConfig}; // Module doesn't exist
 // use crate::observability::metrics; // Module doesn't exist  
 #[cfg(feature = "vectordb")]
@@ -183,7 +182,7 @@ pub enum IndexType {
 /// Real LanceDB vector storage for configurable dimensional embeddings
 /// 
 /// ## Requirements
-/// - Embedding dimensions must be configured via Config::embedding_dimensions()
+/// - Embedding dimensions must be configured via 768
 /// - Index creation requires minimum 100 records in the table
 /// - Vector indexing is NOT IMPLEMENTED - create_index() will fail with clear error
 /// - SearchOptions must be constructed explicitly with validated parameters
@@ -234,8 +233,7 @@ impl LanceDBStorage {
             .map_err(|e| LanceStorageError::DatabaseError(format!("Connection failed: {}", e)))?;
         
         // Define schema for configurable dimensional embeddings
-        let embedding_dim = Config::embedding_dimensions()
-            .map_err(|e| LanceStorageError::ConfigError(format!("Embedding dimensions not configured: {}. Configuration is required for storage operation.", e)))?;
+        let embedding_dim = 768usize;
         let schema = Arc::new(Schema::new(vec![
             Field::new("id", DataType::Utf8, false),
             Field::new("file_path", DataType::Utf8, false),
@@ -312,8 +310,7 @@ impl LanceDBStorage {
         chunk: &Chunk,
         embedding: Vec<f32>
     ) -> Result<(), LanceStorageError> {
-        let expected_dim = Config::embedding_dimensions()
-            .map_err(|e| LanceStorageError::ConfigError(format!("Failed to get embedding dimensions: {}", e)))?;
+        let expected_dim = 768usize;
         if embedding.len() != expected_dim {
             return Err(LanceStorageError::InvalidInput(
                 format!("Embedding must be {}-dimensional, got {}", expected_dim, embedding.len())
@@ -341,8 +338,7 @@ impl LanceDBStorage {
         }
         
         // Validate all embeddings match expected dimensions
-        let expected_dim = Config::embedding_dimensions()
-            .map_err(|e| LanceStorageError::ConfigError(format!("Failed to get embedding dimensions: {}", e)))?;
+        let expected_dim = 768usize;
         for record in &records {
             if record.embedding.len() != expected_dim {
                 return Err(LanceStorageError::InvalidInput(
@@ -360,8 +356,7 @@ impl LanceDBStorage {
         let end_lines: Vec<u64> = records.iter().map(|r| r.end_line).collect();
         
         // Flatten embeddings for FixedSizeListArray
-        let embedding_dim = Config::embedding_dimensions()
-            .map_err(|e| LanceStorageError::ConfigError(format!("Failed to get embedding dimensions: {}", e)))?;
+        let embedding_dim = 768usize;
         let mut flat_embeddings = Vec::with_capacity(records.len() * embedding_dim);
         for record in &records {
             flat_embeddings.extend_from_slice(&record.embedding);
@@ -424,8 +419,7 @@ impl LanceDBStorage {
 
     /// Perform vector similarity search with advanced options
     pub async fn search_similar_with_options(&self, query_embedding: Vec<f32>, options: SearchOptions) -> Result<Vec<LanceEmbeddingRecord>, LanceStorageError> {
-        let expected_dim = Config::embedding_dimensions()
-            .map_err(|e| LanceStorageError::ConfigError(format!("Failed to get embedding dimensions: {}", e)))?;
+        let expected_dim = 768usize;
         if query_embedding.len() != expected_dim {
             return Err(LanceStorageError::InvalidInput(
                 format!("Query embedding must be {}-dimensional, got {}", expected_dim, query_embedding.len())
@@ -490,8 +484,7 @@ impl LanceDBStorage {
                 let embedding_list = embedding_array.value(i);
                 let embedding_values = embedding_list.as_any().downcast_ref::<Float32Array>()
                     .ok_or_else(|| LanceStorageError::SearchError("Failed to extract embedding values".to_string()))?;
-                let embedding: Vec<f32> = (0..Config::embedding_dimensions()
-            .map_err(|e| LanceStorageError::ConfigError(format!("Failed to get embedding dimensions: {}", e)))?).map(|j| embedding_values.value(j)).collect();
+                let embedding: Vec<f32> = (0..768usize).map(|j| embedding_values.value(j)).collect();
                 
                 // Extract similarity score from the _distance column if available
                 let similarity_score = batch.column_by_name("_distance")
@@ -596,10 +589,7 @@ impl LanceDBStorage {
     
     /// Get storage info
     pub fn storage_info(&self) -> String {
-        match Config::embedding_dimensions() {
-            Ok(dims) => format!("LanceDB vector storage ({}-dimensional embeddings)", dims),
-            Err(_) => "LanceDB vector storage (dimensions not configured)".to_string(),
-        }
+        format!("LanceDB vector storage (768-dimensional embeddings)")
     }
 }
 
@@ -657,8 +647,7 @@ mod tests {
         };
         
         // Create real-looking embedding (normalized)
-        let mut embedding = vec![0.1f32; Config::embedding_dimensions()
-            .map_err(|e| LanceStorageError::ConfigError(format!("Failed to get embedding dimensions: {}", e)))?];
+        let mut embedding = vec![0.1f32; 768];
         let norm = embedding.iter().map(|x| x * x).sum::<f32>().sqrt();
         for val in &mut embedding {
             *val /= norm;

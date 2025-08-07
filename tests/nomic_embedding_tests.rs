@@ -6,8 +6,8 @@ use std::time::Instant;
 #[cfg(feature = "ml")]
 #[tokio::test]
 async fn test_nomic_singleton() {
-    let embedder1 = NomicEmbedder::get_global().unwrap();
-    let embedder2 = NomicEmbedder::get_global().unwrap();
+    let embedder1 = NomicEmbedder::get_global().await.unwrap();
+    let embedder2 = NomicEmbedder::get_global().await.unwrap();
     
     // Should be the same instance
     assert!(std::sync::Arc::ptr_eq(&embedder1, &embedder2));
@@ -16,7 +16,7 @@ async fn test_nomic_singleton() {
 #[cfg(feature = "ml")]
 #[tokio::test]
 async fn test_nomic_dimensions() {
-    let embedder = NomicEmbedder::get_global().unwrap();
+    let embedder = NomicEmbedder::get_global().await.unwrap();
     
     // Should default to 768 dimensions
     assert_eq!(embedder.dimensions(), 768);
@@ -25,7 +25,7 @@ async fn test_nomic_dimensions() {
 #[cfg(feature = "ml")]
 #[tokio::test]
 async fn test_nomic_embed_single() {
-    let embedder = NomicEmbedder::get_global().unwrap();
+    let embedder = NomicEmbedder::get_global().await.unwrap();
     
     let text = "def authenticate_user(username, password):";
     let embedding = embedder.embed(text).unwrap();
@@ -42,7 +42,7 @@ async fn test_nomic_embed_single() {
 #[cfg(feature = "ml")]
 #[tokio::test]
 async fn test_nomic_embed_batch() {
-    let embedder = NomicEmbedder::get_global().unwrap();
+    let embedder = NomicEmbedder::get_global().await.unwrap();
     
     let texts = vec![
         "import numpy as np",
@@ -65,7 +65,7 @@ async fn test_nomic_embed_batch() {
 #[cfg(feature = "ml")]
 #[tokio::test]
 async fn test_nomic_caching() {
-    let embedder = NomicEmbedder::get_global().unwrap();
+    let embedder = NomicEmbedder::get_global().await.unwrap();
     
     let text = "cached test string";
     
@@ -94,16 +94,16 @@ async fn test_nomic_model_download() {
     // It will download the model on first run and use cached version on subsequent runs
     
     let start = Instant::now();
-    let embedder = NomicEmbedder::new();
+    let embedder = NomicEmbedder::new().await;
     let duration = start.elapsed();
     
-    assert!(embedder.is_ok(), "Failed to initialize embedder: {:?}", embedder.err());
+    assert!(embedder.is_ok(), "Failed to initialize embedder: {:?}", embedder.as_ref().err());
     
     println!("Model initialization took: {:?}", duration);
     
     // Second initialization should be much faster (cached)
     let start = Instant::now();
-    let _embedder2 = NomicEmbedder::new().unwrap();
+    let _embedder2 = NomicEmbedder::new().await.unwrap();
     let cached_duration = start.elapsed();
     
     println!("Cached model initialization took: {:?}", cached_duration);
@@ -115,7 +115,7 @@ async fn test_nomic_model_download() {
 #[cfg(feature = "ml")]
 #[tokio::test]
 async fn test_nomic_performance() {
-    let embedder = NomicEmbedder::get_global().unwrap();
+    let embedder = NomicEmbedder::get_global().await.unwrap();
     
     // Generate test texts
     let texts: Vec<String> = (0..100)
@@ -139,7 +139,7 @@ async fn test_nomic_performance() {
 #[cfg(feature = "ml")]
 #[tokio::test] 
 async fn test_nomic_matryoshka_dimensions() {
-    let mut embedder = NomicEmbedder::new().unwrap();
+    let mut embedder = NomicEmbedder::new().await.unwrap();
     
     // Test valid dimensions
     let valid_dims = vec![64, 128, 256, 512, 768];
@@ -169,7 +169,7 @@ async fn test_nomic_memory_usage() {
         .expect("Failed to get initial memory usage - cannot perform memory monitoring test");
     
     // Initialize embedder
-    let embedder = NomicEmbedder::get_global().unwrap();
+    let embedder = NomicEmbedder::get_global().await.unwrap();
     
     // Generate many embeddings
     let texts: Vec<String> = (0..1000)

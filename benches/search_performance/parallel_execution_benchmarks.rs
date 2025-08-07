@@ -9,7 +9,7 @@ use anyhow::Result;
 use rayon::prelude::*;
 
 use embed::search::{UnifiedSearcher, SearchResult};
-use embed::config::SearchBackend;
+use embed::config::{SearchBackend, Config};
 
 /// Parallel execution performance benchmarking suite
 pub struct ParallelExecutionBenchmarks {
@@ -63,6 +63,7 @@ impl ParallelExecutionBenchmarks {
         // Initialize searcher with test data
         let project_path = PathBuf::from(".");
         let db_path = PathBuf::from("./parallel_benchmark_db");
+        Config::init_test().expect("Failed to initialize test config");
         let searcher = Arc::new(UnifiedSearcher::new_with_backend(
             project_path,
             db_path,

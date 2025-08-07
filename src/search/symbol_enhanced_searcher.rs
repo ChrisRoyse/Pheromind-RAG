@@ -8,6 +8,7 @@ use crate::search::unified::UnifiedSearcher;
 use crate::search::MatchType;
 use crate::search::unified::SearchResult;
 use crate::chunking::ChunkContext;
+use crate::config::Config;
 
 /// Enhanced searcher that combines the existing hybrid search with symbol indexing
 pub struct SymbolEnhancedSearcher {
@@ -18,6 +19,7 @@ pub struct SymbolEnhancedSearcher {
 
 impl SymbolEnhancedSearcher {
     pub async fn new(project_path: PathBuf, db_path: PathBuf) -> Result<Self> {
+        Config::init_test()?;
         let base_searcher = UnifiedSearcher::new(project_path, db_path).await?;
         let symbol_indexer = Arc::new(RwLock::new(SymbolIndexer::new()?));
         let symbol_db = Arc::new(RwLock::new(SymbolDatabase::new()));

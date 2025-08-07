@@ -75,7 +75,7 @@ impl UnifiedSearcher {
         
         // Initialize Nomic embedder with permanent model caching
         #[cfg(feature = "ml")]
-        let embedder = NomicEmbedder::get_global()
+        let embedder = NomicEmbedder::get_global().await
             .map_err(|e| anyhow::anyhow!("Failed to initialize Nomic embedder: {}", e))?;
         
         #[cfg(feature = "vectordb")]
@@ -91,9 +91,9 @@ impl UnifiedSearcher {
         #[cfg(feature = "tree-sitter")]
         let symbol_db = Arc::new(RwLock::new(SymbolDatabase::new()));
         
-        // Load configuration - must succeed, no defaults
-        let config = Config::load()
-            .map_err(|e| anyhow::anyhow!("Failed to load configuration: {}. Configuration is required for proper operation.", e))?;
+        // Get already initialized configuration
+        let config = Config::get()
+            .map_err(|e| anyhow::anyhow!("Failed to get configuration: {}. Make sure Config::init() was called first.", e))?;
         
         // Initialize BM25 components
         let bm25_engine = Arc::new(RwLock::new(BM25Engine::with_params(config.bm25_k1, config.bm25_b)));
@@ -211,7 +211,7 @@ impl UnifiedSearcher {
                          exact_matches.len(), semantic_matches.len(), symbol_matches.len());
                 
                 // Fuse three types of results
-                self.fusion.fuse_all_results(exact_matches, semantic_matches, symbol_matches)
+                self.fusion.fuse_all_results(exact_matches, semantic_matches, symbol_matches)?
             };
             
             // Optimize ranking
@@ -673,8 +673,8 @@ impl UnifiedSearcher {
         
         Ok(SearcherStats {
             total_embeddings,
-            cache_entries: search_cache_stats.valid_entries,
-            cache_max_size: search_cache_stats.max_size,
+            cache_entries: search_cache_stats.as_ref().map(|stats| stats.valid_entries).unwrap_or(0),
+            cache_max_size: search_cache_stats.as_ref().map(|stats| stats.max_size).unwrap_or(0),
             embedding_cache_entries: embedding_cache_stats.entries,
             embedding_cache_max_size: embedding_cache_stats.max_size,
         })

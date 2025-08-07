@@ -14,7 +14,7 @@ mod ml_enabled_tests {
         // It verifies that the NomicEmbedder is available and functional
         
         // This should compile when ML feature is enabled
-        let result = NomicEmbedder::new();
+        let result = NomicEmbedder::new().await;
         
         // The constructor will likely fail at runtime due to missing model files, 
         // but the important thing is that it compiles

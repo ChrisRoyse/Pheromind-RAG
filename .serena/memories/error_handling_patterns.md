@@ -1,253 +1,267 @@
-# Error Handling Patterns
+# Error Handling Patterns (Verified Implementation)
 
-## Error Types in This Codebase
+## Core Error Types (src/error.rs)
 
-### Main Error Type
-- **Location**: `src/error.rs`
-- **Type**: Uses `thiserror` for custom errors
-- **Pattern**: `anyhow::Result` for propagation
-
-### Finding Error Definitions
-```
-get_symbols_overview "src/error.rs"
-find_symbol "Error" relative_path="src/error.rs"
-search_for_pattern "pub enum.*Error"
-```
-
-## Error Handling Patterns
-
-### 1. Result Type Usage
+### Primary Error Enums
 ```rust
-// Standard pattern
-use anyhow::Result;
-
-pub async fn operation() -> Result<Data> {
-    // Use ? for propagation
-    let data = risky_operation()?;
-    Ok(data)
+#[derive(Debug, thiserror::Error)]
+pub enum EmbedError {
+    // Main application error type - aggregates all others
 }
-```
 
-### 2. Adding Context
-```rust
-// Pattern throughout codebase
-use anyhow::Context;
+pub enum StorageError {
+    DatabaseError(String),
+    SchemaError(String),
+    InsertError(String),
+    SearchError(String),
+    InvalidInput(String),
+    InvalidVector { expected: usize, got: usize },
+}
 
-operation()
-    .context("Failed to perform operation")?;
+pub enum EmbeddingError {
+    // ML embedding errors
+}
 
-operation()
-    .with_context(|| format!("Failed processing file: {}", path))?;
-```
-
-### 3. Custom Error Types
-```rust
-#[derive(thiserror::Error, Debug)]
 pub enum SearchError {
-    #[error("Index not found: {0}")]
-    IndexNotFound(String),
-    
-    #[error("Embedding failed")]
-    EmbeddingError(#[from] EmbeddingError),
-    
-    #[error("IO error: {0}")]
-    Io(#[from] std::io::Error),
+    // Search-specific errors
+}
+
+pub enum LoggingError {
+    // Logging/metrics errors
 }
 ```
 
-## Common Error Patterns to Search
-
-### Find Error Handling
-```
-# All Result returns
-search_for_pattern "-> Result<"
-
-# Error propagation
-search_for_pattern "\?\s*;"
-
-# Context additions
-search_for_pattern "\.context\("
-search_for_pattern "\.with_context\("
-
-# Error matching
-search_for_pattern "match.*Err\("
-
-# Error creation
-search_for_pattern "Err\(.*Error::"
-```
-
-### Find Error Recovery
-```
-# Unwrap alternatives
-search_for_pattern "\.unwrap_or"
-search_for_pattern "\.unwrap_or_else"
-search_for_pattern "\.unwrap_or_default"
-
-# Error logging
-search_for_pattern "error!\("
-search_for_pattern "warn!\("
-
-# Panic points (avoid these)
-search_for_pattern "\.unwrap\(\)"
-search_for_pattern "\.expect\("
-search_for_pattern "panic!\("
-```
-
-## Error Handling by Module
-
-### Storage Errors
-```
-find_symbol "StorageError"
-# Handles: Database failures, migration issues
-# Recovery: Retry with backoff, reinitialize
-```
-
-### Embedding Errors  
-```
-find_symbol "EmbeddingError"
-# Handles: Model loading, dimension mismatches
-# Recovery: Fallback to cached, skip item
-```
-
-### Search Errors
-```
-find_symbol "SearchError"  
-# Handles: Query parsing, no results
-# Recovery: Suggest alternatives, return empty
-```
-
-### Config Errors
-```
-find_symbol "ConfigError"
-# Handles: Missing config, invalid values
-# Recovery: Use defaults, prompt user
-```
-
-## Best Practices in This Codebase
-
-### 1. Early Returns
+### Storage-Specific Error Types
 ```rust
-// Good - early return on error
-if condition_failed {
-    return Err(anyhow!("Condition not met"));
+// In lancedb_storage.rs
+pub enum LanceStorageError {
+    DatabaseError(String),
+    SchemaError(String),
+    InsertError(String),
+    SearchError(String),
+    InvalidInput(String),
+    ConfigError(String),
+    InsufficientRecords(String),
+    IndexingNotImplemented,
 }
 
-// Continue with success path
+// Conversion implementations
+impl From<StorageError> for EmbedError
+impl From<EmbeddingError> for EmbedError
+impl From<SearchError> for EmbedError
+impl From<LoggingError> for EmbedError
+impl From<anyhow::Error> for EmbedError
+impl From<io::Error> for EmbedError
 ```
 
-### 2. Error Chains
+## Error Handling Patterns in Use
+
+### 1. Result Type Alias
 ```rust
-// Preserve error chain
+// Common pattern throughout codebase
+pub type Result<T> = std::result::Result<T, EmbedError>;
+```
+
+### 2. Error Propagation with Context
+```rust
+// Pattern used extensively in storage modules
 operation()
-    .map_err(|e| SearchError::OperationFailed(e))?;
+    .map_err(|e| StorageError::DatabaseError(format!("Failed to open: {}", e)))?;
+
+// In lancedb_storage.rs (frequent pattern)
+.map_err(|e| LanceStorageError::DatabaseError(format!("Connection failed: {}", e)))?;
 ```
 
-### 3. Structured Errors
+### 3. Error Context Trait (Custom)
 ```rust
-// Include relevant data
-Err(SearchError::NotFound {
-    query: query.clone(),
-    searched_paths: paths,
-})
+pub trait ErrorContext<T> {
+    fn context(self, msg: &str) -> Result<T>;
+    fn with_context<F>(self, f: F) -> Result<T>
+    where F: FnOnce() -> String;
+}
 ```
 
-## Debugging Error Flows
-
-### 1. Trace Error Source
-```
-# Find where error originates
-find_referencing_symbols "ErrorType"
-
-# Find error creation
-search_for_pattern "return Err\("
-```
-
-### 2. Follow Error Propagation
-```
-# Find ? operators in call chain
-search_for_pattern "function_name.*\?"
-
-# Find error transformations
-search_for_pattern "map_err"
-```
-
-### 3. Check Error Handling
-```
-# Find recovery attempts
-search_for_pattern "if let Err\("
-search_for_pattern "match.*\{.*Err\("
-```
-
-## Common Issues and Fixes
-
-### Issue: "Unhelpful error messages"
-**Fix**: Add context at each level
+### 4. Safe Unwrap Trait (Custom)
 ```rust
-operation()
-    .context("High-level description")?
+pub trait SafeUnwrap<T> {
+    fn safe_unwrap(self, default: T) -> T;
+    fn safe_unwrap_or_else<F>(self, f: F) -> T
+    where F: FnOnce() -> T;
+}
 ```
 
-### Issue: "Lost error details"
-**Fix**: Use error chains
+### 5. Retry with Backoff
 ```rust
-#[error("Operation failed")]
-OperationError(#[source] anyhow::Error)
+pub struct RetryConfig {
+    max_attempts: u32,
+    initial_delay_ms: u64,
+    max_delay_ms: u64,
+    exponential_base: f64,
+}
+
+pub async fn retry_with_backoff<F, Fut, T, E>(
+    config: &RetryConfig,
+    operation: F,
+) -> Result<T, E>
+
+fn is_retryable_error<E: std::fmt::Display>(error: &E) -> bool
 ```
 
-### Issue: "Panics in production"
-**Fix**: Replace unwrap with proper handling
-```rust
-// Bad
-let value = map.get(key).unwrap();
+## Common Error Handling Patterns
 
-// Good  
+### Storage Module Pattern
+```rust
+// Consistent pattern in lancedb_storage.rs
+std::fs::create_dir_all(&dir)
+    .map_err(|e| LanceStorageError::DatabaseError(
+        format!("Failed to create directory: {}", e)
+    ))?;
+
+// Search operations
+table.vector_search(query_vector)
+    .limit(limit)
+    .execute()
+    .await
+    .map_err(|e| LanceStorageError::SearchError(
+        format!("Search execution failed: {}", e)
+    ))?;
+```
+
+### Early Return Pattern
+```rust
+// Check conditions early
+if self.table_name.is_empty() {
+    return Err(LanceStorageError::InvalidInput(
+        "Table name cannot be empty".to_string()
+    ));
+}
+```
+
+### Option to Result Conversion
+```rust
+// Common in configuration
 let value = map.get(key)
     .ok_or_else(|| anyhow!("Key not found: {}", key))?;
 ```
 
-## Testing Error Cases
+## Error Recovery Strategies
 
-### Unit Test Pattern
+### 1. Fallback Values
 ```rust
-#[test]
-fn test_error_condition() {
-    let result = operation_that_should_fail();
-    assert!(result.is_err());
-    assert!(result.unwrap_err().to_string().contains("expected"));
-}
+// Using safe_unwrap trait
+let value = operation().safe_unwrap(default_value);
 ```
 
-### Integration Test Pattern
+### 2. Retry Logic
 ```rust
-#[tokio::test]
-async fn test_error_recovery() {
-    // Trigger error condition
-    let result = service.process_invalid().await;
-    
-    // Verify graceful handling
-    match result {
-        Err(e) if e.is::<SpecificError>() => {
-            // Expected error type
-        }
-        _ => panic!("Unexpected result"),
+// Exponential backoff for transient failures
+retry_with_backoff(&retry_config, || async {
+    database.connect().await
+}).await?;
+```
+
+### 3. Graceful Degradation
+```rust
+// Continue with partial results
+match search_backend.search(query).await {
+    Ok(results) => results,
+    Err(e) => {
+        log::warn!("Search backend failed: {}, using fallback", e);
+        Vec::new() // Return empty results
     }
 }
 ```
 
-## Monitoring Errors
+## Testing Error Cases
 
-### Logging Pattern
+### Unit Test Examples (from tests)
 ```rust
-use tracing::{error, warn, info};
+#[test]
+fn test_error_context() {
+    let result: Result<(), _> = Err(io::Error::new(io::ErrorKind::NotFound, "test"));
+    let with_context = result.context("Additional context");
+    assert!(with_context.is_err());
+}
 
-if let Err(e) = operation() {
-    error!("Operation failed: {:?}", e);
-    // Handle error
+#[test]
+fn test_safe_unwrap() {
+    let none_value: Option<i32> = None;
+    assert_eq!(none_value.safe_unwrap(42), 42);
 }
 ```
 
-### Metrics Pattern
+## Logging Integration
 ```rust
-// Track error rates
-metrics.increment_counter("errors", &[("type", "search")]);
+use tracing::{error, warn, info, debug};
+
+// Error logging pattern
+if let Err(e) = operation() {
+    error!("Operation failed: {:?}", e);
+    // Handle or propagate
+}
+
+// Warning for recoverable issues
+warn!("Retrying operation after error: {}", e);
 ```
+
+## Common Anti-Patterns to Avoid
+
+### ❌ Avoid unwrap() in production
+```rust
+// BAD
+let value = map.get(key).unwrap();
+
+// GOOD
+let value = map.get(key)
+    .ok_or_else(|| EmbedError::InvalidInput("Key not found".into()))?;
+```
+
+### ❌ Avoid silent failures
+```rust
+// BAD
+let _ = operation(); // Ignoring result
+
+// GOOD
+if let Err(e) = operation() {
+    log::error!("Operation failed: {}", e);
+}
+```
+
+### ❌ Avoid generic error messages
+```rust
+// BAD
+.map_err(|_| "Operation failed")?;
+
+// GOOD
+.map_err(|e| format!("Failed to process file {}: {}", path, e))?;
+```
+
+## Module-Specific Patterns
+
+### Storage Modules
+- Consistent use of `map_err` with formatted messages
+- Error type conversion to module-specific errors
+- Database operation errors include context
+
+### Search Modules
+- Query parsing errors with helpful messages
+- Score validation and bounds checking
+- Fallback to empty results on non-critical failures
+
+### Embedding Modules
+- Model loading error recovery
+- Dimension mismatch detection
+- Cache fallback on embedding failure
+
+## Best Practices Summary
+
+1. **Use thiserror** for error definitions
+2. **Add context** at each error boundary
+3. **Format error messages** with relevant details
+4. **Implement From traits** for error conversion
+5. **Use Result<T>** consistently
+6. **Log errors** appropriately (error!, warn!)
+7. **Test error paths** explicitly
+8. **Provide fallbacks** where sensible
+9. **Retry transient failures** with backoff
+10. **Never panic** in library code

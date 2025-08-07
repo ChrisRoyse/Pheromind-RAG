@@ -11,7 +11,6 @@ use serde::{Deserialize, Serialize};
 #[cfg(feature = "vectordb")]
 use crate::chunking::Chunk;
 #[cfg(feature = "vectordb")]
-use crate::config::Config;
 
 #[cfg(feature = "vectordb")]
 #[derive(Debug)]
@@ -21,6 +20,9 @@ pub enum StorageError {
     InsertError(String),
     SearchError(String),
     InvalidInput(String),
+    InvalidVector {
+        reason: String,
+    },
 }
 
 #[cfg(feature = "vectordb")]
@@ -32,6 +34,7 @@ impl std::fmt::Display for StorageError {
             StorageError::InsertError(msg) => write!(f, "Insert error: {}", msg),
             StorageError::SearchError(msg) => write!(f, "Search error: {}", msg),
             StorageError::InvalidInput(msg) => write!(f, "Invalid input: {}", msg),
+            StorageError::InvalidVector { reason } => write!(f, "Invalid vector: {}", reason),
         }
     }
 }
@@ -58,7 +61,7 @@ impl From<serde_json::Error> for StorageError {
 pub struct EmbeddingRecord {
     pub id: String,
     pub file_path: String,
-    pub chunk_index: usize,
+    pub chunk_index: u32,
     pub content: String,
     pub embedding: Vec<f32>,
     pub start_line: usize,
@@ -99,8 +102,7 @@ impl VectorStorage {
     pub async fn init_schema(&self) -> Result<(), StorageError> {
         let schema = VectorSchema {
             version: 1,
-            embedding_dim: Config::embedding_dimensions()
-            .map_err(|e| StorageError::DatabaseError(format!("Failed to get embedding dimensions: {}", e)))?,
+            embedding_dim: 768,
             created_at: chrono::Utc::now().to_rfc3339(),
         };
         
@@ -122,8 +124,7 @@ impl VectorStorage {
         chunk: &Chunk,
         embedding: Vec<f32>
     ) -> Result<(), StorageError> {
-        let expected_dim = Config::embedding_dimensions()
-            .map_err(|e| StorageError::DatabaseError(format!("Failed to get embedding dimensions: {}", e)))?;
+        let expected_dim = 768;
         if embedding.len() != expected_dim {
             return Err(StorageError::InvalidInput(
                 format!("Embedding must be {}-dimensional, got {}", expected_dim, embedding.len())
@@ -133,7 +134,7 @@ impl VectorStorage {
         let record = EmbeddingRecord {
             id: format!("{}-{}", file_path, chunk_index),
             file_path: file_path.to_string(),
-            chunk_index,
+            chunk_index: chunk_index as u32,
             content: chunk.content.clone(),
             embedding,
             start_line: chunk.start_line,
@@ -157,8 +158,7 @@ impl VectorStorage {
         }
         
         // Validate all embeddings match expected dimensions
-        let expected_dim = Config::embedding_dimensions()
-            .map_err(|e| StorageError::DatabaseError(format!("Failed to get embedding dimensions: {}", e)))?;
+        let expected_dim = 768;
         for (_, _, _, embedding) in &embeddings_data {
             if embedding.len() != expected_dim {
                 return Err(StorageError::InvalidInput(
@@ -168,13 +168,13 @@ impl VectorStorage {
         }
         
         // Use transaction for batch insert - explicitly create new batch
-        let mut batch = sled::Batch::new();
+        let mut batch = sled::Batch::default();
         
         for (file_path, chunk_index, chunk, embedding) in embeddings_data {
             let record = EmbeddingRecord {
                 id: format!("{}-{}", file_path, chunk_index),
                 file_path: file_path.to_string(),
-                chunk_index,
+                chunk_index: chunk_index as u32,
                 content: chunk.content,
                 embedding,
                 start_line: chunk.start_line,
@@ -191,7 +191,7 @@ impl VectorStorage {
     }
     
     pub async fn delete_by_file(&self, file_path: &str) -> Result<(), StorageError> {
-        let mut batch = sled::Batch::new();
+        let mut batch = sled::Batch::default();
         
         // Find all keys for this file
         for result in self.db.scan_prefix(b"embedding:") {
@@ -208,7 +208,7 @@ impl VectorStorage {
     }
     
     pub async fn clear_all(&self) -> Result<(), StorageError> {
-        let mut batch = sled::Batch::new();
+        let mut batch = sled::Batch::default();
         
         // Remove all embedding records but keep schema
         for result in self.db.scan_prefix(b"embedding:") {
@@ -244,8 +244,7 @@ impl VectorStorage {
     }
     
     pub async fn search_similar(&self, query_embedding: Vec<f32>, limit: usize) -> Result<Vec<EmbeddingRecord>, StorageError> {
-        let expected_dim = Config::embedding_dimensions()
-            .map_err(|e| StorageError::DatabaseError(format!("Failed to get embedding dimensions: {}", e)))?;
+        let expected_dim = 768;
         if query_embedding.len() != expected_dim {
             return Err(StorageError::InvalidInput(
                 format!("Query embedding must be {}-dimensional, got {}", expected_dim, query_embedding.len())
@@ -333,7 +332,7 @@ mod tests {
         assert!(result.is_ok());
         
         let schema = storage.get_schema().unwrap();
-        assert_eq!(schema.embedding_dim, Config::embedding_dimensions().unwrap());
+        assert_eq!(schema.embedding_dim, 768);
         assert_eq!(schema.version, 1);
     }
     
@@ -351,7 +350,7 @@ mod tests {
             end_line: 1,
         };
         
-        let embedding = vec![0.1f32; Config::embedding_dimensions().unwrap()];
+        let embedding = vec![0.1f32; 768];
         let result = storage.insert_embedding("test.rs", 0, &chunk, embedding).await;
         assert!(result.is_ok());
         
@@ -371,14 +370,14 @@ mod tests {
         let chunk1 = Chunk { content: "fn test1() {}".to_string(), start_line: 1, end_line: 1 };
         let chunk2 = Chunk { content: "fn test2() {}".to_string(), start_line: 3, end_line: 3 };
         
-        let embedding1 = vec![1.0f32; Config::embedding_dimensions().unwrap()];
-        let embedding2 = vec![0.5f32; Config::embedding_dimensions().unwrap()];
+        let embedding1 = vec![1.0f32; 768];
+        let embedding2 = vec![0.5f32; 768];
         
         storage.insert_embedding("test.rs", 0, &chunk1, embedding1.clone()).await.unwrap();
         storage.insert_embedding("test.rs", 1, &chunk2, embedding2).await.unwrap();
         
         // Search with query similar to embedding1
-        let query = vec![1.0f32; Config::embedding_dimensions().unwrap()];
+        let query = vec![1.0f32; 768];
         let results = storage.search_similar(query, 2).await.unwrap();
         
         assert_eq!(results.len(), 2);
