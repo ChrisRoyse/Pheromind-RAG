@@ -41,6 +41,7 @@ where
 {
     inner: Arc<RwLock<LruCache<K, CacheEntry<V>>>>,
     stats: Arc<RwLock<CacheStats>>,
+    #[allow(dead_code)]
     max_size: NonZeroUsize,
     ttl: Option<Duration>,
 }
@@ -190,12 +191,12 @@ where
         let mut cache = self.inner.write();
         let mut stats = self.stats.write();
         
-        let expired_keys: Vec<K> = Vec::new();
+        let _expired_keys: Vec<K> = Vec::new();
         
         // Find expired entries
         // Note: This is not the most efficient way, but LruCache doesn't expose iteration
         // In production, consider using a different cache implementation
-        let initial_size = cache.len();
+        let _initial_size = cache.len();
         
         // Create a temporary vector of all keys
         let keys: Vec<K> = cache.iter()

@@ -123,7 +123,9 @@ pub struct LanceDBStorage {
     connection: Arc<Connection>,
     table_name: String,
     schema: Arc<Schema>,
+    #[allow(dead_code)]
     index_config: IndexConfig,
+    #[allow(dead_code)]
     compression_enabled: bool,
 }
 

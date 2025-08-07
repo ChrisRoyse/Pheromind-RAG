@@ -47,6 +47,7 @@ impl From<arrow::error::ArrowError> for StorageError {
 
 #[cfg(feature = "vectordb")]
 pub struct VectorStorage {
+    #[allow(dead_code)]
     db_path: PathBuf,
     // Commented out problematic fields until LanceDB API is stable
     // table: Arc<RwLock<Option<Table>>>,

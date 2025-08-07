@@ -14,6 +14,7 @@ use crate::search::ExactMatch;
 pub struct TantivySearcher {
     index: Index,
     index_path: Option<PathBuf>,
+    project_root: Option<PathBuf>,
     file_path_field: Field,
     line_number_field: Field,
     content_field: Field,
@@ -39,6 +40,7 @@ impl TantivySearcher {
         Ok(Self {
             index,
             index_path: None,
+            project_root: None,
             file_path_field,
             line_number_field,
             content_field,
@@ -67,6 +69,39 @@ impl TantivySearcher {
         Ok(Self {
             index,
             index_path: Some(index_path),
+            project_root: None,
+            file_path_field,
+            line_number_field,
+            content_field,
+            line_content_field,
+        })
+    }
+    
+    /// Create a new TantivySearcher with project root scoping
+    pub async fn new_with_root<P: AsRef<Path>>(project_root: P) -> Result<Self> {
+        let project_root = project_root.as_ref().to_path_buf();
+        
+        // Create an index path within the project root for scoped indexing
+        let index_path = project_root.join(".tantivy_index");
+        
+        // Create schema for line-by-line indexing
+        let mut schema_builder = Schema::builder();
+        
+        let file_path_field = schema_builder.add_text_field("file_path", STORED);
+        let line_number_field = schema_builder.add_text_field("line_number", STORED);
+        let content_field = schema_builder.add_text_field("content", TEXT | STORED);
+        let line_content_field = schema_builder.add_text_field("line_content", STORED);
+        
+        let schema = schema_builder.build();
+        
+        // Create or open persistent index
+        let index = Self::create_or_open_index(&index_path, schema)
+            .with_context(|| format!("Failed to create/open index at {:?}", index_path))?;
+        
+        Ok(Self {
+            index,
+            index_path: Some(index_path),
+            project_root: Some(project_root),
             file_path_field,
             line_number_field,
             content_field,
@@ -183,6 +218,13 @@ impl TantivySearcher {
                 continue;
             }
             
+            // Skip files outside project root if project scoping is enabled
+            if let Some(project_root) = &self.project_root {
+                if !file_path.starts_with(project_root) {
+                    continue;
+                }
+            }
+            
             // Read file and index line by line
             match fs::read_to_string(file_path) {
                 Ok(content) => {
@@ -242,6 +284,14 @@ impl TantivySearcher {
                 .as_str()
                 .ok_or_else(|| anyhow!("file_path field is not string"))?
                 .to_string();
+            
+            // Skip files outside project root if project scoping is enabled
+            if let Some(project_root) = &self.project_root {
+                let file_path_buf = PathBuf::from(&file_path);
+                if !file_path_buf.starts_with(project_root) {
+                    continue;
+                }
+            }
                 
             let line_number: usize = doc.get_first(self.line_number_field)
                 .ok_or_else(|| anyhow!("Missing line_number field"))?
@@ -296,6 +346,14 @@ impl TantivySearcher {
                 .as_str()
                 .ok_or_else(|| anyhow!("file_path field is not string"))?
                 .to_string();
+            
+            // Skip files outside project root if project scoping is enabled
+            if let Some(project_root) = &self.project_root {
+                let file_path_buf = PathBuf::from(&file_path);
+                if !file_path_buf.starts_with(project_root) {
+                    continue;
+                }
+            }
                 
             let line_number: usize = doc.get_first(self.line_number_field)
                 .ok_or_else(|| anyhow!("Missing line_number field"))?
@@ -333,6 +391,13 @@ impl TantivySearcher {
         // Skip if not a code file
         if !self.is_code_file(file_path) {
             return Ok(());
+        }
+        
+        // Skip files outside project root if project scoping is enabled
+        if let Some(project_root) = &self.project_root {
+            if !file_path.starts_with(project_root) {
+                return Ok(());
+            }
         }
         
         // Read file and index line by line
@@ -389,6 +454,11 @@ impl TantivySearcher {
     /// Get the path where this index is stored (if persistent)
     pub fn index_path(&self) -> Option<&Path> {
         self.index_path.as_deref()
+    }
+    
+    /// Get the project root path (if project scoping is enabled)
+    pub fn project_root(&self) -> Option<&Path> {
+        self.project_root.as_deref()
     }
     
     /// Check if this searcher uses persistent storage

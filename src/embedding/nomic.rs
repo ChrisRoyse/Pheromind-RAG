@@ -35,14 +35,18 @@ pub struct NomicEmbedder {
     cache: Option<Arc<crate::embedding::EmbeddingCache>>,
     // Model weights
     token_embeddings: Tensor,
+    #[allow(dead_code)]
     layer_norm_weight: Tensor,
+    #[allow(dead_code)]
     layer_norm_bias: Tensor,
+    #[allow(dead_code)]
     transformer_layers: Vec<TransformerLayer>,
     pooler_dense: Option<Tensor>,
     pooler_norm: Option<Tensor>,
 }
 
 #[cfg(feature = "ml")]
+#[allow(dead_code)]
 struct TransformerLayer {
     attention: MultiHeadAttention,
     feed_forward: FeedForward,
@@ -51,6 +55,7 @@ struct TransformerLayer {
 }
 
 #[cfg(feature = "ml")]
+#[allow(dead_code)]
 struct MultiHeadAttention {
     q_proj: Tensor,
     k_proj: Tensor,
@@ -61,12 +66,14 @@ struct MultiHeadAttention {
 }
 
 #[cfg(feature = "ml")]
+#[allow(dead_code)]
 struct FeedForward {
     fc1: Tensor,
     fc2: Tensor,
 }
 
 #[cfg(feature = "ml")]
+#[allow(dead_code)]
 struct LayerNorm {
     weight: Tensor,
     bias: Tensor,
@@ -74,9 +81,10 @@ struct LayerNorm {
 
 #[cfg(feature = "ml")]
 impl NomicEmbedder {
+    #[allow(dead_code)]
     fn ensure_no_nan(tensor: &Tensor, name: &str) -> Result<Tensor> {
         // Convert to flat vector regardless of tensor dimensions
-        let shape = tensor.shape();
+        let _shape = tensor.shape();
         let vec = if tensor.rank() == 1 {
             tensor.to_vec1::<f32>()?
         } else {
@@ -788,7 +796,7 @@ impl NomicEmbedder {
         
         // Ensure at least one token is attended to (prevent all-zero mask)
         let attention_sum = attention_tensor.sum_all()?;
-        let attention_tensor = if attention_sum.to_scalar::<f32>()? == 0.0 {
+        let _attention_tensor = if attention_sum.to_scalar::<f32>()? == 0.0 {
             // If mask is all zeros, assume all tokens are valid (all ones)
             Tensor::ones_like(&attention_tensor)?
         } else {
@@ -868,6 +876,7 @@ impl NomicEmbedder {
         Ok(embedding)
     }
     
+    #[allow(dead_code)]
     fn transformer_forward(mut hidden_states: Tensor, attention_mask: &Tensor, layer: &TransformerLayer) -> Result<Tensor> {
         // Multi-head attention with robust error handling
         let attn_output = Self::attention_forward(&hidden_states, attention_mask, &layer.attention)
@@ -896,11 +905,12 @@ impl NomicEmbedder {
         Ok(hidden_states)
     }
     
+    #[allow(dead_code)]
     fn attention_forward(hidden_states: &Tensor, _attention_mask: &Tensor, attention: &MultiHeadAttention) -> Result<Tensor> {
         // Simplified attention that's more robust to NaN issues
         // For now, implement a basic linear transformation that preserves information
         
-        let (seq_len, hidden_size) = hidden_states.dims2()
+        let (_seq_len, _hidden_size) = hidden_states.dims2()
             .map_err(|e| anyhow!("Failed to get dimensions: {}", e))?;
         
         // Try basic linear transformation through the attention weights
@@ -931,6 +941,7 @@ impl NomicEmbedder {
         }
     }
     
+    #[allow(dead_code)]
     fn feed_forward(hidden_states: &Tensor, ff: &FeedForward) -> Result<Tensor> {
         let intermediate = hidden_states.matmul(&ff.fc1.t()
             .map_err(|e| anyhow!("Failed to transpose fc1: {}", e))?)
@@ -941,6 +952,7 @@ impl NomicEmbedder {
             .map_err(|e| anyhow!("Failed in fc2 matmul: {}", e))?)
     }
     
+    #[allow(dead_code)]
     fn gelu(x: &Tensor) -> Result<Tensor> {
         // GELU activation: x * 0.5 * (1 + tanh(sqrt(2/pi) * (x + 0.044715 * x^3)))
         let sqrt_2_over_pi = std::f32::consts::FRAC_2_PI.sqrt();
@@ -958,6 +970,7 @@ impl NomicEmbedder {
         ).map_err(|e| anyhow!("Failed in GELU mul: {}", e))?)
     }
     
+    #[allow(dead_code)]
     fn layer_norm(x: &Tensor, weight: &Tensor, bias: &Tensor) -> Result<Tensor> {
         let eps = 1e-12;
         let mean = x.mean_keepdim(1)
@@ -981,6 +994,7 @@ impl NomicEmbedder {
             .map_err(|e| anyhow!("Failed in layer norm add: {}", e))?)
     }
     
+    #[allow(dead_code)]
     fn mean_pool(hidden_states: &Tensor, attention_mask: &Tensor) -> Result<Tensor> {
         // Check if mask is all zeros
         let mask_sum = attention_mask.sum_all()?.to_scalar::<f32>()?;

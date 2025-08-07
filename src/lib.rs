@@ -64,7 +64,7 @@ pub fn validate_phase1_safety() -> Result<()> {
     println!("  ✅ Configuration validation passed");
     
     // Test 2: Storage safety (no unsafe impl)
-    let storage = VectorStorage::new(StorageConfig::default())?;
+    let _storage = VectorStorage::new(StorageConfig::default())?;
     println!("  ✅ Storage created without unsafe code");
     
     // Test 3: Cache safety

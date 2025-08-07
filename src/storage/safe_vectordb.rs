@@ -60,11 +60,14 @@ pub struct VectorStorage {
 
 /// Storage statistics for monitoring
 #[derive(Debug, Default, Clone)]
-struct StorageStats {
+pub struct StorageStats {
     total_vectors: usize,
     total_searches: usize,
+    #[allow(dead_code)]
     cache_hits: usize,
+    #[allow(dead_code)]
     cache_misses: usize,
+    #[allow(dead_code)]
     last_cleanup: u64,
 }
 

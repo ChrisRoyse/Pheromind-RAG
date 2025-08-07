@@ -1,5 +1,5 @@
 #[cfg(feature = "tree-sitter")]
-use embed_search::search::{SymbolIndexer, SymbolKind};
+use embed_search::search::SymbolIndexer;
 #[cfg(feature = "tree-sitter")]
 use std::path::PathBuf;
 

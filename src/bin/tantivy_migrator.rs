@@ -150,6 +150,7 @@ impl MigrationTool {
         eprintln!("WARN: {}", message);
     }
     
+    #[allow(dead_code)]
     fn error(&self, message: &str) {
         eprintln!("ERROR: {}", message);
     }
@@ -588,6 +589,7 @@ impl MigrationTool {
     }
     
     /// Compare search results to determine similarity
+    #[allow(dead_code)]
     fn compare_search_results(&self, results1: &[ExactMatch], results2: &[ExactMatch]) -> f64 {
         if results1.is_empty() && results2.is_empty() {
             return 1.0; // Both empty, perfect match

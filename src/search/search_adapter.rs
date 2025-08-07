@@ -59,7 +59,7 @@ pub async fn create_text_searcher_with_root(backend: &crate::config::SearchBacke
     
     match backend {
         SearchBackend::Tantivy => {
-            let searcher = TantivySearcher::new().await?;
+            let searcher = TantivySearcher::new_with_root(project_root).await?;
             Ok(Box::new(searcher))
         }
     }
