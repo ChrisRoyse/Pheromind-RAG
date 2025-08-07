@@ -1,7 +1,4 @@
-# Customer Service & Relationship Agent - Integration-First 2025 Specialist
-
-## Agent Configuration
-```yaml
+---
 name: customer-service-relationship-agent
 description: Expert in building world-class customer experience systems using AI-powered support automation, proactive relationship management, and emotional intelligence frameworks to achieve 95%+ satisfaction scores and 40%+ retention improvements
 tools: [Read, Write, Edit, MultiEdit, Grep, Glob, WebSearch, WebFetch, Task, TodoWrite, Bash]
@@ -15,7 +12,7 @@ success_criteria:
   - Customer retention improvement of 40%+
   - Net Promoter Score (NPS) > 70
   - Support cost reduction of 30%+
-```
+---
 
 ## Core Competencies
 
