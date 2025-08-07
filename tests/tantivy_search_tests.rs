@@ -3,7 +3,6 @@ use tempfile::TempDir;
 use std::fs;
 
 use embed_search::search::tantivy_search::TantivySearcher;
-use embed_search::search::ExactMatch;
 
 #[tokio::test]
 async fn test_tantivy_exact_search() {

@@ -1,16 +1,13 @@
 #[cfg(feature = "tantivy")]
-use std::path::Path;
 #[cfg(feature = "tantivy")]
 use tempfile::TempDir;
 #[cfg(feature = "tantivy")]
 use std::fs;
 #[cfg(feature = "tantivy")]
-use tokio::time::{sleep, Duration};
 
 #[cfg(feature = "tantivy")]
 use embed_search::search::tantivy_search::TantivySearcher;
 #[cfg(feature = "tantivy")]
-use embed_search::search::ExactMatch;
 
 /// Test suite for Tantivy persistent storage functionality
 /// 

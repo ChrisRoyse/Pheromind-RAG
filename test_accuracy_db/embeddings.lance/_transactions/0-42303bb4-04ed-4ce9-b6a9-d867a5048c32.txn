@@ -1,4 +1,0 @@
-$42303bb4-04ed-4ce9-b6a9-d867a5048c32²‘"id ÿÿÿÿÿÿÿÿÿ*string8Zdefault+	file_path ÿÿÿÿÿÿÿÿÿ*string8Zdefault-chunk_index ÿÿÿÿÿÿÿÿÿ*uint648Zdefault)content ÿÿÿÿÿÿÿÿÿ*string8Zdefault>	embedding ÿÿÿÿÿÿÿÿÿ*fixed_size_list:float:7688Zdefault,
-start_line ÿÿÿÿÿÿÿÿÿ*uint648Zdefault*end_line ÿÿÿÿÿÿÿÿÿ*uint648Zdefault"!
-lance.auto_cleanup.interval20"'
-lance.auto_cleanup.older_than14days

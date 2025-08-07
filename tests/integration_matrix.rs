@@ -76,7 +76,7 @@ mod integration_tests {
 
     #[tokio::test]
     async fn four_way_search_fusion() {
-        let (mut searcher, _temp_dir, project_path) = create_test_environment().await;
+        let (searcher, _temp_dir, project_path) = create_test_environment().await;
         
         // Index the test files
         let stats = searcher.index_directory(&project_path).await
@@ -114,7 +114,7 @@ mod integration_tests {
 
     #[tokio::test]
     async fn search_accuracy_measurement() {
-        let (mut searcher, _temp_dir, project_path) = create_test_environment().await;
+        let (searcher, _temp_dir, project_path) = create_test_environment().await;
         
         // Index files
         searcher.index_directory(&project_path).await
@@ -130,7 +130,7 @@ mod integration_tests {
         
         let mut total_precision = 0.0;
         
-        for (query, expected_files, min_precision) in test_cases {
+        for (query, expected_files, min_precision) in &test_cases {
             let results = searcher.search(query).await
                 .expect("Search failed");
             
@@ -146,7 +146,7 @@ mod integration_tests {
             let precision = found_count as f64 / expected_files.len() as f64;
             total_precision += precision;
             
-            assert!(precision >= min_precision,
+            assert!(precision >= *min_precision,
                 "Query '{}' precision {:.2} below threshold {:.2}",
                 query, precision, min_precision);
         }
@@ -157,11 +157,11 @@ mod integration_tests {
 
     #[tokio::test]
     async fn performance_benchmarking() {
-        let (mut searcher, _temp_dir, project_path) = create_test_environment().await;
+        let (searcher, _temp_dir, project_path) = create_test_environment().await;
         
         // Index files and measure time
         let index_start = std::time::Instant::now();
-        let stats = searcher.index_directory(&project_path).await
+        let _stats = searcher.index_directory(&project_path).await
             .expect("Failed to index");
         let index_time = index_start.elapsed();
         
@@ -199,15 +199,15 @@ mod integration_tests {
         
         // Test very long query
         let long_query = "test ".repeat(100);
-        let long_results = searcher.search(&long_query).await.expect("Long search failed");
+        let _long_results = searcher.search(&long_query).await.expect("Long search failed");
         // Should handle gracefully (not crash)
         
         // Test special characters
-        let special_results = searcher.search("@#$%^&*()").await.expect("Special char search failed");
+        let _special_results = searcher.search("@#$%^&*()").await.expect("Special char search failed");
         // Should handle gracefully
         
         // Test unicode
-        let unicode_results = searcher.search("🔍 search").await.expect("Unicode search failed");
+        let _unicode_results = searcher.search("🔍 search").await.expect("Unicode search failed");
         // Should handle gracefully
     }
 }

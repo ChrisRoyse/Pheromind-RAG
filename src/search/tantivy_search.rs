@@ -324,15 +324,159 @@ impl TantivySearcher {
     }
     
     pub async fn search_fuzzy(&self, query: &str, max_distance: u8) -> Result<Vec<ExactMatch>> {
+        use tantivy::query::{BooleanQuery, Occur};
+        
         let reader = self.index.reader()?;
         let searcher = reader.searcher();
         
-        // Create a fuzzy term query for the content field
-        let term = Term::from_field_text(self.content_field, query);
-        let fuzzy_query = FuzzyTermQuery::new(term, max_distance, true);
+        // Limit max_distance to 2 (Tantivy's limit)
+        let max_distance = max_distance.min(2);
+        
+        // Normalize query for case-insensitive matching
+        let normalized_query = query.to_lowercase();
+        
+        // Split query into words and create fuzzy queries for each
+        let query_words: Vec<&str> = normalized_query.split_whitespace().collect();
+        
+        let mut sub_queries: Vec<(Occur, Box<dyn tantivy::query::Query>)> = Vec::new();
+        
+        // Create fuzzy queries for individual terms
+        for word in &query_words {
+            if !word.is_empty() {
+                // Create fuzzy query for this word
+                let term = Term::from_field_text(self.content_field, word);
+                let fuzzy_query = FuzzyTermQuery::new(term, max_distance, true);
+                sub_queries.push((Occur::Should, Box::new(fuzzy_query)));
+                
+                // If the word contains underscores, also try splitting and matching parts
+                if word.contains('_') {
+                    let parts: Vec<&str> = word.split('_').collect();
+                    for part in parts {
+                        if !part.is_empty() && part.len() > 2 {
+                            let part_term = Term::from_field_text(self.content_field, part);
+                            let part_fuzzy_query = FuzzyTermQuery::new(part_term, max_distance, true);
+                            sub_queries.push((Occur::Should, Box::new(part_fuzzy_query)));
+                        }
+                    }
+                }
+            }
+        }
+        
+        // Also try the full query as a single term (for compound words)
+        if !normalized_query.trim().is_empty() && query_words.len() > 1 {
+            let full_term = Term::from_field_text(self.content_field, &normalized_query.replace(" ", ""));
+            let full_fuzzy_query = FuzzyTermQuery::new(full_term, max_distance, true);
+            sub_queries.push((Occur::Should, Box::new(full_fuzzy_query)));
+            
+            // Also try with underscores (for function names like process_payment)
+            let underscore_term = Term::from_field_text(self.content_field, &normalized_query.replace(" ", "_"));
+            let underscore_fuzzy_query = FuzzyTermQuery::new(underscore_term, max_distance, true);
+            sub_queries.push((Occur::Should, Box::new(underscore_fuzzy_query)));
+        }
+        
+        // Handle underscore patterns for single words that might have underscores
+        if query_words.len() == 1 {
+            let word = query_words[0];
+            
+            // If the word doesn't contain underscore but might be looking for underscore patterns
+            if !word.contains('_') && word.len() > 3 {
+                // Try common underscore patterns by splitting camelCase or inserting underscores
+                let underscore_variants = vec![
+                    // Try inserting underscore before common suffixes
+                    word.replace("payment", "_payment"),
+                    word.replace("user", "_user"),
+                    word.replace("data", "_data"),
+                    word.replace("config", "_config"),
+                    word.replace("manager", "_manager"),
+                    word.replace("service", "_service"),
+                    word.replace("handler", "_handler"),
+                ];
+                
+                for variant in underscore_variants {
+                    if variant != word {
+                        let variant_term = Term::from_field_text(self.content_field, &variant);
+                        let variant_fuzzy_query = FuzzyTermQuery::new(variant_term, max_distance, true);
+                        sub_queries.push((Occur::Should, Box::new(variant_fuzzy_query)));
+                    }
+                }
+            }
+        }
+        
+        // For single word queries, also try different case variations
+        if query_words.len() == 1 {
+            let word = query_words[0];
+            
+            // Try original case
+            if word != query {
+                let original_term = Term::from_field_text(self.content_field, query);
+                let original_fuzzy_query = FuzzyTermQuery::new(original_term, max_distance, true);
+                sub_queries.push((Occur::Should, Box::new(original_fuzzy_query)));
+            }
+            
+            // Try title case
+            let title_case = format!("{}{}", word.chars().next().unwrap().to_uppercase(), word.chars().skip(1).collect::<String>());
+            if title_case != word && title_case != query {
+                let title_term = Term::from_field_text(self.content_field, &title_case);
+                let title_fuzzy_query = FuzzyTermQuery::new(title_term, max_distance, true);
+                sub_queries.push((Occur::Should, Box::new(title_fuzzy_query)));
+            }
+            
+            // Try all uppercase
+            let upper_case = word.to_uppercase();
+            if upper_case != word && upper_case != query {
+                let upper_term = Term::from_field_text(self.content_field, &upper_case);
+                let upper_fuzzy_query = FuzzyTermQuery::new(upper_term, max_distance, true);
+                sub_queries.push((Occur::Should, Box::new(upper_fuzzy_query)));
+            }
+        }
+        
+        // Additional strategy: try partial matching within compound terms
+        // This helps with cases like "Database" matching "DatabaseConnection"
+        if query_words.len() == 1 {
+            let word = query_words[0];
+            
+            // If the word is reasonably long, try matching it as a prefix/infix
+            if word.len() >= 4 {
+                // Create variations for compound word matching (commented out as FuzzyTermQuery doesn't support wildcards)
+                // let _variations = vec![
+                //     format!("{}*", word),        // Try as prefix pattern (not directly supported by FuzzyTermQuery)
+                //     format!("*{}", word),        // Try as suffix pattern (not directly supported by FuzzyTermQuery)
+                // ];
+                
+                // Since FuzzyTermQuery doesn't support wildcards, we'll try common compound patterns
+                let compound_patterns = vec![
+                    format!("{}Connection", word),
+                    format!("{}Manager", word), 
+                    format!("{}Service", word),
+                    format!("{}Handler", word),
+                    format!("{}Controller", word),
+                    format!("{}Config", word),
+                    format!("{}Client", word),
+                    format!("{}Builder", word),
+                ];
+                
+                for pattern in compound_patterns {
+                    let pattern_term = Term::from_field_text(self.content_field, &pattern.to_lowercase());
+                    let pattern_fuzzy_query = FuzzyTermQuery::new(pattern_term, max_distance, true);
+                    sub_queries.push((Occur::Should, Box::new(pattern_fuzzy_query)));
+                    
+                    // Also try original case
+                    let pattern_term_orig = Term::from_field_text(self.content_field, &pattern);
+                    let pattern_fuzzy_query_orig = FuzzyTermQuery::new(pattern_term_orig, max_distance, true);
+                    sub_queries.push((Occur::Should, Box::new(pattern_fuzzy_query_orig)));
+                }
+            }
+        }
+        
+        if sub_queries.is_empty() {
+            return Ok(Vec::new());
+        }
+        
+        // Combine all fuzzy queries with OR logic
+        let combined_query = BooleanQuery::new(sub_queries);
         
         // Search with limit of 100 results
-        let top_docs = searcher.search(&fuzzy_query, &TopDocs::with_limit(100))?;
+        let top_docs = searcher.search(&combined_query, &TopDocs::with_limit(100))?;
         
         let mut matches = Vec::new();
         

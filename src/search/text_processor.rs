@@ -106,6 +106,11 @@ impl CodeTextProcessor {
         words.into_iter().map(|s| s.to_string()).collect()
     }
     
+    /// Process text with language awareness (alias for tokenize_code)
+    pub fn process_text(&self, text: &str, language: &str) -> Vec<ProcessedToken> {
+        self.tokenize_code(text, Some(language))
+    }
+    
     /// Tokenize code content with language awareness
     pub fn tokenize_code(&self, content: &str, language: Option<&str>) -> Vec<ProcessedToken> {
         let mut tokens = Vec::new();

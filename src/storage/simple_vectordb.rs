@@ -273,6 +273,7 @@ impl VectorStorage {
 }
 
 // Helper function for cosine similarity
+#[allow(dead_code)]
 fn cosine_similarity(a: &[f32], b: &[f32]) -> f32 {
     if a.len() != b.len() {
         return 0.0;
@@ -291,10 +292,12 @@ fn cosine_similarity(a: &[f32], b: &[f32]) -> f32 {
 
 // Thread safety is automatically provided by Arc<RwLock<>> and sled::Db
 
-#[cfg(test)]
+#[cfg(all(test, feature = "vectordb"))]
 mod tests {
     use super::*;
     use tempfile::TempDir;
+    use crate::chunking::Chunk;
+    use crate::Config;
     
     #[tokio::test]
     async fn test_basic_storage_creation() {
@@ -315,7 +318,7 @@ mod tests {
         assert!(result.is_ok());
         
         let schema = storage.get_schema().unwrap();
-        assert_eq!(schema.embedding_dim, Config::embedding_dimensions());
+        assert_eq!(schema.embedding_dim, Config::embedding_dimensions().unwrap_or(768));
         assert_eq!(schema.version, 1);
     }
     
@@ -333,7 +336,7 @@ mod tests {
             end_line: 1,
         };
         
-        let embedding = vec![0.1f32; Config::embedding_dimensions()];
+        let embedding = vec![0.1f32; Config::embedding_dimensions().unwrap_or(768)];
         let result = storage.insert_embedding("test.rs", 0, &chunk, embedding).await;
         assert!(result.is_ok());
         
@@ -353,14 +356,14 @@ mod tests {
         let chunk1 = Chunk { content: "fn test1() {}".to_string(), start_line: 1, end_line: 1 };
         let chunk2 = Chunk { content: "fn test2() {}".to_string(), start_line: 3, end_line: 3 };
         
-        let embedding1 = vec![1.0f32; Config::embedding_dimensions()];
-        let embedding2 = vec![0.5f32; Config::embedding_dimensions()];
+        let embedding1 = vec![1.0f32; Config::embedding_dimensions().unwrap_or(768)];
+        let embedding2 = vec![0.5f32; Config::embedding_dimensions().unwrap_or(768)];
         
         storage.insert_embedding("test.rs", 0, &chunk1, embedding1.clone()).await.unwrap();
         storage.insert_embedding("test.rs", 1, &chunk2, embedding2).await.unwrap();
         
         // Search with query similar to embedding1
-        let query = vec![1.0f32; Config::embedding_dimensions()];
+        let query = vec![1.0f32; Config::embedding_dimensions().unwrap_or(768)];
         let results = storage.search_similar(query, 2).await.unwrap();
         
         assert_eq!(results.len(), 2);

@@ -1,5 +1,4 @@
 use embed_search::search::unified::UnifiedSearcher;
-use std::path::PathBuf;
 
 #[tokio::test]
 async fn test_empty_query_returns_no_results() {

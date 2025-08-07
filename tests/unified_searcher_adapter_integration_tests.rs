@@ -1,5 +1,6 @@
-use embed_search::search::unified::UnifiedSearcher;
+#[cfg(feature = "tantivy")]
 use embed_search::search::create_text_searcher_with_root;
+use embed_search::search::UnifiedSearcher;
 use embed_search::config::SearchBackend;
 use std::fs;
 use tempfile::TempDir;
@@ -63,6 +64,7 @@ fn get_users() -> HashMap<String, String> {
 }
 
 #[tokio::test]
+#[cfg(feature = "tantivy")]
 async fn test_text_searcher_adapter_direct() {
     println!("🔧 Testing TextSearcher adapter directly");
     
@@ -96,6 +98,7 @@ fn handle_request() {
 }
 
 #[tokio::test]
+#[cfg(feature = "tantivy")]
 async fn test_tantivy_search_functionality() {
     println!("🔄 Testing Tantivy search functionality");
     
@@ -178,7 +181,7 @@ async fn test_unified_searcher_with_backend_switching() {
     
     let temp_dir = TempDir::new().expect("Failed to create temp directory");
     let project_path = temp_dir.path().to_path_buf();
-    let db_path = project_path.join("test.db");
+    let _db_path = project_path.join("test.db");
     
     // Create test file
     let test_file = project_path.join("fuzzy_test.rs");
@@ -222,7 +225,7 @@ pub fn approximate_search() {
 }
 
 // Helper function to verify search result quality
-fn verify_search_quality(results: &[embed_search::search::unified::SearchResult], expected_file: &str, query: &str) -> bool {
+fn verify_search_quality(results: &[embed_search::search::SearchResult], expected_file: &str, query: &str) -> bool {
     // Check if results contain the expected file
     let has_expected_file = results.iter().any(|r| r.file.contains(expected_file));
     

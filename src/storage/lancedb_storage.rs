@@ -527,10 +527,12 @@ impl LanceDBStorage {
 
 // Thread safety is automatically provided by Arc<Connection> and Arc<Schema>
 
-#[cfg(test)]
+#[cfg(all(test, feature = "vectordb"))]
 mod tests {
     use super::*;
     use tempfile::TempDir;
+    use crate::chunking::Chunk;
+    use crate::Config;
     
     #[tokio::test]
     async fn test_lancedb_storage_creation() {

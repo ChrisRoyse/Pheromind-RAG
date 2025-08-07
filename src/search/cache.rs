@@ -125,7 +125,7 @@ impl std::fmt::Display for CacheStats {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::chunking::{Chunk, ThreeChunkExpander, ChunkContext};
+    use crate::chunking::{Chunk, ChunkContext};
     
     fn create_test_result() -> SearchResult {
         SearchResult {

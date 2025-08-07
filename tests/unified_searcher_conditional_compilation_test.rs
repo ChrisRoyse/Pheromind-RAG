@@ -1,4 +1,3 @@
-use std::path::PathBuf;
 use tempfile::TempDir;
 use embed_search::search::unified::UnifiedSearcher;
 use embed_search::config::SearchBackend;

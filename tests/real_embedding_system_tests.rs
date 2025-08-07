@@ -1,22 +1,32 @@
+#[cfg(all(feature = "ml", feature = "vectordb"))]
 use embed_search::embedding::NomicEmbedder;
+#[cfg(all(feature = "ml", feature = "vectordb"))]
 use embed_search::storage::lancedb_storage::{LanceDBStorage, LanceEmbeddingRecord};
+#[cfg(all(feature = "ml", feature = "vectordb"))]
 use embed_search::chunking::SimpleRegexChunker;
+#[cfg(all(feature = "ml", feature = "vectordb"))]
 use embed_search::search::unified::UnifiedSearcher;
+#[cfg(all(feature = "ml", feature = "vectordb"))]
 use embed_search::git::watcher::{GitWatcher, VectorUpdater, WatchCommand, FileChange};
+#[cfg(all(feature = "ml", feature = "vectordb"))]
 use std::fs;
+#[cfg(all(feature = "ml", feature = "vectordb"))]
 use std::sync::Arc;
+#[cfg(all(feature = "ml", feature = "vectordb"))]
 use tokio::sync::RwLock;
+#[cfg(all(feature = "ml", feature = "vectordb"))]
 use tempfile::TempDir;
 
 /// Test the REAL embedding system with actual Nomic Embed Text v1.5 model
 /// This requires internet connection to download the model
 
+#[cfg(all(feature = "ml", feature = "vectordb"))]
 #[tokio::test]
 async fn test_real_model_loading_and_basic_inference() {
     println!("🔬 Testing REAL Nomic Embed Text v1.5 model loading...");
     
     // Try to load the real model
-    let embedder = match NomicEmbedder::get_global().await {
+    let embedder = match NomicEmbedder::get_global() {
         Ok(model) => {
             println!("✅ Successfully loaded real Nomic Embed Text v1.5 model");
             model
@@ -46,11 +56,12 @@ async fn test_real_model_loading_and_basic_inference() {
     println!("✅ Real model basic inference test passed");
 }
 
+#[cfg(all(feature = "ml", feature = "vectordb"))]
 #[tokio::test]
 async fn test_real_semantic_similarity() {
     println!("🧠 Testing REAL semantic similarity with actual model...");
     
-    let embedder = match NomicEmbedder::get_global().await {
+    let embedder = match NomicEmbedder::get_global() {
         Ok(model) => model,
         Err(_) => {
             println!("⏭️ Skipping semantic similarity test - model not available");
@@ -97,11 +108,12 @@ async fn test_real_semantic_similarity() {
     println!("✅ Real semantic similarity test passed");
 }
 
+#[cfg(all(feature = "ml", feature = "vectordb"))]
 #[tokio::test]
 async fn test_real_embedding_determinism() {
     println!("🔁 Testing REAL embedding determinism...");
     
-    let embedder = match NomicEmbedder::get_global().await {
+    let embedder = match NomicEmbedder::get_global() {
         Ok(model) => model,
         Err(_) => {
             println!("⏭️ Skipping determinism test - model not available");
@@ -124,11 +136,12 @@ async fn test_real_embedding_determinism() {
     println!("✅ Real embedding determinism test passed");
 }
 
+#[cfg(all(feature = "ml", feature = "vectordb"))]
 #[tokio::test]
 async fn test_real_batch_processing() {
     println!("📦 Testing REAL batch processing...");
     
-    let embedder = match NomicEmbedder::get_global().await {
+    let embedder = match NomicEmbedder::get_global() {
         Ok(model) => model,
         Err(_) => {
             println!("⏭️ Skipping batch processing test - model not available");
@@ -160,11 +173,12 @@ async fn test_real_batch_processing() {
     println!("✅ Real batch processing test passed");
 }
 
+#[cfg(all(feature = "ml", feature = "vectordb"))]
 #[tokio::test]
 async fn test_real_lancedb_integration() {
     println!("🗄️ Testing REAL LanceDB integration with actual embeddings...");
     
-    let embedder = match NomicEmbedder::get_global().await {
+    let embedder = match NomicEmbedder::get_global() {
         Ok(model) => model,
         Err(_) => {
             println!("⏭️ Skipping LanceDB integration test - model not available");
@@ -227,11 +241,12 @@ async fn test_real_lancedb_integration() {
     println!("✅ Real LanceDB integration test passed");
 }
 
+#[cfg(all(feature = "ml", feature = "vectordb"))]
 #[tokio::test]
 async fn test_real_code_differentiation() {
     println!("🎯 Testing REAL code differentiation capabilities...");
     
-    let embedder = match NomicEmbedder::get_global().await {
+    let embedder = match NomicEmbedder::get_global() {
         Ok(model) => model,
         Err(_) => {
             println!("⏭️ Skipping code differentiation test - model not available");
@@ -284,6 +299,7 @@ fn cosine_similarity(a: &[f32], b: &[f32]) -> f32 {
     }
 }
 
+#[cfg(all(feature = "ml", feature = "vectordb"))]
 #[tokio::test]
 async fn test_git_tracking_with_768d_nomic_embeddings() {
     println!("\n🔍 TESTING GIT TRACKING WITH 768D NOMIC EMBEDDINGS");
@@ -291,7 +307,7 @@ async fn test_git_tracking_with_768d_nomic_embeddings() {
     
     // Step 1: Initialize Nomic embedder (768D)
     println!("\n1️⃣ Initializing Nomic embedder...");
-    let embedder = match NomicEmbedder::get_global().await {
+    let _embedder = match NomicEmbedder::get_global() {
         Ok(model) => {
             assert_eq!(model.dimensions(), 768, "Should be 768D Nomic embeddings");
             println!("   ✅ Nomic embedder initialized with 768D embeddings");

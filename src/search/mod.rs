@@ -34,7 +34,9 @@ pub use bm25::{BM25Engine, BM25Match, BM25Document, Token as BM25Token};
 pub use text_processor::{CodeTextProcessor, ProcessedToken, TokenType};
 pub use inverted_index::{InvertedIndex, DocumentMetadata};
 pub use fusion::{SimpleFusion, FusedResult, MatchType};
-// DO NOT re-export cache::SearchCache or unified::SearchResult - causes circular deps
+pub use unified::UnifiedSearcher;
+pub use cache::SearchResult;
+// DO NOT re-export cache::SearchCache - causes circular deps
 #[cfg(feature = "tree-sitter")]
 pub use symbol_index::{SymbolIndexer, SymbolDatabase, Symbol, SymbolKind};
 #[cfg(feature = "tantivy")]

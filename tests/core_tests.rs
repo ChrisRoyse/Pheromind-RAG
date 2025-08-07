@@ -3,7 +3,7 @@
 // Run with: cargo test --no-default-features
 
 use embed_search::search::{BM25Engine, BM25Document, BM25Token};
-use embed_search::search::{CodeTextProcessor, ProcessedToken};
+use embed_search::search::CodeTextProcessor;
 use embed_search::chunking::SimpleRegexChunker;
 
 /// Fast unit tests for core BM25 functionality
@@ -159,7 +159,7 @@ mod chunking_core {
 
     #[test]
     fn regex_chunking() {
-        let chunker = SimpleRegexChunker::new(100, 20);
+        let chunker = SimpleRegexChunker::with_chunk_size(100);
         let content = "fn main() {\n    println!(\"hello\");\n}\n\nfn test() {\n    assert_eq!(1, 1);\n}";
         
         let chunks = chunker.chunk_file(content);
@@ -173,7 +173,7 @@ mod chunking_core {
 
     #[test]
     fn chunking_overlap() {
-        let chunker = SimpleRegexChunker::new(50, 10);
+        let chunker = SimpleRegexChunker::with_chunk_size(50);
         let content = "a".repeat(150); // 150 chars
         
         let chunks = chunker.chunk_file(&content);

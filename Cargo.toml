@@ -93,6 +93,9 @@ tree-sitter-css = { version = "0.23", optional = true }
 tree-sitter-json = { version = "0.23", optional = true }
 tree-sitter-bash = { version = "0.23", optional = true }
 
+# Temporary directory management
+tempfile = "3.12"
+
 [[bin]]
 name = "tantivy_migrator"
 path = "src/bin/tantivy_migrator.rs"
@@ -106,6 +109,16 @@ required-features = ["tree-sitter"]
 [[bin]]
 name = "test_persistence"
 path = "src/bin/test_persistence.rs"
+required-features = ["tantivy"]
+
+[[bin]]
+name = "test_project_scoping"
+path = "src/bin/test_project_scoping.rs"
+required-features = ["tantivy"]
+
+[[bin]]
+name = "test_unified_project_scope"
+path = "src/bin/test_unified_project_scope.rs"
 required-features = ["tantivy"]
 
 [features]
@@ -127,6 +140,9 @@ full-system = ["tree-sitter", "ml", "vectordb", "tantivy"]
 # Testing-specific features
 test-integration = ["full-system"]
 test-performance = ["full-system"]
+
+[profile.test]
+opt-level = 2  # Optimize tests for speed
 
 [dev-dependencies]
 criterion = "0.5"

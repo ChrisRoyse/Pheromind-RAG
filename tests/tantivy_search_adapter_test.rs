@@ -1,7 +1,12 @@
+#[cfg(feature = "tantivy")]
 use embed_search::config::SearchBackend;
-use embed_search::search::search_adapter::{create_text_searcher, TextSearcher};
+#[cfg(feature = "tantivy")]
+use embed_search::search::search_adapter::create_text_searcher;
+#[cfg(feature = "tantivy")]
 use tokio;
+#[cfg(feature = "tantivy")]
 use tempfile::TempDir;
+#[cfg(feature = "tantivy")]
 use std::fs;
 
 #[cfg(feature = "tantivy")]
@@ -40,6 +45,7 @@ async fn test_search_backend_enum_coverage() {
     }
 }
 
+#[cfg(feature = "tantivy")]
 #[test]
 fn test_search_backend_only_tantivy() {
     // This test ensures at compile time that only Tantivy variant exists

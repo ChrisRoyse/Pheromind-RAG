@@ -4,7 +4,7 @@ use std::time::Instant;
 use std::collections::HashMap;
 use once_cell::sync::Lazy;
 use tokio::sync::OnceCell;
-use embed_search::search::unified::{UnifiedSearcher, IndexStats};
+use embed_search::search::unified::UnifiedSearcher;
 use embed_search::search::MatchType;
 
 /// Shared test setup that only indexes once
@@ -111,7 +111,7 @@ mod accuracy_tests {
         }
         
         println!("📚 About to call index_directory...");
-        let stats = match searcher.index_directory(&vectortest_path).await {
+        let _stats = match searcher.index_directory(&vectortest_path).await {
             Ok(stats) => {
                 println!("✅ Indexed {} files with {} chunks", stats.files_indexed, stats.chunks_created);
                 stats

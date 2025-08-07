@@ -300,7 +300,7 @@ where
         C: fmt::Display + Send + Sync + 'static,
     {
         self.map_err(|e| EmbedError::Internal {
-            message: format!("{}: {}", context, e),
+            message: format!("{context}: {e}"),
             backtrace: None,
         })
     }
@@ -333,7 +333,7 @@ pub trait SafeUnwrap<T> {
 impl<T> SafeUnwrap<T> for Option<T> {
     fn safe_unwrap(self, context: &str) -> Result<T> {
         self.ok_or_else(|| EmbedError::Internal {
-            message: format!("Unwrap failed: {}", context),
+            message: format!("Unwrap failed: {context}"),
             backtrace: None,
         })
     }
@@ -352,7 +352,7 @@ where
 {
     fn safe_unwrap(self, context: &str) -> Result<T> {
         self.map_err(|e| EmbedError::Internal {
-            message: format!("{}: {}", context, e),
+            message: format!("{context}: {e}"),
             backtrace: None,
         })
     }
@@ -489,7 +489,7 @@ impl<T> ErrorRecovery<T> for Result<T> {
         match self {
             Ok(value) => Ok(value),
             Err(e) => {
-                log::warn!("Recovering from error: {}", e);
+                log::warn!("Recovering from error: {e}");
                 fallback()
             }
         }
@@ -502,7 +502,7 @@ impl<T> ErrorRecovery<T> for Result<T> {
         match self {
             Ok(value) => value,
             Err(e) => {
-                log::error!("Error occurred, using default: {}", e);
+                log::error!("Error occurred, using default: {e}");
                 default
             }
         }

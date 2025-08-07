@@ -112,20 +112,31 @@ impl NomicEmbedder {
     const NUM_HEADS: usize = 12;
     const INTERMEDIATE_SIZE: usize = 3072;
     
-    pub async fn get_global() -> Result<Arc<Self>> {
+    pub fn get_global() -> Result<Arc<Self>, crate::error::EmbedError> {
         if let Some(embedder) = GLOBAL_EMBEDDER.get() {
             return Ok(embedder.clone());
         }
         
-        let embedder = Arc::new(Self::new().await?);
+        let embedder = Arc::new(Self::new().map_err(|e| crate::error::EmbedError::Internal {
+            message: format!("Failed to initialize NomicEmbedder: {}", e),
+            backtrace: None,
+        })?);
         match GLOBAL_EMBEDDER.set(embedder.clone()) {
             Ok(_) => Ok(embedder),
             Err(_) => Ok(GLOBAL_EMBEDDER.get().unwrap().clone()),
         }
     }
     
-    pub async fn new() -> Result<Self> {
-        let (model_path, tokenizer_path) = Self::ensure_files_cached().await?;
+    pub fn new() -> Result<Self> {
+        // Use tokio runtime to handle async operations synchronously
+        let rt = tokio::runtime::Handle::try_current()
+            .or_else(|_| {
+                // If no async runtime exists, create a minimal one
+                tokio::runtime::Runtime::new().map(|rt| rt.handle().clone())
+            })
+            .map_err(|e| anyhow!("Failed to get tokio runtime: {}", e))?;
+        
+        let (model_path, tokenizer_path) = rt.block_on(Self::ensure_files_cached())?;
         
         // Setup device (CPU for GGUF)
         let device = Device::Cpu;
@@ -1137,7 +1148,7 @@ impl NomicEmbedder {
     }
 }
 
-#[cfg(test)]
+#[cfg(all(test, feature = "ml"))]
 mod tests {
     use super::*;
     
@@ -1155,8 +1166,8 @@ mod tests {
         let text1 = "def calculate_sum(a, b): return a + b";
         let text2 = "class User: pass";
         
-        let embedding1 = embedder.embed_text(text1).unwrap();
-        let embedding2 = embedder.embed_text(text2).unwrap();
+        let embedding1 = embedder.embed(text1).unwrap();
+        let embedding2 = embedder.embed(text2).unwrap();
         
         // Check dimensions
         assert_eq!(embedding1.len(), 768);

@@ -1,14 +1,20 @@
 use std::path::{Path, PathBuf};
 use std::process::Command;
-use std::sync::Arc;
-use std::sync::atomic::{AtomicBool, Ordering};
-use std::time::{Duration, Instant};
+use std::time::Duration;
 use anyhow::{Result, anyhow};
+
+#[cfg(feature = "vectordb")]
+use std::time::Instant;
+#[cfg(feature = "vectordb")]
+use std::sync::{Arc, atomic::{AtomicBool, Ordering}};
+#[cfg(feature = "vectordb")]
 use tokio::sync::RwLock;
 
-use crate::search::unified::UnifiedSearcher;
 #[cfg(feature = "vectordb")]
 use crate::storage::lancedb_storage::LanceDBStorage;
+#[cfg(feature = "vectordb")]
+use crate::search::unified::UnifiedSearcher;
+#[cfg(feature = "vectordb")]
 use crate::config::Config;
 
 #[derive(Debug, Clone)]

@@ -5,11 +5,10 @@
 #[cfg(feature = "tree-sitter")]
 mod tree_sitter_tests {
     use embed_search::search::{SymbolIndexer, Symbol, SymbolKind};
-    use std::path::PathBuf;
 
     #[test]
     fn symbol_extraction_rust() {
-        let mut indexer = SymbolIndexer::new();
+        let mut indexer = SymbolIndexer::new().expect("Failed to create SymbolIndexer");
         
         let rust_code = r#"
         pub struct TestStruct {
@@ -41,7 +40,7 @@ mod tree_sitter_tests {
 
     #[test]
     fn symbol_extraction_javascript() {
-        let mut indexer = SymbolIndexer::new();
+        let mut indexer = SymbolIndexer::new().expect("Failed to create SymbolIndexer");
         
         let js_code = r#"
         class UserController {
@@ -76,7 +75,7 @@ mod tree_sitter_tests {
 
     #[test]
     fn symbol_extraction_python() {
-        let mut indexer = SymbolIndexer::new();
+        let mut indexer = SymbolIndexer::new().expect("Failed to create SymbolIndexer");
         
         let py_code = r#"
         class DataProcessor:
@@ -111,17 +110,19 @@ mod tree_sitter_tests {
                 name: "TestClass".to_string(),
                 kind: SymbolKind::Class,
                 file_path: "test.rs".to_string(),
-                line: 1,
-                column: 0,
-                signature: "class TestClass".to_string(),
+                line_start: 1,
+                line_end: 1,
+                signature: Some("class TestClass".to_string()),
+                parent: None,
             },
             Symbol {
                 name: "test_method".to_string(),
                 kind: SymbolKind::Function,
                 file_path: "test.rs".to_string(),
-                line: 5,
-                column: 4,
-                signature: "fn test_method()".to_string(),
+                line_start: 5,
+                line_end: 5,
+                signature: Some("fn test_method()".to_string()),
+                parent: Some("TestClass".to_string()),
             },
         ];
         
@@ -129,11 +130,11 @@ mod tree_sitter_tests {
         db.add_symbols(test_symbols.clone());
         
         // Search for symbols
-        let results = db.search_symbols("TestClass", 10);
-        assert!(!results.is_empty());
+        let result = db.find_definition("TestClass");
+        assert!(result.is_some());
         
-        let results = db.search_symbols("method", 10);
-        assert!(!results.is_empty());
+        let references = db.find_all_references("test_method");
+        assert!(!references.is_empty());
     }
 }
 

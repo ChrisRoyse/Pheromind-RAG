@@ -1,5 +1,4 @@
 use embed_search::chunking::{SimpleRegexChunker, Chunk};
-use std::path::Path;
 
 #[test]
 fn test_empty_file() {

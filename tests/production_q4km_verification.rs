@@ -8,9 +8,12 @@
 /// 4. Embeddings have expected statistical properties
 /// 5. Results are reproducible across machines
 
+#[cfg(feature = "ml")]
 use embed_search::embedding::NomicEmbedder;
+#[cfg(feature = "ml")]
 use std::collections::HashMap;
 
+#[cfg(feature = "ml")]
 #[tokio::test]
 async fn test_production_q4km_embeddings_are_real() {
     println!("\n🔬 PRODUCTION Q4_K_M VERIFICATION TEST");
@@ -37,7 +40,7 @@ async fn test_production_q4km_embeddings_are_real() {
 
     // Step 2: Initialize embedder and verify it loads real GGUF
     println!("\n🚀 Initializing Nomic Q4_K_M embedder...");
-    let embedder = NomicEmbedder::get_global().await
+    let embedder = NomicEmbedder::get_global()
         .expect("Failed to initialize embedder");
     
     // Step 3: Verify model produces 768-dimensional embeddings
@@ -159,7 +162,7 @@ async fn test_production_q4km_embeddings_are_real() {
     // The model should be memory-mapped, not loaded entirely
     if model_path.exists() {
         // Re-initialize to test consistent loading
-        let embedder2 = NomicEmbedder::new().await.unwrap();
+        let embedder2 = NomicEmbedder::new().unwrap();
         let test_emb1 = embedder.embed("test").unwrap();
         let test_emb2 = embedder2.embed("test").unwrap();
         
@@ -191,13 +194,14 @@ fn cosine_distance(a: &[f32], b: &[f32]) -> f32 {
     1.0 - dot  // Since vectors are L2 normalized, ||a|| = ||b|| = 1
 }
 
+#[cfg(feature = "ml")]
 #[tokio::test]
 async fn test_q4km_reproducibility() {
     println!("\n🔄 REPRODUCIBILITY TEST");
     println!("========================");
     println!("Verifying results are consistent across runs\n");
     
-    let embedder = NomicEmbedder::get_global().await.unwrap();
+    let embedder = NomicEmbedder::get_global().unwrap();
     
     // Test same input multiple times
     let test_input = "function processData(data) { return data.map(x => x * 2); }";
@@ -224,13 +228,14 @@ async fn test_q4km_reproducibility() {
     println!("✅ Results are reproducible");
 }
 
+#[cfg(feature = "ml")]
 #[tokio::test]
 async fn test_q4km_weight_extraction() {
     println!("\n🔬 Q4_K_M WEIGHT EXTRACTION TEST");
     println!("=================================");
     
     // This test verifies the actual Q4_K_M dequantization logic
-    let embedder = NomicEmbedder::get_global().await.unwrap();
+    let embedder = NomicEmbedder::get_global().unwrap();
     
     // Generate embeddings for edge cases
     let very_long_text = "x".repeat(10000);

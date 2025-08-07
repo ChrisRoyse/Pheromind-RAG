@@ -1,6 +1,6 @@
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
-use anyhow::{Result, anyhow};
+use anyhow::Result;
 use tokio::sync::RwLock;
 
 use crate::chunking::{SimpleRegexChunker, Chunk, ThreeChunkExpander};
@@ -22,7 +22,7 @@ use crate::search::cache::SearchCache;
 use crate::search::search_adapter::{TextSearcher, create_text_searcher_with_root};
 #[cfg(feature = "tree-sitter")]
 use crate::search::symbol_index::{SymbolIndexer, SymbolDatabase, Symbol};
-use crate::config::Config;
+use crate::config::{Config, SearchBackend};
 
 // Helper struct for when ml feature is not available
 #[cfg(not(feature = "ml"))]
@@ -64,7 +64,7 @@ impl UnifiedSearcher {
     }
     
     /// Create a new UnifiedSearcher with a specific search backend
-    pub async fn new_with_backend(project_path: PathBuf, db_path: PathBuf, backend: crate::config::SearchBackend) -> Result<Self> {
+    pub async fn new_with_backend(project_path: PathBuf, db_path: PathBuf, backend: SearchBackend) -> Result<Self> {
         Self::new_with_backend_and_config(project_path, db_path, backend, false).await
     }
     
@@ -74,13 +74,13 @@ impl UnifiedSearcher {
     }
     
     /// Create a new UnifiedSearcher with a specific backend and config
-    pub async fn new_with_backend_and_config(project_path: PathBuf, db_path: PathBuf, backend: crate::config::SearchBackend, include_test_files: bool) -> Result<Self> {
+    pub async fn new_with_backend_and_config(project_path: PathBuf, db_path: PathBuf, backend: SearchBackend, include_test_files: bool) -> Result<Self> {
         println!("🔄 Initializing Unified Searcher (backend: {:?}, include_test_files: {})...", backend, include_test_files);
         
         // Initialize Nomic embedder with permanent model caching
         #[cfg(feature = "ml")]
-        let embedder = NomicEmbedder::get_global().await
-            .map_err(|e| anyhow!("Failed to initialize Nomic embedder: {}", e))?;
+        let embedder = NomicEmbedder::get_global()
+            .map_err(|e| anyhow::anyhow!("Failed to initialize Nomic embedder: {}", e))?;
         
         #[cfg(feature = "vectordb")]
         let storage = Arc::new(RwLock::new(LanceDBStorage::new(db_path.clone()).await?));
@@ -128,7 +128,7 @@ impl UnifiedSearcher {
         // Create text searcher with specified backend
         #[cfg(feature = "tantivy")]
         let text_searcher = create_text_searcher_with_root(&backend, project_path.clone()).await
-            .map_err(|e| anyhow!("Failed to create text searcher with backend {:?}: {}", backend, e))?;
+            .map_err(|e| anyhow::anyhow!("Failed to create text searcher with backend {:?}: {}", backend, e))?;
         
         #[cfg(feature = "tantivy")]
         println!("✅ Text searcher initialized with backend: {:?}", backend);
@@ -264,11 +264,12 @@ impl UnifiedSearcher {
         Ok(results)
     }
     
-    async fn search_exact(&self, query: &str) -> Result<Vec<ExactMatch>> {
+    #[allow(dead_code)]
+    async fn search_exact(&self, _query: &str) -> Result<Vec<ExactMatch>> {
         #[cfg(feature = "tantivy")]
         {
             let searcher = self.text_searcher.read().await;
-            searcher.search(query).await
+            searcher.search(_query).await
         }
         #[cfg(not(feature = "tantivy"))]
         {
@@ -280,7 +281,7 @@ impl UnifiedSearcher {
     async fn search_semantic(&self, query: &str) -> Result<Vec<crate::storage::lancedb_storage::LanceEmbeddingRecord>> {
         // Generate query embedding using cached embedder
         let query_embedding = self.embedder.embed(query)
-            .map_err(|e| anyhow!("Failed to generate query embedding: {}", e))?;
+            .map_err(|e| anyhow::anyhow!("Failed to generate query embedding: {}", e))?;
         
         // Search in vector database
         let storage = self.storage.read().await;
@@ -289,6 +290,7 @@ impl UnifiedSearcher {
     }
     
     #[cfg(not(all(feature = "ml", feature = "vectordb")))]
+    #[allow(dead_code)]
     async fn search_semantic(&self, _query: &str) -> Result<Vec<()>> {
         Ok(Vec::new())
     }
@@ -311,6 +313,7 @@ impl UnifiedSearcher {
     }
     
     #[cfg(not(feature = "tree-sitter"))]
+    #[allow(dead_code)]
     async fn search_symbols(&self, _query: &str) -> Result<Vec<()>> {
         Ok(Vec::new())
     }
@@ -435,7 +438,7 @@ impl UnifiedSearcher {
             
             // Generate embeddings using Nomic embedder
             let embeddings = self.embedder.embed_batch(&chunk_contents)
-                .map_err(|e| anyhow!("Failed to generate embeddings for file {:?}: {}", file_path, e))?;
+                .map_err(|e| anyhow::anyhow!("Failed to generate embeddings for file {:?}: {}", file_path, e))?;
             
             // Create records with embeddings
             let mut records = Vec::with_capacity(chunks.len());

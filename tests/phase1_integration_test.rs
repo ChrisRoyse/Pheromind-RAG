@@ -5,7 +5,7 @@ use std::sync::Arc;
 use std::time::Duration;
 use tokio::time::sleep;
 use embed_search::{
-    error::{EmbedError, Result},
+    error::EmbedError,
     storage::safe_vectordb::{VectorStorage, StorageConfig, VectorMetadata},
     config::Config,
     cache::bounded_cache::{BoundedCache, EmbeddingCache, SearchCache},
@@ -312,7 +312,7 @@ async fn test_resource_exhaustion_handling() {
 fn test_phase1_completion_criteria() {
     println!("\n🔍 Validating Phase 1 Completion Criteria\n");
     
-    let mut all_passed = true;
+    let all_passed = true;
     
     // Criterion 1: No unsafe Send/Sync without justification
     println!("📊 Criterion 1: Memory Safety");

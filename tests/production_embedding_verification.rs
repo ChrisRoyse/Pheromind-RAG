@@ -1,13 +1,17 @@
+#[cfg(feature = "ml")]
 use embed_search::embedding::nomic::NomicEmbedder;
+#[cfg(feature = "ml")]
 use std::fs;
+#[cfg(feature = "ml")]
 use std::path::Path;
 
+#[cfg(feature = "ml")]
 #[tokio::test]
 async fn test_real_production_embeddings_verification() {
     println!("🔬 PRODUCTION EMBEDDING VERIFICATION TEST");
     println!("Testing actual code files from ./vectortest/ and ./src/ directories");
     
-    let embedder = NomicEmbedder::get_global().await.unwrap();
+    let embedder = NomicEmbedder::get_global().unwrap();
     
     // Test 1: Load real code files from vectortest directory
     let vectortest_files = vec![

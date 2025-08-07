@@ -1,5 +1,5 @@
 use serde::{Deserialize, Serialize};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::str::FromStr;
 use anyhow::{Result, anyhow};
 use once_cell::sync::Lazy;
@@ -7,9 +7,10 @@ use std::sync::RwLock;
 use crate::error::{EmbedError, Result as EmbedResult};
 
 /// Search backend options
-#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Serialize, PartialEq, Eq, Default)]
 pub enum SearchBackend {
     /// Use Tantivy for full-text search with fuzzy matching
+    #[default]
     Tantivy,
 }
 
@@ -23,11 +24,6 @@ impl<'de> serde::Deserialize<'de> for SearchBackend {
     }
 }
 
-impl Default for SearchBackend {
-    fn default() -> Self {
-        SearchBackend::Tantivy
-    }
-}
 
 impl std::fmt::Display for SearchBackend {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -56,6 +52,9 @@ pub static CONFIG: Lazy<RwLock<Config>> = Lazy::new(|| {
 /// Main configuration struct for the embedding search system
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Config {
+    /// Project path for search operations
+    pub project_path: PathBuf,
+    
     /// Chunking configuration
     pub chunk_size: usize,
     
@@ -111,6 +110,7 @@ pub struct Config {
 impl Default for Config {
     fn default() -> Self {
         Self {
+            project_path: PathBuf::from("."),
             chunk_size: 100,
             embedding_cache_size: 10000,
             search_cache_size: 100,
@@ -369,6 +369,10 @@ impl Config {
 
     /// Validate configuration settings
     pub fn validate(&self) -> Result<()> {
+        if self.project_path.as_os_str().is_empty() {
+            return Err(anyhow!("project_path cannot be empty"));
+        }
+        
         if self.chunk_size == 0 {
             return Err(anyhow!("chunk_size must be greater than 0"));
         }

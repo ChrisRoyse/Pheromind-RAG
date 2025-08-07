@@ -1,5 +1,6 @@
-use embed_search::search::{UnifiedSearcher, MatchType};
-use embed_search::config::{Config, SearchBackend};
+use embed_search::search::unified::{UnifiedSearcher};
+use embed_search::search::MatchType;
+use embed_search::config::SearchBackend;
 use tempfile::TempDir;
 use std::path::PathBuf;
 use tokio::fs;
@@ -336,7 +337,7 @@ fn calculate_total(items: Vec<Item>) -> f64 {
     assert!(!results.is_empty(), "Should find results");
     
     // Check that we have different match types
-    let has_statistical = results.iter()
+    let _has_statistical = results.iter()
         .any(|r| r.match_type == MatchType::Statistical);
     
     // BM25 should be active and finding statistical matches

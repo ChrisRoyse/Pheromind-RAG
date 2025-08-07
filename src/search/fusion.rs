@@ -362,6 +362,7 @@ impl SimpleFusion {
     }
     
     /// Apply weighted fusion to combine scores from different search types
+    #[allow(dead_code)]
     fn apply_weighted_fusion(
         &self,
         results: &mut Vec<FusedResult>,

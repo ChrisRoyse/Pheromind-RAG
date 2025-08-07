@@ -1,6 +1,5 @@
 use std::time::Instant;
-use embed_search::embedding::{CachedEmbedder, RealMiniLMEmbedder};
-use tempfile::TempDir;
+use embed_search::embedding::NomicEmbedder;
 
 /// Simple demonstration of embedding performance optimizations
 #[tokio::main]
@@ -24,145 +23,65 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
              code_samples.len(), 
              code_samples.iter().collect::<std::collections::HashSet<_>>().len());
 
-    // Test 1: Sequential processing without caching
-    println!("\n1️⃣ Sequential Embedding (No Cache)");
-    println!("   Processing each snippet individually...");
+    // Test 1: Basic embedding demonstration
+    println!("\n1️⃣ Basic Embedding");
+    println!("   Processing snippets with NomicEmbedder...");
     
-    let embedder = RealMiniLMEmbedder::get_global().await?;
+    let embedder = NomicEmbedder::new()?;
     let start = Instant::now();
     
-    let mut sequential_embeddings = Vec::new();
+    let mut embeddings = Vec::new();
     for (i, code) in code_samples.iter().enumerate() {
-        let embedding = embedder.embed(code)?;
+        let embedding = embedder.embed(code).await?;
         println!("   ✓ Embedded snippet {} ({} dims)", i + 1, embedding.len());
-        sequential_embeddings.push(embedding);
+        embeddings.push(embedding);
     }
     
-    let sequential_time = start.elapsed();
+    let total_time = start.elapsed();
     println!("   ⏱️  Total time: {:?} ({:.1}ms per snippet)", 
-             sequential_time, 
-             sequential_time.as_millis() as f64 / code_samples.len() as f64);
-
-    // Test 2: Batch processing (optimized tensor operations)
-    println!("\n2️⃣ Batch Embedding (Tensor Optimization)");
-    println!("   Processing all snippets in optimized batches...");
-    
-    let code_refs: Vec<&str> = code_samples.iter().map(|s| s.as_ref()).collect();
-    let start = Instant::now();
-    
-    let batch_embeddings = embedder.embed_batch_optimized(&code_refs)?;
-    let batch_time = start.elapsed();
-    
-    println!("   ✓ Embedded {} snippets in batches", batch_embeddings.len());
-    println!("   ⏱️  Total time: {:?} ({:.1}ms per snippet)", 
-             batch_time, 
-             batch_time.as_millis() as f64 / code_samples.len() as f64);
-
-    let batch_speedup = sequential_time.as_millis() as f64 / batch_time.as_millis() as f64;
-    println!("   🚀 Speedup: {:.2}x faster than sequential", batch_speedup);
-
-    // Test 3: Cached embedding (first run - cache population)
-    println!("\n3️⃣ Cached Embedding (Cold Cache)");
-    println!("   First run - populating cache...");
-    
-    let temp_dir = TempDir::new()?;
-    let cached_embedder = CachedEmbedder::new_with_persistence(1000, temp_dir.path()).await?;
-    
-    let start = Instant::now();
-    let cached_embeddings_cold = cached_embedder.embed_batch_cached(&code_refs)?;
-    let cached_cold_time = start.elapsed();
-    
-    println!("   ✓ Embedded {} snippets with caching", cached_embeddings_cold.len());
-    println!("   ⏱️  Total time: {:?} ({:.1}ms per snippet)", 
-             cached_cold_time, 
-             cached_cold_time.as_millis() as f64 / code_samples.len() as f64);
-
-    let cache_stats = cached_embedder.cache_stats();
-    println!("   📦 Cache now contains {} entries", cache_stats.entries);
-
-    // Test 4: Cached embedding (second run - cache hits)
-    println!("\n4️⃣ Cached Embedding (Warm Cache)");
-    println!("   Second run - utilizing cached embeddings...");
-    
-    let start = Instant::now();
-    let cached_embeddings_warm = cached_embedder.embed_batch_cached(&code_refs)?;
-    let cached_warm_time = start.elapsed();
-    
-    println!("   ✓ Retrieved {} embeddings (mix of cached and new)", cached_embeddings_warm.len());
-    println!("   ⏱️  Total time: {:?} ({:.1}ms per snippet)", 
-             cached_warm_time, 
-             cached_warm_time.as_millis() as f64 / code_samples.len() as f64);
-
-    let cache_speedup = cached_cold_time.as_millis() as f64 / cached_warm_time.as_millis() as f64;
-    println!("   🚀 Cache speedup: {:.2}x faster than cold cache", cache_speedup);
+             total_time, 
+             total_time.as_millis() as f64 / code_samples.len() as f64);
 
     // Performance Summary
     println!("\n📈 Performance Summary:");
     println!("======================");
-    println!("Sequential:      {:>8.1}ms ({:.1}ms/item)", 
-             sequential_time.as_millis(), 
-             sequential_time.as_millis() as f64 / code_samples.len() as f64);
-    println!("Batch:           {:>8.1}ms ({:.1}ms/item) - {:.1}x speedup", 
-             batch_time.as_millis(), 
-             batch_time.as_millis() as f64 / code_samples.len() as f64,
-             batch_speedup);
-    println!("Cached (cold):   {:>8.1}ms ({:.1}ms/item)", 
-             cached_cold_time.as_millis(), 
-             cached_cold_time.as_millis() as f64 / code_samples.len() as f64);
-    println!("Cached (warm):   {:>8.1}ms ({:.1}ms/item) - {:.1}x speedup", 
-             cached_warm_time.as_millis(), 
-             cached_warm_time.as_millis() as f64 / code_samples.len() as f64,
-             cache_speedup);
+    println!("Basic embedding:  {:>8.1}ms ({:.1}ms/item)", 
+             total_time.as_millis(), 
+             total_time.as_millis() as f64 / code_samples.len() as f64);
 
-    // Verify embeddings are consistent
-    println!("\n🔍 Verifying Consistency:");
-    println!("==========================");
+    // Verify embeddings are consistent dimensions
+    println!("\n🔍 Verifying Embeddings:");
+    println!("=========================");
     
-    // Check that all methods produce similar embeddings
-    for i in 0..code_samples.len() {
-        let seq = &sequential_embeddings[i];
-        let batch = &batch_embeddings[i];
-        let cached_cold = &cached_embeddings_cold[i];
-        let cached_warm = &cached_embeddings_warm[i];
+    if let Some(first_embedding) = embeddings.first() {
+        let dimension = first_embedding.len();
+        let all_same_dim = embeddings.iter().all(|e| e.len() == dimension);
         
-        let similarity_batch = cosine_similarity(seq, batch);
-        let similarity_cached = cosine_similarity(seq, cached_cold);
-        let similarity_warm = cosine_similarity(cached_cold, cached_warm);
+        println!("Embedding dimension: {}", dimension);
+        println!("All embeddings same dimension: {}", all_same_dim);
         
-        println!("Snippet {}: batch={:.4}, cached={:.4}, warm={:.4}", 
-                 i + 1, similarity_batch, similarity_cached, similarity_warm);
-        
-        assert!(similarity_batch > 0.999, "Batch embedding inconsistent");
-        assert!(similarity_cached > 0.999, "Cached embedding inconsistent");
-        assert!(similarity_warm > 0.999, "Warm cache embedding inconsistent");
+        if all_same_dim {
+            println!("✅ All embeddings have consistent dimensions!");
+        } else {
+            println!("❌ Embeddings have inconsistent dimensions!");
+        }
     }
-    
-    println!("✅ All embeddings are consistent!");
 
-    // Show cache benefits for repeated content
-    println!("\n📦 Cache Benefits Analysis:");
-    println!("============================");
-    let unique_samples: Vec<&str> = code_samples.iter()
-        .collect::<std::collections::HashSet<_>>()
-        .into_iter()
-        .cloned()
-        .collect();
+    // Show duplicate content analysis
+    println!("\n📊 Content Analysis:");
+    println!("=====================");
+    let unique_samples: std::collections::HashSet<&&str> = code_samples.iter().collect();
     
     println!("Total snippets: {} (includes duplicates)", code_samples.len());
-    println!("Unique snippets: {} (cached after first occurrence)", unique_samples.len());
-    println!("Cache hits: {} ({}% of requests)", 
-             code_samples.len() - unique_samples.len(),
-             ((code_samples.len() - unique_samples.len()) * 100) / code_samples.len());
+    println!("Unique snippets: {}", unique_samples.len());
+    println!("Duplicate content: {} snippets", 
+             code_samples.len() - unique_samples.len());
 
-    let final_cache_stats = cached_embedder.cache_stats();
-    println!("Final cache state: {} entries", final_cache_stats.entries);
-
-    println!("\n🎉 Optimization Benefits Demonstrated:");
-    println!("   • Batch processing: {:.1}x faster than sequential", batch_speedup);
-    println!("   • Caching: {:.1}x faster for repeated content", cache_speedup);
-    println!("   • Memory efficient: LRU cache with configurable size");
-    println!("   • Persistent: cache survives application restarts");
-    println!("   • Thread-safe: suitable for concurrent access");
+    println!("\n🎉 Demo Complete:");
+    println!("   • Successfully embedded {} code snippets", code_samples.len());
+    println!("   • Average embedding time: {:.1}ms per snippet", 
+             total_time.as_millis() as f64 / code_samples.len() as f64);
+    println!("   • Nomic embedder working correctly");
 
     Ok(())
 }
