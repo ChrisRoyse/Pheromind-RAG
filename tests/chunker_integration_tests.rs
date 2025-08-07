@@ -3,7 +3,7 @@ use std::path::Path;
 
 #[test]
 fn test_python_file_chunking() {
-    let chunker = SimpleRegexChunker::new();
+    let chunker = SimpleRegexChunker::new().expect("Chunker creation must succeed in test");
     let path = Path::new("vectortest/auth_service.py");
     
     if path.exists() {
@@ -34,7 +34,7 @@ fn test_python_file_chunking() {
 
 #[test]
 fn test_javascript_file_chunking() {
-    let chunker = SimpleRegexChunker::new();
+    let chunker = SimpleRegexChunker::new().expect("Chunker creation must succeed in test");
     let path = Path::new("vectortest/user_controller.js");
     
     if path.exists() {
@@ -58,7 +58,7 @@ fn test_javascript_file_chunking() {
 
 #[test]
 fn test_java_file_chunking() {
-    let chunker = SimpleRegexChunker::new();
+    let chunker = SimpleRegexChunker::new().expect("Chunker creation must succeed in test");
     let path = Path::new("vectortest/OrderService.java");
     
     if path.exists() {
@@ -80,7 +80,7 @@ fn test_java_file_chunking() {
 
 #[test]
 fn test_go_file_chunking() {
-    let chunker = SimpleRegexChunker::new();
+    let chunker = SimpleRegexChunker::new().expect("Chunker creation must succeed in test");
     let path = Path::new("vectortest/analytics_dashboard.go");
     
     if path.exists() {
@@ -104,7 +104,7 @@ fn test_go_file_chunking() {
 
 #[test]
 fn test_rust_file_chunking() {
-    let chunker = SimpleRegexChunker::new();
+    let chunker = SimpleRegexChunker::new().expect("Chunker creation must succeed in test");
     let path = Path::new("vectortest/memory_cache.rs");
     
     if path.exists() {
@@ -127,7 +127,7 @@ fn test_rust_file_chunking() {
 
 #[test]
 fn test_sql_file_chunking() {
-    let chunker = SimpleRegexChunker::new();
+    let chunker = SimpleRegexChunker::new().expect("Chunker creation must succeed in test");
     let path = Path::new("vectortest/database_migration.sql");
     
     if path.exists() {
@@ -145,7 +145,7 @@ fn test_sql_file_chunking() {
 
 #[test]
 fn test_markdown_file_chunking() {
-    let chunker = SimpleRegexChunker::new();
+    let chunker = SimpleRegexChunker::new().expect("Chunker creation must succeed in test");
     let path = Path::new("vectortest/API_DOCUMENTATION.md");
     
     if path.exists() {
@@ -163,7 +163,7 @@ fn test_markdown_file_chunking() {
 
 #[test]
 fn test_chunk_line_numbers() {
-    let chunker = SimpleRegexChunker::new();
+    let chunker = SimpleRegexChunker::new().expect("Chunker creation must succeed in test");
     let content = r#"// File header
 fn first_function() {
     println!("First");
@@ -200,7 +200,7 @@ fn third_function() {
 
 #[test]
 fn test_large_file_chunking() {
-    let chunker = SimpleRegexChunker::with_chunk_size(50); // Smaller chunks for testing
+    let chunker = SimpleRegexChunker::with_chunk_size(50).expect("Failed to create chunker"); // Smaller chunks for testing
     
     // Create a large synthetic file
     let mut content = String::new();
@@ -226,7 +226,7 @@ fn test_large_file_chunking() {
 
 #[test]
 fn test_mixed_language_patterns() {
-    let chunker = SimpleRegexChunker::new();
+    let chunker = SimpleRegexChunker::new().expect("Chunker creation must succeed in test");
     
     // Test content with mixed language patterns
     let content = r#"

@@ -55,6 +55,7 @@ impl LightweightStorage {
         let records = self.records.read().await;
         
         if records.is_empty() {
+            log::info!("No records in lightweight storage to search");
             return Ok(Vec::new());
         }
         
@@ -70,8 +71,22 @@ impl LightweightStorage {
             })
             .collect();
         
-        // Sort by similarity (descending)
-        similarities.sort_by(|a, b| b.0.partial_cmp(&a.0).unwrap_or(std::cmp::Ordering::Equal));
+        // Sort by similarity (descending), handling potential NaN values
+        similarities.sort_by(|a, b| {
+            match b.0.partial_cmp(&a.0) {
+                Some(ordering) => ordering,
+                None => {
+                    // Handle NaN case - prefer the non-NaN value
+                    if b.0.is_nan() && a.0.is_nan() {
+                        std::cmp::Ordering::Equal
+                    } else if b.0.is_nan() {
+                        std::cmp::Ordering::Greater // a comes first (a is not NaN)
+                    } else {
+                        std::cmp::Ordering::Less // b comes first (b is not NaN)
+                    }
+                }
+            }
+        });
         
         // Return top results
         Ok(similarities

@@ -111,8 +111,8 @@ impl VectorUpdater {
                 self.delete_file_embeddings(file_path).await
             },
             FileChange::Modified(_) | FileChange::Added(_) => {
-                // Delete old embeddings first
-                let _ = self.delete_file_embeddings(file_path).await;
+                // Delete old embeddings first - must succeed
+                self.delete_file_embeddings(file_path).await?;
                 
                 // Re-index the file
                 self.searcher.index_file(file_path).await
@@ -143,26 +143,18 @@ impl VectorUpdater {
             }
         }
         
-        // Process deletions first (fast)
+        // Process deletions first (fast) - all deletions must succeed
         for (path, change) in deletions {
-            match self.update_file(&path, &change).await {
-                Ok(_) => stats.deleted_files += 1,
-                Err(e) => {
-                    eprintln!("Failed to delete embeddings for {}: {}", path.display(), e);
-                    stats.failed_files += 1;
-                }
-            }
+            self.update_file(&path, &change).await
+                .map_err(|e| anyhow!("Failed to delete embeddings for {}: {}. Batch update cannot proceed with failed deletions.", path.display(), e))?;
+            stats.deleted_files += 1;
         }
         
-        // Process modifications/additions
+        // Process modifications/additions - all indexing must succeed
         for (path, change) in modifications {
-            match self.update_file(&path, &change).await {
-                Ok(_) => stats.updated_files += 1,
-                Err(e) => {
-                    eprintln!("Failed to index {}: {}", path.display(), e);
-                    stats.failed_files += 1;
-                }
-            }
+            self.update_file(&path, &change).await
+                .map_err(|e| anyhow!("Failed to index {}: {}. Batch update cannot proceed with failed indexing operations.", path.display(), e))?;
+            stats.updated_files += 1;
         }
         
         stats.total_time = start_time.elapsed();
@@ -181,15 +173,12 @@ impl VectorUpdater {
             
             println!("[{}/{}] Processing: {}", i + 1, total, path.display());
             
-            match self.update_file(path, &change).await {
-                Ok(_) => match change {
-                    FileChange::Deleted(_) => stats.deleted_files += 1,
-                    _ => stats.updated_files += 1,
-                },
-                Err(e) => {
-                    eprintln!("Failed to process {}: {}", path.display(), e);
-                    stats.failed_files += 1;
-                }
+            self.update_file(path, &change).await
+                .map_err(|e| anyhow!("Failed to process {}: {}. Progressive batch update cannot continue with failed operations.", path.display(), e))?;
+            
+            match change {
+                FileChange::Deleted(_) => stats.deleted_files += 1,
+                _ => stats.updated_files += 1,
             }
         }
         
@@ -209,13 +198,14 @@ pub struct WatchCommand {
 
 #[cfg(feature = "vectordb")]
 impl WatchCommand {
-    pub fn new(repo_path: PathBuf, searcher: Arc<UnifiedSearcher>, storage: Arc<RwLock<LanceDBStorage>>) -> Self {
-        Self {
+    pub fn new(repo_path: PathBuf, searcher: Arc<UnifiedSearcher>, storage: Arc<RwLock<LanceDBStorage>>) -> Result<Self> {
+        Ok(Self {
             watcher: GitWatcher::new(repo_path),
             updater: VectorUpdater::new(searcher, storage),
-            interval: Duration::from_secs(Config::git_poll_interval_secs().unwrap_or(10)),
+            interval: Duration::from_secs(Config::git_poll_interval_secs()
+                .map_err(|e| anyhow!("Git poll interval not configured: {}. Configuration is required for git watching.", e))?),
             enabled: Arc::new(AtomicBool::new(false)),
-        }
+        })
     }
     
     pub async fn start(&self) {

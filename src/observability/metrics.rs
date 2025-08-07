@@ -32,10 +32,13 @@ impl Histogram {
         self.count += 1;
 
         // Find the appropriate bucket
-        let bucket_index = self.buckets
-            .iter()
-            .position(|&bucket| value <= bucket)
-            .unwrap_or(self.buckets.len());
+        let bucket_index = match self.buckets.iter().position(|&bucket| value <= bucket) {
+            Some(index) => index,
+            None => {
+                // Value exceeds all defined buckets - use overflow bucket at index buckets.len()
+                self.buckets.len()
+            }
+        };
         
         self.counts[bucket_index] += 1;
     }

@@ -34,7 +34,13 @@ fn audit_unsafe_implementations() -> Vec<UnsafeImpl> {
         .filter_map(|e| e.ok())
         .filter(|e| e.path().extension().map_or(false, |ext| ext == "rs"))
     {
-        let content = fs::read_to_string(entry.path()).unwrap_or_default();
+        let content = match fs::read_to_string(entry.path()) {
+            Ok(content) => content,
+            Err(e) => {
+                eprintln!("Warning: Could not read file {:?}: {}", entry.path(), e);
+                continue;
+            }
+        };
         
         for (line_num, line) in content.lines().enumerate() {
             if unsafe_pattern.is_match(line) {
@@ -73,7 +79,13 @@ fn scan_for_unwrap_calls() -> Vec<UnwrapCall> {
         .filter_map(|e| e.ok())
         .filter(|e| e.path().extension().map_or(false, |ext| ext == "rs"))
     {
-        let content = fs::read_to_string(entry.path()).unwrap_or_default();
+        let content = match fs::read_to_string(entry.path()) {
+            Ok(content) => content,
+            Err(e) => {
+                eprintln!("Warning: Could not read file {:?}: {}", entry.path(), e);
+                continue;
+            }
+        };
         
         for (line_num, line) in content.lines().enumerate() {
             if unwrap_pattern.is_match(line) {
@@ -99,7 +111,13 @@ fn scan_for_expect_calls() -> Vec<UnwrapCall> {
         .filter_map(|e| e.ok())
         .filter(|e| e.path().extension().map_or(false, |ext| ext == "rs"))
     {
-        let content = fs::read_to_string(entry.path()).unwrap_or_default();
+        let content = match fs::read_to_string(entry.path()) {
+            Ok(content) => content,
+            Err(e) => {
+                eprintln!("Warning: Could not read file {:?}: {}", entry.path(), e);
+                continue;
+            }
+        };
         
         for (line_num, line) in content.lines().enumerate() {
             if expect_pattern.is_match(line) {
@@ -125,7 +143,13 @@ fn scan_for_panic_calls() -> Vec<UnwrapCall> {
         .filter_map(|e| e.ok())
         .filter(|e| e.path().extension().map_or(false, |ext| ext == "rs"))
     {
-        let content = fs::read_to_string(entry.path()).unwrap_or_default();
+        let content = match fs::read_to_string(entry.path()) {
+            Ok(content) => content,
+            Err(e) => {
+                eprintln!("Warning: Could not read file {:?}: {}", entry.path(), e);
+                continue;
+            }
+        };
         
         for (line_num, line) in content.lines().enumerate() {
             if panic_pattern.is_match(line) {
@@ -145,13 +169,16 @@ fn extract_type_name(line: &str) -> String {
     // Extract the type name from "unsafe impl Send for TypeName"
     if let Some(pos) = line.find(" for ") {
         let after_for = &line[pos + 5..];
-        after_for.split_whitespace()
-            .next()
-            .unwrap_or("Unknown")
-            .trim_end_matches('{')
-            .to_string()
+        match after_for.split_whitespace().next() {
+            Some(type_name) => type_name.trim_end_matches('{').to_string(),
+            None => {
+                eprintln!("Warning: Could not extract type name from line: {}", line);
+                "UnparseableType".to_string()
+            }
+        }
     } else {
-        "Unknown".to_string()
+        eprintln!("Warning: Unexpected unsafe impl format in line: {}", line);
+        "UnparseableImplementation".to_string()
     }
 }
 
@@ -311,7 +338,13 @@ fn test_bounded_caches() {
         .filter(|e| e.path().to_string_lossy().contains("cache"))
         .filter(|e| e.path().extension().map_or(false, |ext| ext == "rs"))
     {
-        let content = fs::read_to_string(entry.path()).unwrap_or_default();
+        let content = match fs::read_to_string(entry.path()) {
+            Ok(content) => content,
+            Err(e) => {
+                eprintln!("Warning: Could not read file {:?}: {}", entry.path(), e);
+                continue;
+            }
+        };
         
         if cache_pattern.is_match(&content) {
             assert!(

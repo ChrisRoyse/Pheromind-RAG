@@ -154,10 +154,21 @@ impl NativeSearcher {
 
     /// Check if a path represents a hidden file/directory
     fn is_hidden(&self, path: &Path) -> bool {
-        path.file_name()
-            .and_then(|name| name.to_str())
-            .map(|name| name.starts_with('.'))
-            .unwrap_or(false)
+        match path.file_name() {
+            Some(os_str) => {
+                match os_str.to_str() {
+                    Some(name) => name.starts_with('.'),
+                    None => {
+                        // Filename contains invalid UTF-8 - treat as not hidden to avoid masking encoding issues
+                        false
+                    }
+                }
+            }
+            None => {
+                // Path has no filename (e.g., root directory) - not hidden by definition
+                false
+            }
+        }
     }
 
     /// Check if a file is likely to be a text file

@@ -68,13 +68,13 @@ impl VectorStorage {
         })
     }
 
-    // Stub implementations until LanceDB API is stable
+    // REMOVED: Stub implementations violate Principle 0
     pub async fn init_schema(&self) -> Result<(), StorageError> {
-        Ok(())
+        Err(StorageError::DatabaseError("init_schema not implemented - use lancedb_storage.rs".to_string()))
     }
 
-    pub fn get_schema(&self) -> Option<Arc<Schema>> {
-        None
+    pub fn get_schema(&self) -> Result<Arc<Schema>, StorageError> {
+        Err(StorageError::DatabaseError("get_schema not implemented - use lancedb_storage.rs".to_string()))
     }
 
     pub async fn create_empty_record_batch(&self) -> Result<RecordBatch, StorageError> {
@@ -90,15 +90,15 @@ impl VectorStorage {
     }
 
     pub async fn clear_all(&self) -> Result<(), StorageError> {
-        Ok(())
+        Err(StorageError::DatabaseError("clear_all not implemented - use lancedb_storage.rs".to_string()))
     }
 
     pub async fn count(&self) -> Result<usize, StorageError> {
-        Ok(0)
+        Err(StorageError::DatabaseError("count not implemented - use lancedb_storage.rs".to_string()))
     }
 
     pub async fn create_vector_index(&self) -> Result<(), StorageError> {
-        Ok(())
+        Err(StorageError::DatabaseError("create_vector_index not implemented - use lancedb_storage.rs".to_string()))
     }
 }
 

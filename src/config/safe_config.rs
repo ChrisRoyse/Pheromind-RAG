@@ -240,41 +240,263 @@ impl Config {
         Ok(())
     }
     
-    /// Load configuration from environment variables
+    /// Load configuration from environment variables - requires ALL variables to be set
     pub fn from_env() -> Result<Self> {
-        let mut config = Self::default();
+        // Require ALL environment variables - no fallbacks or defaults
+        let storage_backend = std::env::var("EMBED_STORAGE_BACKEND")
+            .map_err(|_| EmbedError::Configuration {
+                message: "EMBED_STORAGE_BACKEND environment variable is required".to_string(),
+                source: None,
+            })?;
         
-        // Override with environment variables (safe parsing)
-        if let Ok(val) = std::env::var("EMBED_STORAGE_BACKEND") {
-            config.storage.backend = match val.to_lowercase().as_str() {
-                "memory" => StorageBackend::Memory,
-                "lancedb" => StorageBackend::LanceDB,
-                "sqlite" => StorageBackend::SQLite,
-                "postgresql" => StorageBackend::PostgreSQL,
-                _ => {
-                    return Err(EmbedError::Configuration {
-                        message: format!("Invalid storage backend: {}", val),
-                        source: None,
-                    });
-                }
-            };
-        }
+        let storage_path = std::env::var("EMBED_STORAGE_PATH")
+            .map_err(|_| EmbedError::Configuration {
+                message: "EMBED_STORAGE_PATH environment variable is required".to_string(),
+                source: None,
+            })?;
+            
+        let max_connections = std::env::var("EMBED_MAX_CONNECTIONS")
+            .map_err(|_| EmbedError::Configuration {
+                message: "EMBED_MAX_CONNECTIONS environment variable is required".to_string(),
+                source: None,
+            })?
+            .parse()
+            .map_err(|_| EmbedError::Configuration {
+                message: "EMBED_MAX_CONNECTIONS must be a valid positive integer".to_string(),
+                source: None,
+            })?;
+            
+        let connection_timeout_ms = std::env::var("EMBED_CONNECTION_TIMEOUT_MS")
+            .map_err(|_| EmbedError::Configuration {
+                message: "EMBED_CONNECTION_TIMEOUT_MS environment variable is required".to_string(),
+                source: None,
+            })?
+            .parse()
+            .map_err(|_| EmbedError::Configuration {
+                message: "EMBED_CONNECTION_TIMEOUT_MS must be a valid positive integer".to_string(),
+                source: None,
+            })?;
+            
+        let cache_size = std::env::var("EMBED_CACHE_SIZE")
+            .map_err(|_| EmbedError::Configuration {
+                message: "EMBED_CACHE_SIZE environment variable is required".to_string(),
+                source: None,
+            })?
+            .parse()
+            .map_err(|_| EmbedError::Configuration {
+                message: "EMBED_CACHE_SIZE must be a valid positive integer".to_string(),
+                source: None,
+            })?;
         
-        if let Ok(val) = std::env::var("EMBED_SERVER_PORT") {
-            config.server.port = val.parse()
-                .map_err(|e| EmbedError::Configuration {
-                    message: format!("Invalid server port: {}", val),
-                    source: Some(Box::new(e)),
-                })?;
-        }
+        let model_path = std::env::var("EMBED_MODEL_PATH")
+            .map_err(|_| EmbedError::Configuration {
+                message: "EMBED_MODEL_PATH environment variable is required".to_string(),
+                source: None,
+            })?;
+            
+        let model_type = std::env::var("EMBED_MODEL_TYPE")
+            .map_err(|_| EmbedError::Configuration {
+                message: "EMBED_MODEL_TYPE environment variable is required".to_string(),
+                source: None,
+            })?;
+            
+        let dimension = std::env::var("EMBED_DIMENSION")
+            .map_err(|_| EmbedError::Configuration {
+                message: "EMBED_DIMENSION environment variable is required".to_string(),
+                source: None,
+            })?
+            .parse()
+            .map_err(|_| EmbedError::Configuration {
+                message: "EMBED_DIMENSION must be a valid positive integer".to_string(),
+                source: None,
+            })?;
+            
+        let batch_size = std::env::var("EMBED_BATCH_SIZE")
+            .map_err(|_| EmbedError::Configuration {
+                message: "EMBED_BATCH_SIZE environment variable is required".to_string(),
+                source: None,
+            })?
+            .parse()
+            .map_err(|_| EmbedError::Configuration {
+                message: "EMBED_BATCH_SIZE must be a valid positive integer".to_string(),
+                source: None,
+            })?;
+            
+        let max_sequence_length = std::env::var("EMBED_MAX_SEQUENCE_LENGTH")
+            .map_err(|_| EmbedError::Configuration {
+                message: "EMBED_MAX_SEQUENCE_LENGTH environment variable is required".to_string(),
+                source: None,
+            })?
+            .parse()
+            .map_err(|_| EmbedError::Configuration {
+                message: "EMBED_MAX_SEQUENCE_LENGTH must be a valid positive integer".to_string(),
+                source: None,
+            })?;
+            
+        let cache_embeddings = std::env::var("EMBED_CACHE_EMBEDDINGS")
+            .map_err(|_| EmbedError::Configuration {
+                message: "EMBED_CACHE_EMBEDDINGS environment variable is required".to_string(),
+                source: None,
+            })?
+            .parse()
+            .map_err(|_| EmbedError::Configuration {
+                message: "EMBED_CACHE_EMBEDDINGS must be 'true' or 'false'".to_string(),
+                source: None,
+            })?;
+            
+        let index_type_str = std::env::var("EMBED_INDEX_TYPE")
+            .map_err(|_| EmbedError::Configuration {
+                message: "EMBED_INDEX_TYPE environment variable is required".to_string(),
+                source: None,
+            })?;
+            
+        let index_type = match index_type_str.to_lowercase().as_str() {
+            "flat" => IndexType::Flat,
+            "ivf" => IndexType::IVF,
+            "hnsw" => IndexType::HNSW,
+            _ => {
+                return Err(EmbedError::Configuration {
+                    message: format!("Invalid index type '{}'. Valid options are: flat, ivf, hnsw", index_type_str),
+                    source: None,
+                });
+            }
+        };
         
-        if let Ok(val) = std::env::var("EMBED_SERVER_WORKERS") {
-            config.server.workers = val.parse()
-                .map_err(|e| EmbedError::Configuration {
-                    message: format!("Invalid worker count: {}", val),
-                    source: Some(Box::new(e)),
-                })?;
-        }
+        let top_k_default = std::env::var("EMBED_TOP_K_DEFAULT")
+            .map_err(|_| EmbedError::Configuration {
+                message: "EMBED_TOP_K_DEFAULT environment variable is required".to_string(),
+                source: None,
+            })?
+            .parse()
+            .map_err(|_| EmbedError::Configuration {
+                message: "EMBED_TOP_K_DEFAULT must be a valid positive integer".to_string(),
+                source: None,
+            })?;
+            
+        let similarity_threshold = std::env::var("EMBED_SIMILARITY_THRESHOLD")
+            .map_err(|_| EmbedError::Configuration {
+                message: "EMBED_SIMILARITY_THRESHOLD environment variable is required".to_string(),
+                source: None,
+            })?
+            .parse()
+            .map_err(|_| EmbedError::Configuration {
+                message: "EMBED_SIMILARITY_THRESHOLD must be a valid float between 0.0 and 1.0".to_string(),
+                source: None,
+            })?;
+            
+        let enable_reranking = std::env::var("EMBED_ENABLE_RERANKING")
+            .map_err(|_| EmbedError::Configuration {
+                message: "EMBED_ENABLE_RERANKING environment variable is required".to_string(),
+                source: None,
+            })?
+            .parse()
+            .map_err(|_| EmbedError::Configuration {
+                message: "EMBED_ENABLE_RERANKING must be 'true' or 'false'".to_string(),
+                source: None,
+            })?;
+            
+        let host = std::env::var("EMBED_SERVER_HOST")
+            .map_err(|_| EmbedError::Configuration {
+                message: "EMBED_SERVER_HOST environment variable is required".to_string(),
+                source: None,
+            })?;
+            
+        let port = std::env::var("EMBED_SERVER_PORT")
+            .map_err(|_| EmbedError::Configuration {
+                message: "EMBED_SERVER_PORT environment variable is required".to_string(),
+                source: None,
+            })?
+            .parse()
+            .map_err(|_| EmbedError::Configuration {
+                message: "EMBED_SERVER_PORT must be a valid port number (1-65535)".to_string(),
+                source: None,
+            })?;
+            
+        let workers = std::env::var("EMBED_SERVER_WORKERS")
+            .map_err(|_| EmbedError::Configuration {
+                message: "EMBED_SERVER_WORKERS environment variable is required".to_string(),
+                source: None,
+            })?
+            .parse()
+            .map_err(|_| EmbedError::Configuration {
+                message: "EMBED_SERVER_WORKERS must be a valid positive integer".to_string(),
+                source: None,
+            })?;
+            
+        let max_request_size = std::env::var("EMBED_MAX_REQUEST_SIZE")
+            .map_err(|_| EmbedError::Configuration {
+                message: "EMBED_MAX_REQUEST_SIZE environment variable is required".to_string(),
+                source: None,
+            })?
+            .parse()
+            .map_err(|_| EmbedError::Configuration {
+                message: "EMBED_MAX_REQUEST_SIZE must be a valid positive integer".to_string(),
+                source: None,
+            })?;
+            
+        let level = std::env::var("EMBED_LOG_LEVEL")
+            .map_err(|_| EmbedError::Configuration {
+                message: "EMBED_LOG_LEVEL environment variable is required".to_string(),
+                source: None,
+            })?;
+            
+        let format = std::env::var("EMBED_LOG_FORMAT")
+            .map_err(|_| EmbedError::Configuration {
+                message: "EMBED_LOG_FORMAT environment variable is required".to_string(),
+                source: None,
+            })?;
+            
+        let output = std::env::var("EMBED_LOG_OUTPUT")
+            .map_err(|_| EmbedError::Configuration {
+                message: "EMBED_LOG_OUTPUT environment variable is required".to_string(),
+                source: None,
+            })?;
+        
+        let config = Self {
+            storage: StorageConfig {
+                backend: match storage_backend.to_lowercase().as_str() {
+                    "memory" => StorageBackend::Memory,
+                    "lancedb" => StorageBackend::LanceDB,
+                    "sqlite" => StorageBackend::SQLite,
+                    "postgresql" => StorageBackend::PostgreSQL,
+                    _ => {
+                        return Err(EmbedError::Configuration {
+                            message: format!("Invalid storage backend '{}'. Valid options are: memory, lancedb, sqlite, postgresql", storage_backend),
+                            source: None,
+                        });
+                    }
+                },
+                path: PathBuf::from(storage_path),
+                max_connections,
+                connection_timeout_ms,
+                cache_size,
+            },
+            embedding: EmbeddingConfig {
+                model_path: PathBuf::from(model_path),
+                model_type,
+                dimension,
+                batch_size,
+                max_sequence_length,
+                cache_embeddings,
+            },
+            search: SearchConfig {
+                index_type,
+                top_k_default,
+                similarity_threshold,
+                enable_reranking,
+            },
+            server: ServerConfig {
+                host,
+                port,
+                workers,
+                max_request_size,
+            },
+            logging: LoggingConfig {
+                level,
+                format,
+                output,
+            },
+        };
         
         config.validate()?;
         Ok(config)
@@ -316,17 +538,11 @@ impl ConfigManager {
         Self::get()
     }
     
-    /// Load configuration with fallback to defaults
-    pub fn load_or_default<P: AsRef<Path>>(path: P) -> Arc<Config> {
-        match Self::load(path) {
-            Ok(config) => config,
-            Err(e) => {
-                log::warn!("Failed to load configuration, using defaults: {}", e);
-                let config = Arc::new(Config::default());
-                let _ = Self::init((*config).clone());
-                config
-            }
-        }
+    /// Load configuration with proper error handling - no fallbacks
+    pub fn load_or_fail<P: AsRef<Path>>(path: P) -> Result<Arc<Config>> {
+        let config = Self::load(path)?;
+        Self::init(config)?;
+        Self::get()
     }
     
     /// Reload configuration from file
@@ -414,15 +630,58 @@ output = "stderr"
     
     #[test]
     fn test_env_config() {
-        std::env::set_var("EMBED_SERVER_PORT", "3333");
+        // Set ALL required environment variables
         std::env::set_var("EMBED_STORAGE_BACKEND", "sqlite");
+        std::env::set_var("EMBED_STORAGE_PATH", "./test_data");
+        std::env::set_var("EMBED_MAX_CONNECTIONS", "5");
+        std::env::set_var("EMBED_CONNECTION_TIMEOUT_MS", "3000");
+        std::env::set_var("EMBED_CACHE_SIZE", "5000");
+        std::env::set_var("EMBED_MODEL_PATH", "./test_model.gguf");
+        std::env::set_var("EMBED_MODEL_TYPE", "nomic");
+        std::env::set_var("EMBED_DIMENSION", "768");
+        std::env::set_var("EMBED_BATCH_SIZE", "16");
+        std::env::set_var("EMBED_MAX_SEQUENCE_LENGTH", "1024");
+        std::env::set_var("EMBED_CACHE_EMBEDDINGS", "true");
+        std::env::set_var("EMBED_INDEX_TYPE", "flat");
+        std::env::set_var("EMBED_TOP_K_DEFAULT", "20");
+        std::env::set_var("EMBED_SIMILARITY_THRESHOLD", "0.8");
+        std::env::set_var("EMBED_ENABLE_RERANKING", "false");
+        std::env::set_var("EMBED_SERVER_HOST", "0.0.0.0");
+        std::env::set_var("EMBED_SERVER_PORT", "3333");
+        std::env::set_var("EMBED_SERVER_WORKERS", "2");
+        std::env::set_var("EMBED_MAX_REQUEST_SIZE", "5242880");
+        std::env::set_var("EMBED_LOG_LEVEL", "debug");
+        std::env::set_var("EMBED_LOG_FORMAT", "text");
+        std::env::set_var("EMBED_LOG_OUTPUT", "stderr");
         
         let config = Config::from_env().unwrap();
         assert_eq!(config.server.port, 3333);
         assert!(matches!(config.storage.backend, StorageBackend::SQLite));
+        assert_eq!(config.embedding.batch_size, 16);
+        assert_eq!(config.search.top_k_default, 20);
         
-        // Clean up
-        std::env::remove_var("EMBED_SERVER_PORT");
+        // Clean up ALL environment variables
         std::env::remove_var("EMBED_STORAGE_BACKEND");
+        std::env::remove_var("EMBED_STORAGE_PATH");
+        std::env::remove_var("EMBED_MAX_CONNECTIONS");
+        std::env::remove_var("EMBED_CONNECTION_TIMEOUT_MS");
+        std::env::remove_var("EMBED_CACHE_SIZE");
+        std::env::remove_var("EMBED_MODEL_PATH");
+        std::env::remove_var("EMBED_MODEL_TYPE");
+        std::env::remove_var("EMBED_DIMENSION");
+        std::env::remove_var("EMBED_BATCH_SIZE");
+        std::env::remove_var("EMBED_MAX_SEQUENCE_LENGTH");
+        std::env::remove_var("EMBED_CACHE_EMBEDDINGS");
+        std::env::remove_var("EMBED_INDEX_TYPE");
+        std::env::remove_var("EMBED_TOP_K_DEFAULT");
+        std::env::remove_var("EMBED_SIMILARITY_THRESHOLD");
+        std::env::remove_var("EMBED_ENABLE_RERANKING");
+        std::env::remove_var("EMBED_SERVER_HOST");
+        std::env::remove_var("EMBED_SERVER_PORT");
+        std::env::remove_var("EMBED_SERVER_WORKERS");
+        std::env::remove_var("EMBED_MAX_REQUEST_SIZE");
+        std::env::remove_var("EMBED_LOG_LEVEL");
+        std::env::remove_var("EMBED_LOG_FORMAT");
+        std::env::remove_var("EMBED_LOG_OUTPUT");
     }
 }

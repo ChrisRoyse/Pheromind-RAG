@@ -44,9 +44,9 @@ impl std::str::FromStr for SearchBackend {
     }
 }
 
-/// Global configuration singleton
-pub static CONFIG: Lazy<RwLock<Config>> = Lazy::new(|| {
-    RwLock::new(Config::default())
+/// Global configuration singleton - must be initialized before use
+pub static CONFIG: Lazy<RwLock<Option<Config>>> = Lazy::new(|| {
+    RwLock::new(None)
 });
 
 /// Main configuration struct for the embedding search system
@@ -107,8 +107,14 @@ pub struct Config {
     pub max_ngram_size: usize,
 }
 
-impl Default for Config {
-    fn default() -> Self {
+// PRINCIPLE 0 ENFORCEMENT: No Default implementation
+// All configuration MUST be explicit - no fallback values allowed
+
+impl Config {
+    /// TEST-ONLY: Create a test configuration with explicit values
+    /// This should NEVER be used in production code
+    #[cfg(any(test, debug_assertions))]
+    pub fn new_test_config() -> Self {
         Self {
             project_path: PathBuf::from("."),
             chunk_size: 100,
@@ -126,7 +132,7 @@ impl Default for Config {
             embedding_dimensions: 768,
             log_level: "info".to_string(),
             
-            // BM25 defaults (tuned for code search)
+            // BM25 configuration
             bm25_enabled: true,
             bm25_k1: 1.2,
             bm25_b: 0.75,
@@ -135,16 +141,11 @@ impl Default for Config {
             bm25_min_term_length: 2,
             bm25_max_term_length: 50,
             bm25_stop_words: vec![
-                // Only truly common English words, not programming keywords
                 "the".to_string(), "and".to_string(), "or".to_string(),
                 "a".to_string(), "an".to_string(), "is".to_string(),
-                "it".to_string(), "in".to_string(), "to".to_string(),
-                "of".to_string(), "as".to_string(), "at".to_string(),
-                "by".to_string(), "with".to_string(), "this".to_string(),
-                "that".to_string(), "from".to_string(),
             ],
             
-            // Fusion weights (optimized through testing)
+            // Fusion weights
             fusion_exact_weight: 0.4,
             fusion_bm25_weight: 0.25,
             fusion_semantic_weight: 0.25,
@@ -156,50 +157,39 @@ impl Default for Config {
             max_ngram_size: 3,
         }
     }
-}
 
-impl Config {
-    /// Load configuration from multiple sources with precedence:
-    /// 1. Command line arguments (highest priority)
-    /// 2. Environment variables (EMBED_* prefix)  
-    /// 3. Project-specific config files (.embedrc or .embed/config.toml)
-    /// 4. Global config file (config.toml)
-    /// 5. Default values (lowest priority)
+    /// Load configuration - requires explicit configuration from files or environment
+    /// No defaults will be used - all configuration must be explicitly provided
     pub fn load() -> Result<Self> {
-        let mut settings = config::Config::builder()
-            // Start with defaults
-            .add_source(config::Config::try_from(&Config::default())?)
-            // Add global config file if it exists
-            .add_source(
-                config::File::with_name("config")
-                    .format(config::FileFormat::Toml)
-                    .required(false)
-            );
-
-        // Look for project-specific config files
         let current_dir = std::env::current_dir()?;
         
-        // Check for .embedrc in current directory
-        let embedrc_path = current_dir.join(".embedrc");
-        if embedrc_path.exists() {
-            settings = settings.add_source(
-                config::File::from(embedrc_path)
-                    .format(config::FileFormat::Toml)
-                    .required(false)
-            );
+        // Look for project-specific config files in order of preference
+        let possible_config_files = vec![
+            current_dir.join(".embed").join("config.toml"),
+            current_dir.join(".embedrc"),
+            PathBuf::from("config.toml"),
+        ];
+        
+        let mut config_file_found = false;
+        let mut settings = config::Config::builder();
+        
+        for config_path in possible_config_files {
+            if config_path.exists() {
+                settings = settings.add_source(
+                    config::File::from(config_path.clone())
+                        .format(config::FileFormat::Toml)
+                        .required(true)
+                );
+                config_file_found = true;
+                break; // Use the first config file found
+            }
         }
         
-        // Check for .embed/config.toml in current directory
-        let embed_config_path = current_dir.join(".embed").join("config.toml");
-        if embed_config_path.exists() {
-            settings = settings.add_source(
-                config::File::from(embed_config_path)
-                    .format(config::FileFormat::Toml)
-                    .required(false)
-            );
+        if !config_file_found {
+            return Err(anyhow!("No configuration file found. Please create one of: .embed/config.toml, .embedrc, or config.toml"));
         }
 
-        // Add environment variables with EMBED_ prefix
+        // Add environment variables for overrides only
         settings = settings.add_source(
             config::Environment::with_prefix("EMBED")
                 .try_parsing(true)
@@ -211,10 +201,9 @@ impl Config {
         Ok(config)
     }
 
-    /// Load configuration from a specific file
+    /// Load configuration from a specific file - no defaults, file must provide all values
     pub fn load_from_file<P: AsRef<Path>>(path: P) -> Result<Self> {
         let mut settings = config::Config::builder()
-            .add_source(config::Config::try_from(&Config::default())?)
             .add_source(
                 config::File::from(path.as_ref())
                     .format(config::FileFormat::Toml)
@@ -235,23 +224,26 @@ impl Config {
     /// Initialize the global configuration
     pub fn init() -> Result<()> {
         let config = Self::load()?;
-        *CONFIG.write().map_err(|e| anyhow!("Failed to acquire write lock for CONFIG: {}", e))? = config;
+        *CONFIG.write().map_err(|e| anyhow!("Failed to acquire write lock for CONFIG: {}", e))? = Some(config);
         Ok(())
     }
 
     /// Initialize with a specific config file
     pub fn init_with_file<P: AsRef<Path>>(path: P) -> Result<()> {
         let config = Self::load_from_file(path)?;
-        *CONFIG.write().map_err(|e| anyhow!("Failed to acquire write lock for CONFIG: {}", e))? = config;
+        *CONFIG.write().map_err(|e| anyhow!("Failed to acquire write lock for CONFIG: {}", e))? = Some(config);
         Ok(())
     }
 
     /// Get a copy of the global configuration
     pub fn get() -> EmbedResult<Config> {
-        Ok(CONFIG.read().map_err(|e| EmbedError::Concurrency {
+        CONFIG.read().map_err(|e| EmbedError::Concurrency {
             message: format!("Failed to acquire read lock for CONFIG: {}", e),
             operation: Some("get_config".to_string()),
-        })?.clone())
+        })?.as_ref().cloned().ok_or_else(|| EmbedError::Configuration {
+            message: "Configuration not initialized. Call Config::init() first.".to_string(),
+            source: None,
+        })
     }
 
     /// Get chunk size setting
@@ -259,6 +251,9 @@ impl Config {
         Ok(CONFIG.read().map_err(|e| EmbedError::Concurrency {
             message: format!("Failed to acquire read lock for CONFIG: {}", e),
             operation: Some("get_chunk_size".to_string()),
+        })?.as_ref().ok_or_else(|| EmbedError::Configuration {
+            message: "Configuration not initialized. Call Config::init() first.".to_string(),
+            source: None,
         })?.chunk_size)
     }
 
@@ -267,6 +262,9 @@ impl Config {
         Ok(CONFIG.read().map_err(|e| EmbedError::Concurrency {
             message: format!("Failed to acquire read lock for CONFIG: {}", e),
             operation: Some("get_embedding_cache_size".to_string()),
+        })?.as_ref().ok_or_else(|| EmbedError::Configuration {
+            message: "Configuration not initialized. Call Config::init() first.".to_string(),
+            source: None,
         })?.embedding_cache_size)
     }
 
@@ -275,6 +273,9 @@ impl Config {
         Ok(CONFIG.read().map_err(|e| EmbedError::Concurrency {
             message: format!("Failed to acquire read lock for CONFIG: {}", e),
             operation: Some("get_search_cache_size".to_string()),
+        })?.as_ref().ok_or_else(|| EmbedError::Configuration {
+            message: "Configuration not initialized. Call Config::init() first.".to_string(),
+            source: None,
         })?.search_cache_size)
     }
 
@@ -283,6 +284,9 @@ impl Config {
         Ok(CONFIG.read().map_err(|e| EmbedError::Concurrency {
             message: format!("Failed to acquire read lock for CONFIG: {}", e),
             operation: Some("get_batch_size".to_string()),
+        })?.as_ref().ok_or_else(|| EmbedError::Configuration {
+            message: "Configuration not initialized. Call Config::init() first.".to_string(),
+            source: None,
         })?.batch_size)
     }
 
@@ -291,6 +295,9 @@ impl Config {
         Ok(CONFIG.read().map_err(|e| EmbedError::Concurrency {
             message: format!("Failed to acquire read lock for CONFIG: {}", e),
             operation: Some("get_vector_db_path".to_string()),
+        })?.as_ref().ok_or_else(|| EmbedError::Configuration {
+            message: "Configuration not initialized. Call Config::init() first.".to_string(),
+            source: None,
         })?.vector_db_path.clone())
     }
 
@@ -299,6 +306,9 @@ impl Config {
         Ok(CONFIG.read().map_err(|e| EmbedError::Concurrency {
             message: format!("Failed to acquire read lock for CONFIG: {}", e),
             operation: Some("get_cache_dir".to_string()),
+        })?.as_ref().ok_or_else(|| EmbedError::Configuration {
+            message: "Configuration not initialized. Call Config::init() first.".to_string(),
+            source: None,
         })?.cache_dir.clone())
     }
 
@@ -307,6 +317,9 @@ impl Config {
         Ok(CONFIG.read().map_err(|e| EmbedError::Concurrency {
             message: format!("Failed to acquire read lock for CONFIG: {}", e),
             operation: Some("get_git_poll_interval_secs".to_string()),
+        })?.as_ref().ok_or_else(|| EmbedError::Configuration {
+            message: "Configuration not initialized. Call Config::init() first.".to_string(),
+            source: None,
         })?.git_poll_interval_secs)
     }
 
@@ -315,6 +328,9 @@ impl Config {
         Ok(CONFIG.read().map_err(|e| EmbedError::Concurrency {
             message: format!("Failed to acquire read lock for CONFIG: {}", e),
             operation: Some("get_enable_git_watch".to_string()),
+        })?.as_ref().ok_or_else(|| EmbedError::Configuration {
+            message: "Configuration not initialized. Call Config::init() first.".to_string(),
+            source: None,
         })?.enable_git_watch)
     }
 
@@ -323,6 +339,9 @@ impl Config {
         Ok(CONFIG.read().map_err(|e| EmbedError::Concurrency {
             message: format!("Failed to acquire read lock for CONFIG: {}", e),
             operation: Some("get_include_test_files".to_string()),
+        })?.as_ref().ok_or_else(|| EmbedError::Configuration {
+            message: "Configuration not initialized. Call Config::init() first.".to_string(),
+            source: None,
         })?.include_test_files)
     }
 
@@ -331,6 +350,9 @@ impl Config {
         Ok(CONFIG.read().map_err(|e| EmbedError::Concurrency {
             message: format!("Failed to acquire read lock for CONFIG: {}", e),
             operation: Some("get_max_search_results".to_string()),
+        })?.as_ref().ok_or_else(|| EmbedError::Configuration {
+            message: "Configuration not initialized. Call Config::init() first.".to_string(),
+            source: None,
         })?.max_search_results)
     }
 
@@ -339,6 +361,9 @@ impl Config {
         Ok(CONFIG.read().map_err(|e| EmbedError::Concurrency {
             message: format!("Failed to acquire read lock for CONFIG: {}", e),
             operation: Some("get_search_backend".to_string()),
+        })?.as_ref().ok_or_else(|| EmbedError::Configuration {
+            message: "Configuration not initialized. Call Config::init() first.".to_string(),
+            source: None,
         })?.search_backend.clone())
     }
     
@@ -348,6 +373,9 @@ impl Config {
         Ok(CONFIG.read().map_err(|e| EmbedError::Concurrency {
             message: format!("Failed to acquire read lock for CONFIG: {}", e),
             operation: Some("get_model_name".to_string()),
+        })?.as_ref().ok_or_else(|| EmbedError::Configuration {
+            message: "Configuration not initialized. Call Config::init() first.".to_string(),
+            source: None,
         })?.model_name.clone())
     }
 
@@ -356,6 +384,9 @@ impl Config {
         Ok(CONFIG.read().map_err(|e| EmbedError::Concurrency {
             message: format!("Failed to acquire read lock for CONFIG: {}", e),
             operation: Some("get_embedding_dimensions".to_string()),
+        })?.as_ref().ok_or_else(|| EmbedError::Configuration {
+            message: "Configuration not initialized. Call Config::init() first.".to_string(),
+            source: None,
         })?.embedding_dimensions)
     }
 
@@ -364,6 +395,9 @@ impl Config {
         Ok(CONFIG.read().map_err(|e| EmbedError::Concurrency {
             message: format!("Failed to acquire read lock for CONFIG: {}", e),
             operation: Some("get_log_level".to_string()),
+        })?.as_ref().ok_or_else(|| EmbedError::Configuration {
+            message: "Configuration not initialized. Call Config::init() first.".to_string(),
+            source: None,
         })?.log_level.clone())
     }
 
@@ -485,7 +519,7 @@ mod tests {
 
     #[test]
     fn test_default_config() {
-        let config = Config::default();
+        let config = Config::new_test_config();
         assert_eq!(config.chunk_size, 100);
         assert_eq!(config.embedding_cache_size, 10000);
         assert_eq!(config.batch_size, 32);
@@ -496,19 +530,19 @@ mod tests {
 
     #[test]
     fn test_config_validation() {
-        let mut config = Config::default();
+        let mut config = Config::new_test_config();
         
         // Test invalid chunk_size
         config.chunk_size = 0;
         assert!(config.validate().is_err());
         
         // Reset and test invalid log level
-        config = Config::default();
+        config = Config::new_test_config();
         config.log_level = "invalid".to_string();
         assert!(config.validate().is_err());
         
         // Test valid config
-        config = Config::default();
+        config = Config::new_test_config();
         assert!(config.validate().is_ok());
     }
 
@@ -530,14 +564,14 @@ mod tests {
 
     #[test]
     fn test_search_backend_method() {
-        let mut config = Config::default();
+        let mut config = Config::new_test_config();
         config.search_backend = SearchBackend::Tantivy;
-        *CONFIG.write().expect("write lock") = config;
+        *CONFIG.write().expect("write lock") = Some(config);
         
         assert_eq!(Config::search_backend().expect("get search backend"), SearchBackend::Tantivy);
         
-        // Reset to default for other tests
-        *CONFIG.write().expect("write lock") = Config::default();
+        // Reset to None for other tests
+        *CONFIG.write().expect("write lock") = None;
     }
 
     #[test]

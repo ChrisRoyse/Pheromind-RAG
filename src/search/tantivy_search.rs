@@ -121,8 +121,8 @@ impl TantivySearcher {
         if index_path.exists() && index_path.is_dir() {
             // Check if index files exist
             let has_index_files = fs::read_dir(index_path)
-                .map(|entries| entries.count() > 0)
-                .unwrap_or(false);
+                .map_err(|e| anyhow!("Failed to read index directory {:?}: {}", index_path, e))?
+                .count() > 0;
                 
             if has_index_files {
                 match MmapDirectory::open(index_path) {
@@ -413,12 +413,17 @@ impl TantivySearcher {
                 sub_queries.push((Occur::Should, Box::new(original_fuzzy_query)));
             }
             
+            // Only proceed with case variations if word is not empty
+            if !word.is_empty() {
+            
             // Try title case
-            let title_case = format!("{}{}", word.chars().next().unwrap().to_uppercase(), word.chars().skip(1).collect::<String>());
-            if title_case != word && title_case != query {
-                let title_term = Term::from_field_text(self.content_field, &title_case);
-                let title_fuzzy_query = FuzzyTermQuery::new(title_term, max_distance, true);
-                sub_queries.push((Occur::Should, Box::new(title_fuzzy_query)));
+            if let Some(first_char) = word.chars().next() {
+                let title_case = format!("{}{}", first_char.to_uppercase(), word.chars().skip(1).collect::<String>());
+                if title_case != word && title_case != query {
+                    let title_term = Term::from_field_text(self.content_field, &title_case);
+                    let title_fuzzy_query = FuzzyTermQuery::new(title_term, max_distance, true);
+                    sub_queries.push((Occur::Should, Box::new(title_fuzzy_query)));
+                }
             }
             
             // Try all uppercase
@@ -469,7 +474,8 @@ impl TantivySearcher {
         }
         
         if sub_queries.is_empty() {
-            return Ok(Vec::new());
+            log::error!("No valid sub-queries generated for Tantivy fuzzy search. Query must contain searchable terms.");
+            return Err(anyhow::anyhow!("Invalid search query: no searchable terms found"));
         }
         
         // Combine all fuzzy queries with OR logic

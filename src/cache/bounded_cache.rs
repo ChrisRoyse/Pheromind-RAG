@@ -183,11 +183,10 @@ where
     
     /// Clean up expired entries (for TTL caches)
     pub fn cleanup_expired(&self) -> usize {
-        if self.ttl.is_none() {
-            return 0;
-        }
-        
-        let ttl = self.ttl.unwrap();
+        let ttl = match self.ttl {
+            Some(ttl) => ttl,
+            None => return 0,
+        };
         let mut cache = self.inner.write();
         let mut stats = self.stats.write();
         

@@ -193,7 +193,7 @@ async fn watch_command(project_path: PathBuf, db_path: PathBuf) -> Result<()> {
     let searcher = Arc::new(UnifiedSearcher::new(project_path.clone(), db_path.clone()).await?);
     let storage = Arc::new(RwLock::new(LanceDBStorage::new(db_path).await?));
     
-    let watch = WatchCommand::new(project_path, searcher, storage);
+    let watch = WatchCommand::new(project_path, searcher, storage)?;
     watch.start().await;
     
     println!("Watching for file changes. Press Ctrl+C to stop.");
@@ -220,7 +220,7 @@ async fn update_command(project_path: PathBuf, db_path: PathBuf) -> Result<()> {
     let searcher = Arc::new(UnifiedSearcher::new(project_path.clone(), db_path.clone()).await?);
     let storage = Arc::new(RwLock::new(LanceDBStorage::new(db_path).await?));
     
-    let watch = WatchCommand::new(project_path, searcher, storage);
+    let watch = WatchCommand::new(project_path, searcher, storage)?;
     let stats = watch.run_once().await?;
     
     println!("✅ {}", stats);

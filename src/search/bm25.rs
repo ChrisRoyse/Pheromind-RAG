@@ -168,14 +168,9 @@ impl BM25Engine {
     }
     
     /// Calculate BM25 score for a document given query terms
-    pub fn calculate_bm25_score(&self, query_terms: &[String], doc_id: &str) -> f32 {
-        let doc_length = self.document_lengths.get(doc_id)
-            .copied()
-            .unwrap_or(0) as f32;
-        
-        if doc_length == 0.0 {
-            return 0.0;
-        }
+    pub fn calculate_bm25_score(&self, query_terms: &[String], doc_id: &str) -> Result<f32, anyhow::Error> {
+        let doc_length = *self.document_lengths.get(doc_id)
+            .ok_or_else(|| anyhow::anyhow!("Document '{}' not found in BM25 index. Document must be indexed before scoring.", doc_id))? as f32;
         
         let mut score = 0.0;
         
@@ -184,13 +179,20 @@ impl BM25Engine {
             let idf = self.calculate_idf(&term_lower);
             
             // Find term frequency in this document
-            let tf = self.inverted_index.get(&term_lower)
-                .and_then(|docs| {
-                    docs.iter()
-                        .find(|dt| dt.doc_id == doc_id)
-                        .map(|dt| dt.term_frequency as f32)
-                })
-                .unwrap_or(0.0);
+            // If term doesn't exist in index OR document doesn't contain term, tf = 0.0 (legitimate BM25 behavior)
+            let tf = match self.inverted_index.get(&term_lower) {
+                Some(docs) => {
+                    // Term exists in index, check if this specific document contains it
+                    match docs.iter().find(|dt| dt.doc_id == doc_id) {
+                        Some(doc_term) => doc_term.term_frequency as f32,
+                        None => 0.0, // Document doesn't contain this term - legitimate 0.0 contribution for BM25
+                    }
+                }
+                None => {
+                    // Term not found in any document - legitimate 0.0 contribution for BM25
+                    0.0
+                }
+            };
             
             if tf > 0.0 {
                 // BM25 formula: IDF * (tf * (k1 + 1)) / (tf + k1 * (1 - b + b * (doc_len / avg_doc_len)))
@@ -200,11 +202,11 @@ impl BM25Engine {
             }
         }
         
-        score
+        Ok(score)
     }
     
     /// Search for documents matching the query
-    pub fn search(&self, query: &str, limit: usize) -> Vec<BM25Match> {
+    pub fn search(&self, query: &str, limit: usize) -> Result<Vec<BM25Match>, anyhow::Error> {
         // Tokenize query (simple whitespace split for now)
         let query_terms: Vec<String> = query
             .split_whitespace()
@@ -213,7 +215,7 @@ impl BM25Engine {
             .collect();
         
         if query_terms.is_empty() {
-            return Vec::new();
+            return Err(anyhow::anyhow!("Empty query provided to BM25 search. Query must contain valid search terms."));
         }
         
         // Find all documents that contain at least one query term
@@ -230,36 +232,61 @@ impl BM25Engine {
         }
         
         // Calculate BM25 scores for candidate documents
-        let mut matches: Vec<BM25Match> = candidate_docs
-            .into_iter()
-            .map(|(doc_id, matched_terms)| {
-                let score = self.calculate_bm25_score(&query_terms, &doc_id);
+        let mut matches: Vec<BM25Match> = Vec::new();
+        
+        for (doc_id, matched_terms) in candidate_docs {
+            let score = match self.calculate_bm25_score(&query_terms, &doc_id) {
+                Ok(score) => score,
+                Err(e) => {
+                    log::warn!("Failed to calculate BM25 score for document '{}': {}", doc_id, e);
+                    continue; // Skip documents that can't be scored
+                }
+            };
                 
-                // Calculate individual term contributions for debugging
-                let mut term_scores = HashMap::new();
-                for term in &query_terms {
-                    let single_term_score = self.calculate_bm25_score(&[term.clone()], &doc_id);
-                    if single_term_score > 0.0 {
+            // Calculate individual term contributions for debugging
+            let mut term_scores = HashMap::new();
+            for term in &query_terms {
+                match self.calculate_bm25_score(&[term.clone()], &doc_id) {
+                    Ok(single_term_score) if single_term_score > 0.0 => {
                         term_scores.insert(term.clone(), single_term_score);
                     }
+                    Ok(_) => {}, // Score is 0.0 or negative, skip
+                    Err(e) => {
+                        log::debug!("Failed to calculate single term score for '{}' in document '{}': {}", term, doc_id, e);
+                    }
                 }
-                
-                BM25Match {
+            }
+            
+            if score > 0.0 {
+                matches.push(BM25Match {
                     doc_id,
                     score,
                     term_scores,
                     matched_terms,
-                }
-            })
-            .filter(|m| m.score > 0.0)
-            .collect();
+                });
+            }
+        }
         
-        // Sort by score descending
-        matches.sort_by(|a, b| b.score.partial_cmp(&a.score).unwrap_or(std::cmp::Ordering::Equal));
+        // Sort by score descending, handling potential NaN values
+        matches.sort_by(|a, b| {
+            match b.score.partial_cmp(&a.score) {
+                Some(ordering) => ordering,
+                None => {
+                    // Handle NaN case - prefer the non-NaN value, or maintain original order if both are NaN
+                    if b.score.is_nan() && a.score.is_nan() {
+                        std::cmp::Ordering::Equal
+                    } else if b.score.is_nan() {
+                        std::cmp::Ordering::Greater // a comes first (a is not NaN)
+                    } else {
+                        std::cmp::Ordering::Less // b comes first (b is not NaN)
+                    }
+                }
+            }
+        });
         
         // Return top results
         matches.truncate(limit);
-        matches
+        Ok(matches)
     }
     
     /// Get statistics about the index
@@ -333,7 +360,7 @@ mod tests {
         engine.add_document(doc2).unwrap();
         
         // Search for "quick"
-        let results = engine.search("quick", 10);
+        let results = engine.search("quick", 10).expect("Search must succeed in test");
         assert_eq!(results.len(), 2);
         
         // doc2 should score higher due to higher term frequency
@@ -341,7 +368,7 @@ mod tests {
         assert!(results[0].score > results[1].score);
         
         // Search for "fox"
-        let results = engine.search("fox", 10);
+        let results = engine.search("fox", 10).expect("Search must succeed in test");
         assert_eq!(results.len(), 1);
         assert_eq!(results[0].doc_id, "doc1");
     }

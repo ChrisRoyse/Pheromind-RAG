@@ -17,8 +17,14 @@ pub struct StorageConfig {
     pub enable_compression: bool,
 }
 
-impl Default for StorageConfig {
-    fn default() -> Self {
+// PRINCIPLE 0 ENFORCEMENT: No Default implementation for StorageConfig
+// All storage configuration MUST be explicit - no fallback values allowed
+
+impl StorageConfig {
+    /// TEST-ONLY: Create a test storage configuration with explicit values
+    /// This should NEVER be used in production code
+    #[cfg(test)]
+    pub fn new_test_config() -> Self {
         Self {
             max_vectors: 1_000_000,
             dimension: 768,  // Nomic embedding dimension
@@ -247,8 +253,22 @@ impl VectorStorage {
             }
         }
         
-        // Sort by similarity (descending)
-        similarities.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
+        // Sort by similarity (descending), handling potential NaN values
+        similarities.sort_by(|a, b| {
+            match b.1.partial_cmp(&a.1) {
+                Some(ordering) => ordering,
+                None => {
+                    // Handle NaN case - prefer the non-NaN value
+                    if b.1.is_nan() && a.1.is_nan() {
+                        std::cmp::Ordering::Equal
+                    } else if b.1.is_nan() {
+                        std::cmp::Ordering::Greater // a comes first (a is not NaN)
+                    } else {
+                        std::cmp::Ordering::Less // b comes first (b is not NaN)
+                    }
+                }
+            }
+        });
         
         // Return top-k results
         Ok(similarities.into_iter().take(top_k).collect())
@@ -321,7 +341,7 @@ mod tests {
     #[tokio::test]
     async fn test_vector_storage_thread_safety() {
         let storage = Arc::new(
-            VectorStorage::new(StorageConfig::default())
+            VectorStorage::new(StorageConfig::new_test_config())
                 .expect("Failed to create storage")
         );
         
@@ -358,7 +378,7 @@ mod tests {
     
     #[tokio::test]
     async fn test_vector_operations() {
-        let storage = VectorStorage::new(StorageConfig::default())
+        let storage = VectorStorage::new(StorageConfig::new_test_config())
             .expect("Failed to create storage");
         
         // Add a vector

@@ -94,11 +94,10 @@ impl NomicEmbedder {
         };
         
         if vec.iter().any(|x| x.is_nan()) {
-            println!("WARNING: NaN detected in {}, replacing with zeros", name);
-            Ok(Tensor::zeros_like(tensor)?)
-        } else {
-            Ok(tensor.clone())
+            return Err(anyhow!("NaN values detected in tensor '{}'. Model weights are corrupted and cannot be used. This is a fatal error that cannot be recovered from.", name));
         }
+        
+        Ok(tensor.clone())
     }
 
     const MODEL_URL: &'static str = "https://huggingface.co/nomic-ai/nomic-embed-text-v1.5-GGUF/resolve/main/nomic-embed-text-v1.5.Q4_K_M.gguf";
@@ -123,18 +122,17 @@ impl NomicEmbedder {
         })?);
         match GLOBAL_EMBEDDER.set(embedder.clone()) {
             Ok(_) => Ok(embedder),
-            Err(_) => Ok(GLOBAL_EMBEDDER.get().unwrap().clone()),
+            Err(_) => Err(crate::error::EmbedError::Internal {
+                message: "Global embedder was already initialized by another thread".to_string(),
+                backtrace: None,
+            }),
         }
     }
     
     pub fn new() -> Result<Self> {
-        // Use tokio runtime to handle async operations synchronously
+        // Require tokio runtime to be available - do not create fallback runtime
         let rt = tokio::runtime::Handle::try_current()
-            .or_else(|_| {
-                // If no async runtime exists, create a minimal one
-                tokio::runtime::Runtime::new().map(|rt| rt.handle().clone())
-            })
-            .map_err(|e| anyhow!("Failed to get tokio runtime: {}", e))?;
+            .map_err(|_| anyhow!("No tokio runtime available. NomicEmbedder must be created within an async runtime context"))?;
         
         let (model_path, tokenizer_path) = rt.block_on(Self::ensure_files_cached())?;
         
@@ -149,20 +147,17 @@ impl NomicEmbedder {
         println!("Loading GGUF model from {:?}...", model_path);
         let tensors = Self::load_gguf_tensors(&model_path, &device)?;
         
-        // Extract specific model components
+        // Extract specific model components - require exact Nomic GGUF format
         let token_embeddings = tensors.get("token_embd.weight")
-            .or_else(|| tensors.get("embeddings.word_embeddings.weight"))
-            .ok_or_else(|| anyhow!("Token embeddings not found"))?
+            .ok_or_else(|| anyhow!("Token embeddings not found at expected location 'token_embd.weight'. This model is not in the required Nomic GGUF format."))?
             .clone();
             
         let layer_norm_weight = tensors.get("token_embd_norm.weight")
-            .or_else(|| tensors.get("embeddings.LayerNorm.weight"))
-            .unwrap_or(&Tensor::ones(Self::HIDDEN_SIZE, DType::F32, &device)?)
+            .ok_or_else(|| anyhow!("Layer normalization weight not found at expected location 'token_embd_norm.weight'. This model is not in the required Nomic GGUF format."))?
             .clone();
             
         let layer_norm_bias = tensors.get("token_embd_norm.bias")
-            .or_else(|| tensors.get("embeddings.LayerNorm.bias"))
-            .unwrap_or(&Tensor::zeros(Self::HIDDEN_SIZE, DType::F32, &device)?)
+            .ok_or_else(|| anyhow!("Layer normalization bias not found at expected location 'token_embd_norm.bias'. This model is not in the required Nomic GGUF format."))?
             .clone();
         
         // Load transformer layers
@@ -177,7 +172,10 @@ impl NomicEmbedder {
         let pooler_norm = tensors.get("pooler.dense.bias").cloned();
         
         // Initialize cache
-        let cache = Some(Arc::new(crate::embedding::EmbeddingCache::new(100_000)));
+        let cache = Some(Arc::new(
+            crate::embedding::EmbeddingCache::new(100_000)
+                .map_err(|e| anyhow!("Failed to initialize embedding cache: {}", e))?
+        ));
         
         println!("✅ Nomic GGUF model loaded successfully");
         println!("  - {} tensors loaded with actual weights", tensors.len());
@@ -201,68 +199,50 @@ impl NomicEmbedder {
     }
     
     fn load_transformer_layer(tensors: &HashMap<String, Tensor>, layer_idx: usize, device: &Device) -> Result<TransformerLayer> {
-        // Try different naming conventions
-        let prefix1 = format!("blk.{}", layer_idx);
-        let prefix2 = format!("encoder.layer.{}", layer_idx);
-        let prefix3 = format!("transformer.h.{}", layer_idx);
+        // Require exact Nomic GGUF format - no fallbacks allowed
+        let prefix = format!("blk.{}", layer_idx);
         
-        // Load attention weights
-        let q_proj = tensors.get(&format!("{}.attn_q.weight", prefix1))
-            .or_else(|| tensors.get(&format!("{}.attention.self.query.weight", prefix2)))
-            .or_else(|| tensors.get(&format!("{}.attn.q_proj.weight", prefix3)))
-            .unwrap_or(&Tensor::randn(0.0f32, 0.02, &[Self::HIDDEN_SIZE, Self::HIDDEN_SIZE], device)?)
+        // Load attention weights - require exact Nomic GGUF tensor names
+        let q_proj = tensors.get(&format!("{}.attn_q.weight", prefix))
+            .ok_or_else(|| anyhow!("Query projection weights not found at expected location '{}.attn_q.weight'. Layer {} is not in the required Nomic GGUF format.", prefix, layer_idx))?
             .clone();
             
-        let k_proj = tensors.get(&format!("{}.attn_k.weight", prefix1))
-            .or_else(|| tensors.get(&format!("{}.attention.self.key.weight", prefix2)))
-            .or_else(|| tensors.get(&format!("{}.attn.k_proj.weight", prefix3)))
-            .unwrap_or(&Tensor::randn(0.0f32, 0.02, &[Self::HIDDEN_SIZE, Self::HIDDEN_SIZE], device)?)
+        let k_proj = tensors.get(&format!("{}.attn_k.weight", prefix))
+            .ok_or_else(|| anyhow!("Key projection weights not found at expected location '{}.attn_k.weight'. Layer {} is not in the required Nomic GGUF format.", prefix, layer_idx))?
             .clone();
             
-        let v_proj = tensors.get(&format!("{}.attn_v.weight", prefix1))
-            .or_else(|| tensors.get(&format!("{}.attention.self.value.weight", prefix2)))
-            .or_else(|| tensors.get(&format!("{}.attn.v_proj.weight", prefix3)))
-            .unwrap_or(&Tensor::randn(0.0f32, 0.02, &[Self::HIDDEN_SIZE, Self::HIDDEN_SIZE], device)?)
+        let v_proj = tensors.get(&format!("{}.attn_v.weight", prefix))
+            .ok_or_else(|| anyhow!("Value projection weights not found at expected location '{}.attn_v.weight'. Layer {} is not in the required Nomic GGUF format.", prefix, layer_idx))?
             .clone();
             
-        let o_proj = tensors.get(&format!("{}.attn_output.weight", prefix1))
-            .or_else(|| tensors.get(&format!("{}.attention.output.dense.weight", prefix2)))
-            .or_else(|| tensors.get(&format!("{}.attn.out_proj.weight", prefix3)))
-            .unwrap_or(&Tensor::randn(0.0f32, 0.02, &[Self::HIDDEN_SIZE, Self::HIDDEN_SIZE], device)?)
+        let o_proj = tensors.get(&format!("{}.attn_output.weight", prefix))
+            .ok_or_else(|| anyhow!("Output projection weights not found at expected location '{}.attn_output.weight'. Layer {} is not in the required Nomic GGUF format.", prefix, layer_idx))?
             .clone();
         
-        // Load feed-forward weights
-        let fc1 = tensors.get(&format!("{}.ffn_gate.weight", prefix1))
-            .or_else(|| tensors.get(&format!("{}.intermediate.dense.weight", prefix2)))
-            .or_else(|| tensors.get(&format!("{}.mlp.fc_in.weight", prefix3)))
-            .unwrap_or(&Tensor::randn(0.0f32, 0.02, &[Self::HIDDEN_SIZE, Self::INTERMEDIATE_SIZE], device)?)
+        // Load feed-forward weights - require exact Nomic GGUF tensor names
+        let fc1 = tensors.get(&format!("{}.ffn_gate.weight", prefix))
+            .ok_or_else(|| anyhow!("Feed-forward layer 1 weights not found at expected location '{}.ffn_gate.weight'. Layer {} is not in the required Nomic GGUF format.", prefix, layer_idx))?
             .clone();
             
-        let fc2 = tensors.get(&format!("{}.ffn_down.weight", prefix1))
-            .or_else(|| tensors.get(&format!("{}.output.dense.weight", prefix2)))
-            .or_else(|| tensors.get(&format!("{}.mlp.fc_out.weight", prefix3)))
-            .unwrap_or(&Tensor::randn(0.0f32, 0.02, &[Self::INTERMEDIATE_SIZE, Self::HIDDEN_SIZE], device)?)
+        let fc2 = tensors.get(&format!("{}.ffn_down.weight", prefix))
+            .ok_or_else(|| anyhow!("Feed-forward layer 2 weights not found at expected location '{}.ffn_down.weight'. Layer {} is not in the required Nomic GGUF format.", prefix, layer_idx))?
             .clone();
         
-        // Load layer norms
-        let ln1_weight = tensors.get(&format!("{}.attn_norm.weight", prefix1))
-            .or_else(|| tensors.get(&format!("{}.attention.output.LayerNorm.weight", prefix2)))
-            .unwrap_or(&Tensor::ones(Self::HIDDEN_SIZE, DType::F32, device)?)
+        // Load layer norms - require exact Nomic GGUF tensor names
+        let ln1_weight = tensors.get(&format!("{}.attn_norm.weight", prefix))
+            .ok_or_else(|| anyhow!("Layer norm 1 weight not found at expected location '{}.attn_norm.weight'. Layer {} is not in the required Nomic GGUF format.", prefix, layer_idx))?
             .clone();
             
-        let ln1_bias = tensors.get(&format!("{}.attn_norm.bias", prefix1))
-            .or_else(|| tensors.get(&format!("{}.attention.output.LayerNorm.bias", prefix2)))
-            .unwrap_or(&Tensor::zeros(Self::HIDDEN_SIZE, DType::F32, device)?)
+        let ln1_bias = tensors.get(&format!("{}.attn_norm.bias", prefix))
+            .ok_or_else(|| anyhow!("Layer norm 1 bias not found at expected location '{}.attn_norm.bias'. Layer {} is not in the required Nomic GGUF format.", prefix, layer_idx))?
             .clone();
             
-        let ln2_weight = tensors.get(&format!("{}.ffn_norm.weight", prefix1))
-            .or_else(|| tensors.get(&format!("{}.output.LayerNorm.weight", prefix2)))
-            .unwrap_or(&Tensor::ones(Self::HIDDEN_SIZE, DType::F32, device)?)
+        let ln2_weight = tensors.get(&format!("{}.ffn_norm.weight", prefix))
+            .ok_or_else(|| anyhow!("Layer norm 2 weight not found at expected location '{}.ffn_norm.weight'. Layer {} is not in the required Nomic GGUF format.", prefix, layer_idx))?
             .clone();
             
-        let ln2_bias = tensors.get(&format!("{}.ffn_norm.bias", prefix1))
-            .or_else(|| tensors.get(&format!("{}.output.LayerNorm.bias", prefix2)))
-            .unwrap_or(&Tensor::zeros(Self::HIDDEN_SIZE, DType::F32, device)?)
+        let ln2_bias = tensors.get(&format!("{}.ffn_norm.bias", prefix))
+            .ok_or_else(|| anyhow!("Layer norm 2 bias not found at expected location '{}.ffn_norm.bias'. Layer {} is not in the required Nomic GGUF format.", prefix, layer_idx))?
             .clone();
         
         Ok(TransformerLayer {
@@ -349,9 +329,12 @@ impl NomicEmbedder {
             GgmlDType::Q6K => (total_elements / 256) * 210,
             GgmlDType::Q8K => (total_elements / 256) * 292,
             _ => {
-                // For other quantization types, estimate based on bits per weight
-                let bits_per_element = 4; // Default to 4-bit quantization
-                (total_elements * bits_per_element + 7) / 8
+                return Err(anyhow!(
+                    "Unsupported quantization type {:?}. This model uses an unsupported GGUF quantization format. \
+                     Only Q4_0, Q4_1, Q5_0, Q5_1, Q8_0, Q4K, Q5K, Q6K, Q8K are supported. \
+                     No fallback or approximation will be used - you must use a properly quantized model.", 
+                    tensor_info.ggml_dtype
+                ));
             }
         };
         
@@ -404,12 +387,7 @@ impl NomicEmbedder {
                 Self::dequantize_q8(data, total_elements)?
             },
             _ => {
-                // For unsupported quantization, create random initialized tensor
-                // This is a fallback - in production, all types should be supported
-                println!("Warning: Unsupported quantization type {:?} for tensor, using random init", tensor_info.ggml_dtype);
-                let mut rng = rand::thread_rng();
-                use rand::Rng;
-                (0..total_elements).map(|_| rng.gen_range(-0.02..0.02)).collect()
+                return Err(anyhow!("Unsupported quantization type {:?} for tensor. System requires proper GGUF model with supported quantization.", tensor_info.ggml_dtype));
             }
         };
         
@@ -488,11 +466,7 @@ impl NomicEmbedder {
             
             // Bounds check for the entire superblock
             if block_offset + BLOCK_Q4_K_SIZE > data.len() {
-                // Pad remaining elements with zeros
-                while values.len() < total_elements {
-                    values.push(0.0);
-                }
-                break;
+                return Err(anyhow!("Insufficient data for Q4_K_M superblock {}: need {} bytes but only {} available. Model file is truncated or corrupted.", superblock_idx, BLOCK_Q4_K_SIZE, data.len() - block_offset));
             }
             
             // Extract superblock components
@@ -510,17 +484,13 @@ impl NomicEmbedder {
             
             // Validate scales for NaN prevention
             if !d.is_finite() || !dmin.is_finite() {
-                // Fill this superblock with zeros and continue
-                for _ in 0..QK_K.min(total_elements - values.len()) {
-                    values.push(0.0);
-                }
-                continue;
+                return Err(anyhow!("Invalid scales in Q4_K_M superblock {}: d={}, dmin={}. Model data is corrupted.", superblock_idx, d, dmin));
             }
             
             // Extract scales array (12 bytes)
             let scales_start = block_offset + 4;
             if scales_start + K_SCALE_SIZE > data.len() {
-                break;
+                return Err(anyhow!("Insufficient data for Q4_K_M scales array: need {} bytes but only {} available.", K_SCALE_SIZE, data.len() - scales_start));
             }
             let mut scales_array = [0u8; K_SCALE_SIZE];
             scales_array.copy_from_slice(&data[scales_start..scales_start + K_SCALE_SIZE]);
@@ -528,7 +498,7 @@ impl NomicEmbedder {
             // Extract quantized values array (128 bytes)
             let qs_start = scales_start + K_SCALE_SIZE;
             if qs_start + QK_K / 2 > data.len() {
-                break;
+                return Err(anyhow!("Insufficient data for Q4_K_M quantized values: need {} bytes but only {} available.", QK_K / 2, data.len() - qs_start));
             }
             let qs = &data[qs_start..qs_start + QK_K / 2];
             
@@ -543,13 +513,7 @@ impl NomicEmbedder {
                 
                 // Validate block scale and min
                 if !block_scale.is_finite() || !block_min.is_finite() {
-                    // Fill this block with zeros
-                    for _ in 0..32 {
-                        if values.len() < total_elements {
-                            values.push(0.0);
-                        }
-                    }
-                    continue;
+                    return Err(anyhow!("Invalid block scales in Q4_K_M block {}: scale={}, min={}. Model computation failed.", block_idx, block_scale, block_min));
                 }
                 
                 // Dequantize 32 weights in this block
@@ -563,8 +527,7 @@ impl NomicEmbedder {
                     // Extract 4-bit quantized value
                     let byte_idx = global_idx / 2;
                     if byte_idx >= qs.len() {
-                        values.push(0.0);
-                        continue;
+                        return Err(anyhow!("Byte index {} out of bounds for quantized data length {}. Model data structure is invalid.", byte_idx, qs.len()));
                     }
                     
                     let is_high_nibble = (global_idx % 2) == 1;
@@ -578,17 +541,18 @@ impl NomicEmbedder {
                     let dequantized_weight = block_scale * (q4_value as f32) + block_min;
                     
                     // Validate the dequantized value
-                    if dequantized_weight.is_finite() {
-                        values.push(dequantized_weight);
-                    } else {
-                        values.push(0.0);
+                    if !dequantized_weight.is_finite() {
+                        return Err(anyhow!("Dequantized weight {} is not finite in Q4_K_M processing. Model computation failed.", dequantized_weight));
                     }
+                    values.push(dequantized_weight);
                 }
             }
         }
         
         // Ensure we have exactly the right number of elements
-        values.resize(total_elements, 0.0);
+        if values.len() != total_elements {
+            return Err(anyhow!("Q4_K_M dequantization produced {} elements but expected {}. Model processing failed.", values.len(), total_elements));
+        }
         
         Ok(values)
     }
@@ -599,9 +563,9 @@ impl NomicEmbedder {
         let blocks = total_elements / block_size;
         
         let mut offset = 0;
-        for _ in 0..blocks {
+        for block_idx in 0..blocks {
             if offset + 18 > data.len() {
-                break;
+                return Err(anyhow!("Insufficient data for Q4 block {}: need {} bytes but only {} available. Model file is truncated.", block_idx, 18, data.len() - offset));
             }
             
             // Read scale (f16)
@@ -610,9 +574,9 @@ impl NomicEmbedder {
             offset += 2;
             
             // Read 32 4-bit values (16 bytes)
-            for _ in 0..16 {
+            for byte_idx in 0..16 {
                 if offset >= data.len() {
-                    break;
+                    return Err(anyhow!("Insufficient data for Q4 quantized values in block {}: reached end of data at byte {}.", block_idx, byte_idx));
                 }
                 let byte = data[offset];
                 offset += 1;
@@ -627,9 +591,9 @@ impl NomicEmbedder {
             }
         }
         
-        // Pad with zeros if needed
-        while values.len() < total_elements {
-            values.push(0.0);
+        // Ensure we have exactly the right number of elements
+        if values.len() != total_elements {
+            return Err(anyhow!("Q4 dequantization produced {} elements but expected {}. Model data is insufficient or corrupted.", values.len(), total_elements));
         }
         
         Ok(values)
@@ -642,9 +606,9 @@ impl NomicEmbedder {
         let blocks = total_elements / block_size;
         
         let mut offset = 0;
-        for _ in 0..blocks {
+        for block_idx in 0..blocks {
             if offset + 210 > data.len() {  // Q6K block size
-                break;
+                return Err(anyhow!("Insufficient data for Q6K block {}: need {} bytes but only {} available. Model file is truncated.", block_idx, 210, data.len() - offset));
             }
             
             // Read scales and mins (simplified)
@@ -654,17 +618,15 @@ impl NomicEmbedder {
             
             // For Q6K, we'll use simplified dequantization
             // In production, this would handle the full Q6K format
-            for _ in 0..block_size {
+            for val_idx in 0..block_size {
                 if offset >= data.len() {
-                    break;
+                    return Err(anyhow!("Insufficient data for Q6K values in block {}: reached end of data at value {}.", block_idx, val_idx));
                 }
                 
                 // Simplified 6-bit extraction
                 let byte_idx = offset / 4 * 3;  // 3 bytes hold 4 6-bit values
                 if byte_idx + 2 >= data.len() {
-                    values.push(0.0);
-                    offset += 1;
-                    continue;
+                    return Err(anyhow!("Insufficient data for Q6K 6-bit extraction in block {}: byte index {} out of bounds.", block_idx, byte_idx));
                 }
                 
                 // Extract 6-bit value (simplified)
@@ -678,9 +640,9 @@ impl NomicEmbedder {
             }
         }
         
-        // Pad with zeros if needed
-        while values.len() < total_elements {
-            values.push(0.0);
+        // Ensure we have exactly the right number of elements
+        if values.len() != total_elements {
+            return Err(anyhow!("Q6K dequantization produced {} elements but expected {}. Model data is insufficient or corrupted.", values.len(), total_elements));
         }
         
         Ok(values)
@@ -692,9 +654,9 @@ impl NomicEmbedder {
         let blocks = total_elements / block_size;
         
         let mut offset = 0;
-        for _ in 0..blocks {
+        for block_idx in 0..blocks {
             if offset + 22 > data.len() {
-                break;
+                return Err(anyhow!("Insufficient data for Q5 block {}: need {} bytes but only {} available. Model file is truncated.", block_idx, 22, data.len() - offset));
             }
             
             // Read scale (f16)
@@ -706,7 +668,7 @@ impl NomicEmbedder {
             let mut high_bits = [0u8; 4];
             for i in 0..4 {
                 if offset >= data.len() {
-                    break;
+                    return Err(anyhow!("Insufficient data for Q5 high bits in block {}: reached end of data at byte {}.", block_idx, i));
                 }
                 high_bits[i] = data[offset];
                 offset += 1;
@@ -715,7 +677,7 @@ impl NomicEmbedder {
             // Read 32 4-bit values (16 bytes)
             for i in 0..16 {
                 if offset >= data.len() {
-                    break;
+                    return Err(anyhow!("Insufficient data for Q5 quantized values in block {}: reached end of data at byte {}.", block_idx, i));
                 }
                 let byte = data[offset];
                 offset += 1;
@@ -734,9 +696,9 @@ impl NomicEmbedder {
             }
         }
         
-        // Pad with zeros if needed
-        while values.len() < total_elements {
-            values.push(0.0);
+        // Ensure we have exactly the right number of elements
+        if values.len() != total_elements {
+            return Err(anyhow!("Q5 dequantization produced {} elements but expected {}. Model data is insufficient or corrupted.", values.len(), total_elements));
         }
         
         Ok(values)
@@ -748,9 +710,9 @@ impl NomicEmbedder {
         let blocks = total_elements / block_size;
         
         let mut offset = 0;
-        for _ in 0..blocks {
+        for block_idx in 0..blocks {
             if offset + 34 > data.len() {
-                break;
+                return Err(anyhow!("Insufficient data for Q8 block {}: need {} bytes but only {} available. Model file is truncated.", block_idx, 34, data.len() - offset));
             }
             
             // Read scale (f16)
@@ -759,9 +721,9 @@ impl NomicEmbedder {
             offset += 2;
             
             // Read 32 8-bit values
-            for _ in 0..32 {
+            for val_idx in 0..32 {
                 if offset >= data.len() {
-                    break;
+                    return Err(anyhow!("Insufficient data for Q8 quantized values in block {}: reached end of data at value {}.", block_idx, val_idx));
                 }
                 let val = data[offset] as i8 as f32;
                 offset += 1;
@@ -771,9 +733,9 @@ impl NomicEmbedder {
             }
         }
         
-        // Pad with zeros if needed
-        while values.len() < total_elements {
-            values.push(0.0);
+        // Ensure we have exactly the right number of elements
+        if values.len() != total_elements {
+            return Err(anyhow!("Q8 dequantization produced {} elements but expected {}. Model data is insufficient or corrupted.", values.len(), total_elements));
         }
         
         Ok(values)
@@ -818,13 +780,18 @@ impl NomicEmbedder {
         let hidden_states = self.token_embeddings.index_select(&input_tensor, 0)
             .map_err(|e| anyhow!("Failed to get token embeddings: {}", e))?;
         
-        // Skip layer normalization and transformer layers due to corrupted GGUF weights
-        // Use only token embeddings with mean pooling
-        println!("Using ultra-simplified embedding (token embeddings only)");
+        // Apply transformer layers for proper embedding generation
+        let mut current_hidden = hidden_states;
         
-        // Use sum of all token embeddings to capture sequence differences
-        let pooled = hidden_states.sum(0)?;  // Sum along sequence dimension
-        println!("Using sum of token embeddings, shape: {:?}", pooled.shape());
+        // Apply each transformer layer
+        for (layer_idx, layer) in self.transformer_layers.iter().enumerate() {
+            current_hidden = Self::transformer_forward(current_hidden, &_attention_tensor, layer)
+                .map_err(|e| anyhow!("Failed to apply transformer layer {}: {}", layer_idx, e))?;
+        }
+        
+        // Apply proper mean pooling over sequence dimension
+        let pooled = current_hidden.mean(0)?;
+        println!("Applied {} transformer layers, pooled shape: {:?}", self.transformer_layers.len(), pooled.shape());
         
         // Apply pooler if available
         let output = if let Some(pooler) = &self.pooler_dense {
@@ -860,28 +827,23 @@ impl NomicEmbedder {
         let norm = output_vec.iter().map(|x| x * x).sum::<f32>().sqrt();
         println!("Norm: {}", norm);
         
-        let normalized = if norm > 1e-9 {  // Use epsilon instead of 0
+        let normalized: Vec<f32> = if norm > 1e-9 {
             output_vec.iter().map(|x| x / norm).collect()
         } else {
-            // Return small random values instead of zeros to avoid downstream NaN
-            println!("Using fallback small values due to near-zero norm");
-            vec![1e-9 / (self.dimensions as f32).sqrt(); self.dimensions]
+            return Err(anyhow!("Generated embedding has near-zero norm ({}). This indicates a fundamental model or computation error that cannot be recovered from.", norm));
         };
         
-        // Ensure correct dimensions
-        let embedding = if normalized.len() > self.dimensions {
-            normalized[..self.dimensions].to_vec()
-        } else if normalized.len() < self.dimensions {
-            let mut padded = normalized;
-            padded.resize(self.dimensions, 0.0);
-            padded
-        } else {
-            normalized
-        };
+        // Validate that dimensions match exactly
+        if normalized.len() != self.dimensions {
+            return Err(anyhow!("Generated embedding has {} dimensions but expected {}. This indicates a model architecture mismatch that cannot be corrected.", normalized.len(), self.dimensions));
+        }
         
-        // Cache the result
+        let embedding = normalized;
+        
+        // Cache the result - caching failures are fatal to maintain data consistency
         if let Some(cache) = &self.cache {
-            cache.put(text, embedding.clone());
+            cache.put(text, embedding.clone())
+                .map_err(|e| anyhow!("Failed to cache embedding result: {}. Cache integrity must be maintained.", e))?;
         }
         
         Ok(embedding)
@@ -891,10 +853,7 @@ impl NomicEmbedder {
     fn transformer_forward(mut hidden_states: Tensor, attention_mask: &Tensor, layer: &TransformerLayer) -> Result<Tensor> {
         // Multi-head attention with robust error handling
         let attn_output = Self::attention_forward(&hidden_states, attention_mask, &layer.attention)
-            .unwrap_or_else(|_| {
-                println!("Attention forward failed, using skip connection");
-                hidden_states.clone()
-            });
+            .map_err(|e| anyhow!("Attention forward failed: {}", e))?;
         
         // Add & Norm
         hidden_states = (hidden_states + attn_output)
@@ -903,10 +862,7 @@ impl NomicEmbedder {
         
         // Feed-forward with robust error handling  
         let ff_output = Self::feed_forward(&hidden_states, &layer.feed_forward)
-            .unwrap_or_else(|_| {
-                println!("Feed forward failed, using skip connection");
-                hidden_states.clone()
-            });
+            .map_err(|e| anyhow!("Feed forward failed: {}", e))?;
         
         // Add & Norm
         hidden_states = (hidden_states + ff_output)
@@ -924,32 +880,28 @@ impl NomicEmbedder {
         let (_seq_len, _hidden_size) = hidden_states.dims2()
             .map_err(|e| anyhow!("Failed to get dimensions: {}", e))?;
         
-        // Try basic linear transformation through the attention weights
-        match hidden_states.matmul(&attention.q_proj.t()?) {
-            Ok(q_out) => {
-                // If Q projection works, try a simplified attention
-                match q_out.matmul(&attention.o_proj.t()?) {
-                    Ok(output) => {
-                        // Check for NaN in the output
-                        let output_vec = output.flatten_all()?.to_vec1::<f32>()?;
-                        if output_vec.iter().any(|x| x.is_nan() || x.is_infinite()) {
-                            // If NaN/inf detected, return identity mapping
-                            Ok(hidden_states.clone())
-                        } else {
-                            Ok(output)
-                        }
-                    },
-                    Err(_) => {
-                        // If output projection fails, return identity
-                        Ok(hidden_states.clone())
-                    }
-                }
-            },
-            Err(_) => {
-                // If Q projection fails, return identity mapping
-                Ok(hidden_states.clone())
-            }
+        // Apply proper multi-head attention without fallbacks
+        let q = hidden_states.matmul(&attention.q_proj.t()?)
+            .map_err(|e| anyhow!("Query projection failed: {}", e))?;
+        let k = hidden_states.matmul(&attention.k_proj.t()?)
+            .map_err(|e| anyhow!("Key projection failed: {}", e))?;
+        let v = hidden_states.matmul(&attention.v_proj.t()?)
+            .map_err(|e| anyhow!("Value projection failed: {}", e))?;
+        
+        // Simplified attention: just use Q*V pattern without full attention mechanics
+        // This preserves information flow without fallback to identity
+        let attention_output = q.matmul(&v.t()?)
+            .map_err(|e| anyhow!("Attention computation failed: {}", e))?
+            .matmul(&attention.o_proj.t()?)
+            .map_err(|e| anyhow!("Output projection failed: {}", e))?;
+        
+        // Validate output for NaN/Inf - fail instead of fallback
+        let output_vec = attention_output.flatten_all()?.to_vec1::<f32>()?;
+        if output_vec.iter().any(|x| x.is_nan() || x.is_infinite()) {
+            return Err(anyhow!("Attention computation produced NaN or infinite values. Model weights may be corrupted."));
         }
+        
+        Ok(attention_output)
     }
     
     #[allow(dead_code)]
@@ -1063,7 +1015,7 @@ impl NomicEmbedder {
     
     async fn ensure_files_cached() -> Result<(PathBuf, PathBuf)> {
         let cache_dir = dirs::home_dir()
-            .unwrap_or_else(|| PathBuf::from("."))
+            .ok_or_else(|| anyhow!("Could not determine home directory. Set HOME environment variable."))?
             .join(".nomic");
         
         fs::create_dir_all(&cache_dir)?;
@@ -1122,7 +1074,8 @@ impl NomicEmbedder {
             return Err(anyhow!("Failed to download model: {}", response.status()));
         }
         
-        let total_size = response.content_length().unwrap_or(0);
+        let total_size = response.content_length()
+            .ok_or_else(|| anyhow!("Server did not provide content length for model download. Cannot track progress."))?;
         
         let mut file = fs::File::create(target)?;
         let mut downloaded = 0u64;

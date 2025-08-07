@@ -265,26 +265,33 @@ impl InvertedIndex {
     
     /// Get all documents containing a term
     pub fn get_documents_for_term(&mut self, term: &str) -> Vec<String> {
-        self.get_posting_list(term)
-            .map(|posting| {
-                posting.documents
-                    .into_iter()
-                    .map(|entry| entry.doc_id)
-                    .collect()
-            })
-            .unwrap_or_default()
+        match self.get_posting_list(term) {
+            Some(posting) => posting.documents
+                .into_iter()
+                .map(|entry| entry.doc_id)
+                .collect(),
+            None => {
+                // Term not found in index - legitimate empty result for search
+                Vec::new()
+            }
+        }
     }
     
     /// Get term frequency in a specific document
     pub fn get_term_frequency(&mut self, term: &str, doc_id: &str) -> usize {
-        self.get_posting_list(term)
-            .and_then(|posting| {
-                posting.documents
-                    .iter()
-                    .find(|entry| entry.doc_id == doc_id)
-                    .map(|entry| entry.term_frequency)
-            })
-            .unwrap_or(0)
+        match self.get_posting_list(term) {
+            Some(posting) => {
+                // Term exists in index, check if document contains it
+                match posting.documents.iter().find(|entry| entry.doc_id == doc_id) {
+                    Some(entry) => entry.term_frequency,
+                    None => 0, // Document doesn't contain this term - legitimate 0 frequency
+                }
+            }
+            None => {
+                // Term not found in any document - legitimate 0 frequency
+                0
+            }
+        }
     }
     
     /// Get statistics about the index

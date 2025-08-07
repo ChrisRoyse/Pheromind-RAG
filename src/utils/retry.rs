@@ -16,21 +16,19 @@ pub struct RetryConfig {
     pub jitter: bool,
 }
 
-impl Default for RetryConfig {
-    fn default() -> Self {
-        Self {
-            max_retries: 3,
-            initial_delay: Duration::from_millis(100),
-            max_delay: Duration::from_secs(30),
-            multiplier: 2.0,
-            jitter: true,
-        }
-    }
-}
+// PRINCIPLE 0 ENFORCEMENT: No Default implementation
+// All retry configuration must be explicitly provided
 
 impl RetryConfig {
-    pub fn new() -> Self {
-        Self::default()
+    /// Create new RetryConfig with explicit parameters - no defaults provided
+    pub fn new(max_retries: usize, initial_delay: Duration, max_delay: Duration, multiplier: f64, jitter: bool) -> Self {
+        Self {
+            max_retries,
+            initial_delay,
+            max_delay,
+            multiplier,
+            jitter,
+        }
     }
 
     pub fn max_retries(mut self, retries: usize) -> Self {
@@ -82,7 +80,11 @@ where
         max_interval: config.max_delay,
         multiplier: config.multiplier,
         max_elapsed_time: None,
-        ..ExponentialBackoff::default()
+        // Explicit configuration - no defaults
+        current_interval: config.initial_delay,
+        start_time: std::time::Instant::now(),
+        randomization_factor: if config.jitter { 0.5 } else { 0.0 },
+        reset_interval: Duration::from_secs(600), // 10 minutes - explicit value required
     };
 
     let mut attempt = 0;
@@ -217,12 +219,11 @@ where
 pub async fn retry_database_operation<T, F>(
     name: &str,
     operation: F,
-    config: Option<RetryConfig>,
+    config: RetryConfig,
 ) -> Result<T>
 where
     F: FnMut() -> Pin<Box<dyn Future<Output = Result<T, anyhow::Error>> + Send + 'static>>,
 {
-    let config = config.unwrap_or_default();
     let db_op = DatabaseOperation::new(name.to_string(), operation);
     
     retry_with_backoff(db_op, config)
@@ -231,15 +232,15 @@ where
 }
 
 /// Convenience function for retrying file operations
+/// Configuration must be explicitly provided - no fallback values
 pub async fn retry_file_operation<T, F>(
     name: &str,
     operation: F,
-    config: Option<RetryConfig>,
+    config: RetryConfig,
 ) -> std::io::Result<T>
 where
     F: FnMut() -> Pin<Box<dyn Future<Output = std::io::Result<T>> + Send + 'static>>,
 {
-    let config = config.unwrap_or_default();
     let file_op = FileOperation::new(name.to_string(), operation);
     
     retry_with_backoff(file_op, config).await
@@ -295,7 +296,13 @@ mod tests {
     #[tokio::test]
     async fn test_successful_retry() {
         let operation = TestOperation::new("test_op", 2);
-        let config = RetryConfig::new().max_retries(3);
+        let config = RetryConfig::new(
+            3,
+            Duration::from_millis(100),
+            Duration::from_secs(30),
+            2.0,
+            true
+        );
         
         let result = retry_with_backoff(operation, config).await;
         assert!(result.is_ok());
@@ -305,7 +312,13 @@ mod tests {
     #[tokio::test]
     async fn test_exhausted_retries() {
         let operation = TestOperation::new("test_op", 5);
-        let config = RetryConfig::new().max_retries(3);
+        let config = RetryConfig::new(
+            3,
+            Duration::from_millis(100),
+            Duration::from_secs(30),
+            2.0,
+            true
+        );
         
         let result = retry_with_backoff(operation, config).await;
         assert!(result.is_err());
@@ -314,7 +327,13 @@ mod tests {
     #[tokio::test]
     async fn test_immediate_success() {
         let operation = TestOperation::new("test_op", 0);
-        let config = RetryConfig::new();
+        let config = RetryConfig::new(
+            3,
+            Duration::from_millis(100),
+            Duration::from_secs(30),
+            2.0,
+            true
+        );
         
         let result = retry_with_backoff(operation, config).await;
         assert!(result.is_ok());

@@ -24,27 +24,35 @@ pub struct SimpleRegexChunker {
 }
 
 impl SimpleRegexChunker {
-    pub fn new() -> Self {
-        let chunk_size = Config::chunk_size().unwrap_or(100);
+    /// Create a new regex chunker using configured chunk size
+    /// Returns an error if configuration is not properly initialized  
+    pub fn new() -> Result<Self, crate::error::EmbedError> {
+        let chunk_size = Config::chunk_size()?;
         Self::with_chunk_size(chunk_size)
     }
     
-    pub fn with_chunk_size(chunk_size: usize) -> Self {
+    pub fn with_chunk_size(chunk_size: usize) -> Result<Self, crate::error::EmbedError> {
         let function_patterns = FUNCTION_PATTERNS
             .iter()
-            .map(|p| Regex::new(p).unwrap())
-            .collect();
+            .map(|p| Regex::new(p).map_err(|e| crate::error::EmbedError::Internal {
+                message: format!("Invalid regex pattern '{}': {}", p, e),
+                backtrace: None,
+            }))
+            .collect::<Result<Vec<_>, _>>()?;
             
         let class_patterns = CLASS_PATTERNS
             .iter()
-            .map(|p| Regex::new(p).unwrap())
-            .collect();
+            .map(|p| Regex::new(p).map_err(|e| crate::error::EmbedError::Internal {
+                message: format!("Invalid regex pattern '{}': {}", p, e),
+                backtrace: None,
+            }))
+            .collect::<Result<Vec<_>, _>>()?;
             
-        Self {
+        Ok(Self {
             function_patterns,
             class_patterns,
             chunk_size_target: chunk_size,
-        }
+        })
     }
     
     pub fn chunk_file(&self, content: &str) -> Vec<Chunk> {
@@ -118,10 +126,22 @@ pub struct Chunk {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::sync::Once;
+
+    static INIT: Once = Once::new();
+
+    fn init() {
+        INIT.call_once(|| {
+            // Initialize config for tests
+            let config = crate::config::Config::new_test_config();
+            crate::config::CONFIG.write().unwrap().replace(config);
+        });
+    }
 
     #[test]
     fn test_basic_chunking() {
-        let chunker = SimpleRegexChunker::new();
+        init();
+        let chunker = SimpleRegexChunker::new().expect("Failed to create chunker");
         let content = "line1\nline2\nfn test() {\n    body\n}\nline6";
         let chunks = chunker.chunk_file(content);
         
@@ -131,7 +151,8 @@ mod tests {
     
     #[test]
     fn test_chunk_size_limit() {
-        let chunker = SimpleRegexChunker::new();
+        init();
+        let chunker = SimpleRegexChunker::new().expect("Failed to create chunker");
         let mut content = String::new();
         for i in 0..150 {
             content.push_str(&format!("line {}\n", i));
@@ -144,7 +165,8 @@ mod tests {
     
     #[test]
     fn test_function_boundary_detection() {
-        let chunker = SimpleRegexChunker::new();
+        init();
+        let chunker = SimpleRegexChunker::new().expect("Failed to create chunker");
         let content = "// comment\nfn first() {\n}\nfn second() {\n}";
         let chunks = chunker.chunk_file(content);
         

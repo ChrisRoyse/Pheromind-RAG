@@ -61,7 +61,7 @@ max_ngram_size = 2
 #[test]
 fn test_legacy_compatibility() {
     // Test with legacy configuration format - only essential fields to test backward compatibility
-    let mut config = Config::default();
+    let mut config = Config::new_test_config();
     
     // Override specific fields like an old config file might
     config.chunk_size = 150;
@@ -80,7 +80,7 @@ fn test_legacy_compatibility() {
 #[test]
 fn test_config_without_search_backend() {
     // Test config without explicit search_backend field uses default
-    let mut base_config = Config::default();
+    let mut base_config = Config::new_test_config();
     base_config.chunk_size = 100;
     base_config.max_search_results = 20;
     

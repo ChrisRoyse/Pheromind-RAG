@@ -219,26 +219,11 @@ impl SymbolEnhancedSearcher {
         starts_with_letter && (has_camel || has_snake || is_constant)
     }
     
-    /// Extract symbol name from various query formats
+    /// Extract symbol name from query - no fallbacks or prefix guessing
     fn extract_symbol_name(&self, query: &str) -> String {
-        let query = query.trim();
-        
-        // Remove common prefixes
-        let without_prefix = query
-            .strip_prefix("def ").or_else(|| query.strip_prefix("definition "))
-            .or_else(|| query.strip_prefix("find def "))
-            .or_else(|| query.strip_prefix("go to def "))
-            .or_else(|| query.strip_prefix("ref "))
-            .or_else(|| query.strip_prefix("references "))
-            .or_else(|| query.strip_prefix("find ref "))
-            .or_else(|| query.strip_prefix("uses of "))
-            .or_else(|| query.strip_prefix("class "))
-            .or_else(|| query.strip_prefix("function "))
-            .or_else(|| query.strip_prefix("struct "))
-            .or_else(|| query.strip_prefix("interface "))
-            .unwrap_or(query);
-        
-        without_prefix.trim().to_string()
+        // Use query as-is after trimming whitespace
+        // No prefix processing to avoid creating illusions of natural language support
+        query.trim().to_string()
     }
     
     /// Get statistics about the symbol index

@@ -37,6 +37,11 @@ pub enum EmbedError {
         source: Option<Box<dyn StdError + Send + Sync>>,
     },
     
+    #[error("Chunking error: {message}")]
+    ChunkingError { 
+        message: String 
+    },
+    
     #[error("Model error: {message}")]
     Model {
         message: String,
@@ -452,7 +457,11 @@ where
         }
     }
     
-    unreachable!("Retry loop should have returned by now")
+    // This should never be reached if the retry logic is correct
+    Err(EmbedError::Internal {
+        message: "Retry loop completed all attempts but did not return a result. This indicates a bug in the retry logic.".to_string(),
+        backtrace: None,
+    })
 }
 
 /// Check if an error is retryable
@@ -466,48 +475,9 @@ fn is_retryable_error(error: &EmbedError) -> bool {
     )
 }
 
-// ==================== ERROR RECOVERY ====================
-
-/// Attempt to recover from an error
-pub trait ErrorRecovery<T> {
-    /// Try to recover with a fallback value
-    fn recover_with<F>(self, fallback: F) -> Result<T>
-    where
-        F: FnOnce() -> Result<T>;
-    
-    /// Log error and continue with default
-    fn log_and_default(self, default: T) -> T
-    where
-        T: Clone;
-}
-
-impl<T> ErrorRecovery<T> for Result<T> {
-    fn recover_with<F>(self, fallback: F) -> Result<T>
-    where
-        F: FnOnce() -> Result<T>,
-    {
-        match self {
-            Ok(value) => Ok(value),
-            Err(e) => {
-                log::warn!("Recovering from error: {e}");
-                fallback()
-            }
-        }
-    }
-    
-    fn log_and_default(self, default: T) -> T
-    where
-        T: Clone,
-    {
-        match self {
-            Ok(value) => value,
-            Err(e) => {
-                log::error!("Error occurred, using default: {e}");
-                default
-            }
-        }
-    }
-}
+// ==================== REMOVED: ERROR RECOVERY ====================
+// Error recovery methods violate Principle 0: Radical Candor—Truth Above All
+// These methods mask real failures. Systems must fail properly, not fall back silently.
 
 #[cfg(test)]
 mod tests {

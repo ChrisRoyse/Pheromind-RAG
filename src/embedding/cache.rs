@@ -25,40 +25,58 @@ pub struct EmbeddingCache {
 
 impl EmbeddingCache {
     /// Create a new embedding cache using configuration values
-    pub fn from_config() -> Self {
-        let config = Config::get().unwrap_or_default();
+    /// Returns an error if configuration is not properly initialized
+    pub fn from_config() -> Result<Self, crate::error::EmbedError> {
+        let config = Config::get()?;
         Self::new_with_persistence(config.embedding_cache_size, &config.cache_dir)
     }
 
     /// Create a new embedding cache with specified maximum size
-    pub fn new(max_size: usize) -> Self {
-        Self {
-            cache: Arc::new(Mutex::new(LruCache::new(
-                std::num::NonZeroUsize::new(max_size).unwrap()
-            ))),
+    pub fn new(max_size: usize) -> Result<Self, crate::error::EmbedError> {
+        let capacity = std::num::NonZeroUsize::new(max_size)
+            .ok_or_else(|| crate::error::EmbedError::Internal {
+                message: format!("Cache max_size must be greater than 0, got: {}", max_size),
+                backtrace: None,
+            })?;
+        
+        Ok(Self {
+            cache: Arc::new(Mutex::new(LruCache::new(capacity))),
             max_size,
             cache_dir: None,
-        }
+        })
     }
 
     /// Create a new embedding cache with persistence support
-    pub fn new_with_persistence(max_size: usize, cache_dir: impl AsRef<Path>) -> Self {
+    pub fn new_with_persistence(max_size: usize, cache_dir: impl AsRef<Path>) -> Result<Self, crate::error::EmbedError> {
         let cache_dir = cache_dir.as_ref().to_path_buf();
         
+        let capacity = std::num::NonZeroUsize::new(max_size)
+            .ok_or_else(|| crate::error::EmbedError::Internal {
+                message: format!("Cache max_size must be greater than 0, got: {}", max_size),
+                backtrace: None,
+            })?;
+        
         let mut cache = Self {
-            cache: Arc::new(Mutex::new(LruCache::new(
-                std::num::NonZeroUsize::new(max_size).unwrap()
-            ))),
+            cache: Arc::new(Mutex::new(LruCache::new(capacity))),
             max_size,
             cache_dir: Some(cache_dir),
         };
         
-        // Try to load existing cache
-        if let Err(e) = cache.load_from_disk() {
-            eprintln!("⚠️  Failed to load cache from disk: {}", e);
+        // Load existing cache if it exists - corruption or read failures are fatal
+        match cache.load_from_disk() {
+            Ok(()) => {
+                // Successfully loaded or no cache file exists
+            }
+            Err(e) => {
+                // This indicates corruption or IO issues with an existing cache file
+                return Err(crate::error::EmbedError::Internal {
+                    message: format!("Failed to load existing cache from disk: {}. Cache corruption is not acceptable.", e),
+                    backtrace: None,
+                });
+            }
         }
         
-        cache
+        Ok(cache)
     }
 
     /// Generate a hash key for content
@@ -82,19 +100,28 @@ impl EmbeddingCache {
     }
 
     /// Store embedding in cache
-    pub fn put(&self, content: &str, embedding: Vec<f32>) {
+    pub fn put(&self, content: &str, embedding: Vec<f32>) -> Result<(), crate::error::EmbedError> {
         let hash = Self::hash_content(content);
         let entry = CacheEntry {
             embedding,
             content_hash: hash.clone(),
             timestamp: std::time::SystemTime::now()
                 .duration_since(std::time::UNIX_EPOCH)
-                .unwrap()
+                .map_err(|e| crate::error::EmbedError::Internal {
+                    message: format!("System time error: {}", e),
+                    backtrace: None,
+                })?
                 .as_secs(),
         };
 
         if let Ok(mut cache) = self.cache.lock() {
             cache.put(hash, entry);
+            Ok(())
+        } else {
+            Err(crate::error::EmbedError::Internal {
+                message: "Failed to acquire cache lock".to_string(),
+                backtrace: None,
+            })
         }
     }
 
@@ -186,10 +213,11 @@ impl EmbeddingCache {
     }
 
     /// Batch put embeddings into cache
-    pub fn put_batch(&self, contents: &[&str], embeddings: Vec<Vec<f32>>) {
+    pub fn put_batch(&self, contents: &[&str], embeddings: Vec<Vec<f32>>) -> Result<(), crate::error::EmbedError> {
         for (content, embedding) in contents.iter().zip(embeddings.into_iter()) {
-            self.put(content, embedding);
+            self.put(content, embedding)?;
         }
+        Ok(())
     }
 }
 
@@ -215,7 +243,9 @@ impl std::fmt::Display for CacheStats {
 impl Drop for EmbeddingCache {
     fn drop(&mut self) {
         if let Err(e) = self.save_to_disk() {
-            eprintln!("⚠️  Failed to save cache on shutdown: {}", e);
+            eprintln!("ERROR: Failed to save cache on shutdown: {}. Embedding cache data may be lost. Check disk space and permissions.", e);
+            // Log the error but do not panic - crashing the application is worse than losing cache data
+            // The cache is a performance optimization, not critical system data
         }
     }
 }
@@ -227,7 +257,7 @@ mod tests {
 
     #[test]
     fn test_cache_basic_operations() {
-        let cache = EmbeddingCache::new(10);
+        let cache = EmbeddingCache::new(10).unwrap();
         
         // Test empty cache
         assert!(cache.is_empty());
@@ -236,7 +266,7 @@ mod tests {
         
         // Test put and get
         let embedding = vec![1.0, 2.0, 3.0];
-        cache.put("test content", embedding.clone());
+        cache.put("test content", embedding.clone()).unwrap();
         
         assert_eq!(cache.len(), 1);
         assert!(!cache.is_empty());
@@ -251,15 +281,15 @@ mod tests {
 
     #[test]
     fn test_cache_lru_eviction() {
-        let cache = EmbeddingCache::new(2);
+        let cache = EmbeddingCache::new(2).unwrap();
         
         // Fill cache to capacity
-        cache.put("content1", vec![1.0]);
-        cache.put("content2", vec![2.0]);
+        cache.put("content1", vec![1.0]).unwrap();
+        cache.put("content2", vec![2.0]).unwrap();
         assert_eq!(cache.len(), 2);
         
         // Add third item, should evict first
-        cache.put("content3", vec![3.0]);
+        cache.put("content3", vec![3.0]).unwrap();
         assert_eq!(cache.len(), 2);
         
         // content1 should be evicted
@@ -286,7 +316,7 @@ mod tests {
 
     #[test]
     fn test_batch_operations() {
-        let cache = EmbeddingCache::new(10);
+        let cache = EmbeddingCache::new(10).unwrap();
         
         let contents = vec!["content1", "content2", "content3"];
         let embeddings = vec![
@@ -296,7 +326,7 @@ mod tests {
         ];
         
         // Test batch put
-        cache.put_batch(&contents, embeddings.clone());
+        cache.put_batch(&contents, embeddings.clone()).unwrap();
         assert_eq!(cache.len(), 3);
         
         // Test batch get
@@ -324,14 +354,14 @@ mod tests {
         
         // Create cache with persistence
         {
-            let cache = EmbeddingCache::new_with_persistence(10, cache_dir);
-            cache.put("persistent content", vec![1.0, 2.0, 3.0]);
+            let cache = EmbeddingCache::new_with_persistence(10, cache_dir).unwrap();
+            cache.put("persistent content", vec![1.0, 2.0, 3.0]).unwrap();
             cache.save_to_disk().unwrap();
         }
         
         // Create new cache instance and load from disk
         {
-            let cache = EmbeddingCache::new_with_persistence(10, cache_dir);
+            let cache = EmbeddingCache::new_with_persistence(10, cache_dir).unwrap();
             let retrieved = cache.get("persistent content");
             
             assert!(retrieved.is_some());

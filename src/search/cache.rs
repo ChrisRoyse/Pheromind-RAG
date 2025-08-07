@@ -28,9 +28,10 @@ pub struct SearchCache {
 
 impl SearchCache {
     /// Create a new search cache using configuration values
-    pub fn from_config() -> Self {
-        let config = Config::get().unwrap_or_default();
-        Self::new(config.search_cache_size)
+    /// Returns an error if configuration is not properly initialized
+    pub fn from_config() -> Result<Self, crate::error::EmbedError> {
+        let config = Config::get()?;
+        Ok(Self::new(config.search_cache_size))
     }
 
     pub fn new(max_size: usize) -> Self {
@@ -50,7 +51,13 @@ impl SearchCache {
     }
     
     pub fn get(&self, query: &str) -> Option<Vec<SearchResult>> {
-        let mut cache = self.cache.lock().unwrap();
+        let mut cache = match self.cache.lock() {
+            Ok(cache) => cache,
+            Err(_) => {
+                // Cache mutex is poisoned - cannot proceed
+                panic!("FATAL: Search cache mutex is poisoned. Cache operations cannot continue.");
+            }
+        };
         
         if let Some(entry) = cache.get(query) {
             // Check if entry is still valid
@@ -65,8 +72,16 @@ impl SearchCache {
         None
     }
     
-    pub fn insert(&self, query: String, results: Vec<SearchResult>) {
-        let mut cache = self.cache.lock().unwrap();
+    pub fn insert(&self, query: String, results: Vec<SearchResult>) -> Result<(), crate::error::EmbedError> {
+        let mut cache = match self.cache.lock() {
+            Ok(cache) => cache,
+            Err(e) => {
+                return Err(crate::error::EmbedError::Concurrency {
+                    message: format!("Failed to acquire cache lock for insert operation: {}. Cache is poisoned.", e),
+                    operation: Some("cache_insert".to_string()),
+                });
+            }
+        };
         
         // Implement simple LRU by removing oldest entries if at capacity
         if cache.len() >= self.max_size {
@@ -84,15 +99,36 @@ impl SearchCache {
             results,
             timestamp: Instant::now(),
         });
+        
+        Ok(())
     }
     
-    pub fn clear(&self) {
-        let mut cache = self.cache.lock().unwrap();
+    pub fn clear(&self) -> Result<(), crate::error::EmbedError> {
+        let mut cache = match self.cache.lock() {
+            Ok(cache) => cache,
+            Err(e) => {
+                return Err(crate::error::EmbedError::Concurrency {
+                    message: format!("Failed to acquire cache lock for clear operation: {}. Cache is poisoned.", e),
+                    operation: Some("cache_clear".to_string()),
+                });
+            }
+        };
         cache.clear();
+        Ok(())
     }
     
     pub fn stats(&self) -> CacheStats {
-        let cache = self.cache.lock().unwrap();
+        let cache = match self.cache.lock() {
+            Ok(cache) => cache,
+            Err(_) => {
+                // Cache mutex is poisoned - return empty stats
+                return CacheStats {
+                    total_entries: 0,
+                    valid_entries: 0,
+                    max_size: self.max_size,
+                };
+            }
+        };
         let valid_entries = cache
             .values()
             .filter(|entry| entry.timestamp.elapsed() < self.ttl)
@@ -152,7 +188,7 @@ mod tests {
         let results = vec![create_test_result()];
         
         // Test insert and get
-        cache.insert(query.to_string(), results.clone());
+        cache.insert(query.to_string(), results.clone()).unwrap();
         let cached = cache.get(query);
         assert!(cached.is_some());
         assert_eq!(cached.unwrap().len(), 1);
@@ -168,7 +204,7 @@ mod tests {
         let query = "test query";
         let results = vec![create_test_result()];
         
-        cache.insert(query.to_string(), results);
+        cache.insert(query.to_string(), results).unwrap();
         
         // Sleep to ensure expiration
         std::thread::sleep(Duration::from_millis(10));
@@ -181,9 +217,9 @@ mod tests {
     fn test_cache_size_limit() {
         let cache = SearchCache::new(2);
         
-        cache.insert("query1".to_string(), vec![create_test_result()]);
-        cache.insert("query2".to_string(), vec![create_test_result()]);
-        cache.insert("query3".to_string(), vec![create_test_result()]);
+        cache.insert("query1".to_string(), vec![create_test_result()]).unwrap();
+        cache.insert("query2".to_string(), vec![create_test_result()]).unwrap();
+        cache.insert("query3".to_string(), vec![create_test_result()]).unwrap();
         
         let stats = cache.stats();
         assert!(stats.total_entries <= 2); // Should not exceed max size

@@ -547,10 +547,13 @@ impl SymbolDatabase {
     }
     
     pub fn find_all_references(&self, name: &str) -> Vec<Symbol> {
-        self.symbols_by_name
-            .get(name)
-            .map(|v| v.iter().cloned().collect())
-            .unwrap_or_default()
+        match self.symbols_by_name.get(name) {
+            Some(symbols) => symbols.iter().cloned().collect(),
+            None => {
+                // Symbol name not found in index - legitimate empty result
+                Vec::new()
+            }
+        }
     }
     
     pub fn clear(&mut self) {
@@ -560,17 +563,23 @@ impl SymbolDatabase {
     }
     
     pub fn find_by_kind(&self, kind: SymbolKind) -> Vec<Symbol> {
-        self.symbols_by_kind
-            .get(&kind)
-            .map(|v| v.iter().cloned().collect())
-            .unwrap_or_default()
+        match self.symbols_by_kind.get(&kind) {
+            Some(symbols) => symbols.iter().cloned().collect(),
+            None => {
+                // Symbol kind not found in index - legitimate empty result
+                Vec::new()
+            }
+        }
     }
     
     pub fn symbols_in_file(&self, file_path: &str) -> Vec<&Symbol> {
-        self.symbols_by_file
-            .get(file_path)
-            .map(|v| v.iter().collect())
-            .unwrap_or_default()
+        match self.symbols_by_file.get(file_path) {
+            Some(symbols) => symbols.iter().collect(),
+            None => {
+                // File not found in index - legitimate empty result
+                Vec::new()
+            }
+        }
     }
     
     pub fn total_symbols(&self) -> usize {

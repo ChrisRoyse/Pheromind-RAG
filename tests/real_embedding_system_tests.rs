@@ -191,7 +191,7 @@ async fn test_real_lancedb_integration() {
     let db_path = temp_dir.path().join("test_real_embeddings.db");
     
     let storage = LanceDBStorage::new(db_path.clone()).await.expect("Failed to create storage");
-    let chunker = SimpleRegexChunker::new();
+    let chunker = SimpleRegexChunker::new().expect("Chunker creation must succeed in test");
     
     // Test code samples
     let test_codes = vec![
@@ -235,7 +235,10 @@ async fn test_real_lancedb_integration() {
     
     println!("🔍 Found {} search results for query: '{}'", search_results.len(), query);
     for (i, result) in search_results.iter().enumerate() {
-        println!("  {}. {} (similarity: {:.4})", i+1, result.file_path, result.similarity_score.unwrap_or(0.0));
+        match result.similarity_score {
+            Some(score) => println!("  {}. {} (similarity: {:.4})", i+1, result.file_path, score),
+            None => println!("  {}. {} (similarity: <unavailable>)", i+1, result.file_path),
+        }
     }
     
     println!("✅ Real LanceDB integration test passed");
@@ -447,7 +450,7 @@ async fn test_git_tracking_with_768d_nomic_embeddings() {
     
     // Step 10: Test WatchCommand integration
     println!("\n🔟 Testing WatchCommand with 768D system...");
-    let watch_command = WatchCommand::new(repo_path.clone(), searcher.clone(), storage.clone());
+    let watch_command = WatchCommand::new(repo_path.clone(), searcher.clone(), storage.clone())?;
     
     // Create another change
     let new_file = repo_path.join("new_feature.rs");

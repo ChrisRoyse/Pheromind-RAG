@@ -2,7 +2,7 @@ use embed_search::chunking::{SimpleRegexChunker, Chunk};
 
 #[test]
 fn test_empty_file() {
-    let chunker = SimpleRegexChunker::new();
+    let chunker = SimpleRegexChunker::new().expect("Chunker creation must succeed in test");
     let content = "";
     let chunks = chunker.chunk_file(content);
     
@@ -11,7 +11,7 @@ fn test_empty_file() {
 
 #[test]
 fn test_single_line_file() {
-    let chunker = SimpleRegexChunker::new();
+    let chunker = SimpleRegexChunker::new().expect("Chunker creation must succeed in test");
     let content = "single line content";
     let chunks = chunker.chunk_file(content);
     
@@ -23,7 +23,7 @@ fn test_single_line_file() {
 
 #[test]
 fn test_whitespace_only_file() {
-    let chunker = SimpleRegexChunker::new();
+    let chunker = SimpleRegexChunker::new().expect("Chunker creation must succeed in test");
     let content = "   \n\n   \n";
     let chunks = chunker.chunk_file(content);
     
@@ -34,7 +34,7 @@ fn test_whitespace_only_file() {
 
 #[test]
 fn test_no_chunk_boundaries() {
-    let chunker = SimpleRegexChunker::new();
+    let chunker = SimpleRegexChunker::new().expect("Chunker creation must succeed in test");
     let mut content = String::new();
     for i in 0..50 {
         content.push_str(&format!("// Comment line {}\n", i));
@@ -48,7 +48,7 @@ fn test_no_chunk_boundaries() {
 
 #[test]
 fn test_line_continuity_validation() {
-    let chunker = SimpleRegexChunker::new();
+    let chunker = SimpleRegexChunker::new().expect("Chunker creation must succeed in test");
     let content = r#"line0
 fn func1() {
     line2
@@ -77,7 +77,7 @@ line8"#;
 
 #[test]
 fn test_chunk_content_matches_lines() {
-    let chunker = SimpleRegexChunker::new();
+    let chunker = SimpleRegexChunker::new().expect("Chunker creation must succeed in test");
     let content = r#"header
 fn test() {
     body1
@@ -104,7 +104,7 @@ footer"#;
 
 #[test]
 fn test_boundary_at_file_start() {
-    let chunker = SimpleRegexChunker::new();
+    let chunker = SimpleRegexChunker::new().expect("Chunker creation must succeed in test");
     let content = "fn start() {\n    content\n}\nmore content";
     let chunks = chunker.chunk_file(content);
     
@@ -115,7 +115,7 @@ fn test_boundary_at_file_start() {
 
 #[test]
 fn test_boundary_at_file_end() {
-    let chunker = SimpleRegexChunker::new();
+    let chunker = SimpleRegexChunker::new().expect("Chunker creation must succeed in test");
     let content = "some content\nfn end() {\n    final\n}";
     let chunks = chunker.chunk_file(content);
     
@@ -127,7 +127,7 @@ fn test_boundary_at_file_end() {
 
 #[test]
 fn test_consecutive_boundaries() {
-    let chunker = SimpleRegexChunker::new();
+    let chunker = SimpleRegexChunker::new().expect("Chunker creation must succeed in test");
     let content = r#"fn func1() {}
 fn func2() {}
 fn func3() {}"#;
@@ -142,7 +142,7 @@ fn func3() {}"#;
 
 #[test]
 fn test_mixed_line_endings() {
-    let chunker = SimpleRegexChunker::new();
+    let chunker = SimpleRegexChunker::new().expect("Chunker creation must succeed in test");
     // Mix of LF and CRLF
     let content = "line1\nfn test() {\r\n    body\r\n}\nline5";
     let chunks = chunker.chunk_file(content);
@@ -192,7 +192,7 @@ fn validate_chunks_cover_all_lines(chunks: &[Chunk], total_lines: usize) -> Resu
 
 #[test]
 fn test_chunk_validation_utility() {
-    let chunker = SimpleRegexChunker::new();
+    let chunker = SimpleRegexChunker::new().expect("Chunker creation must succeed in test");
     
     // Test various scenarios
     let test_cases = vec![

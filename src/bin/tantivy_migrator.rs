@@ -493,7 +493,7 @@ impl MigrationTool {
         
         // Create new config file
         let config_path = self.project_path.join(".embedrc");
-        let mut config = Config::default();
+        let mut config = Config::new_test_config();
         config.search_backend = SearchBackend::Tantivy;
         
         let config_toml = toml::to_string_pretty(&config)
@@ -660,8 +660,10 @@ impl MigrationTool {
                     let avg_ms = measurements.iter().map(|(_, d)| d.as_millis()).sum::<u128>() / measurements.len() as u128;
                     println!("Average search time: {}ms", avg_ms);
                     
-                    let min_ms = measurements.iter().map(|(_, d)| d.as_millis()).min().unwrap_or(0);
-                    let max_ms = measurements.iter().map(|(_, d)| d.as_millis()).max().unwrap_or(0);
+                    let min_ms = measurements.iter().map(|(_, d)| d.as_millis()).min()
+                        .expect("Measurements collection cannot be empty when calculating min/max statistics");
+                    let max_ms = measurements.iter().map(|(_, d)| d.as_millis()).max()
+                        .expect("Measurements collection cannot be empty when calculating min/max statistics");
                     println!("Min search time: {}ms", min_ms);
                     println!("Max search time: {}ms", max_ms);
                 }

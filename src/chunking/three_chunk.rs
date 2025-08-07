@@ -103,18 +103,22 @@ impl ThreeChunkExpander {
     }
     
     /// Get total line range covered by the context
-    pub fn get_line_range(context: &ChunkContext) -> (usize, usize) {
+    pub fn get_line_range(context: &ChunkContext) -> Result<(usize, usize), crate::error::EmbedError> {
         let start = context.above
             .as_ref()
             .map(|c| c.start_line)
-            .unwrap_or(context.target.start_line);
+            .ok_or_else(|| crate::error::EmbedError::ChunkingError {
+                message: "Above context chunk is missing. Cannot determine line range without complete context.".to_string(),
+            })?;
             
         let end = context.below
             .as_ref()
             .map(|c| c.end_line)
-            .unwrap_or(context.target.end_line);
+            .ok_or_else(|| crate::error::EmbedError::ChunkingError {
+                message: "Below context chunk is missing. Cannot determine line range without complete context.".to_string(),
+            })?;
             
-        (start, end)
+        Ok((start, end))
     }
     
     /// Count total lines in the context
@@ -171,8 +175,8 @@ impl ChunkContext {
     }
     
     /// Format as compact single-line summary
-    pub fn format_summary(&self) -> String {
-        let (start, end) = ThreeChunkExpander::get_line_range(self);
+    pub fn format_summary(&self) -> Result<String, crate::error::EmbedError> {
+        let (start, end) = ThreeChunkExpander::get_line_range(self)?;
         let total_lines = ThreeChunkExpander::count_lines(self);
         let context_info = match (self.above.is_some(), self.below.is_some()) {
             (true, true) => "full context",
@@ -181,8 +185,8 @@ impl ChunkContext {
             (false, false) => "single chunk",
         };
         
-        format!("Match at chunk {} (lines {}-{}, {} lines, {})", 
-                self.target_index, start + 1, end + 1, total_lines, context_info)
+        Ok(format!("Match at chunk {} (lines {}-{}, {} lines, {})", 
+                   self.target_index, start + 1, end + 1, total_lines, context_info))
     }
     
     /// Get all content as a single string
@@ -286,7 +290,8 @@ mod tests {
     fn test_line_range() {
         let chunks = create_test_chunks();
         let context = ThreeChunkExpander::expand(&chunks, 1).unwrap();
-        let (start, end) = ThreeChunkExpander::get_line_range(&context);
+        let (start, end) = ThreeChunkExpander::get_line_range(&context)
+            .expect("Line range calculation must succeed with complete context");
         assert_eq!(start, 0);  // Start of above chunk
         assert_eq!(end, 8);    // End of below chunk
     }
@@ -303,7 +308,8 @@ mod tests {
     fn test_format_summary() {
         let chunks = create_test_chunks();
         let context = ThreeChunkExpander::expand(&chunks, 1).unwrap();
-        let summary = context.format_summary();
+        let summary = context.format_summary()
+            .expect("Format summary must succeed with complete context");
         assert_eq!(summary, "Match at chunk 1 (lines 1-9, 9 lines, full context)");
     }
     

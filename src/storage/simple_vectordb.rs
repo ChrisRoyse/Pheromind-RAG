@@ -99,7 +99,8 @@ impl VectorStorage {
     pub async fn init_schema(&self) -> Result<(), StorageError> {
         let schema = VectorSchema {
             version: 1,
-            embedding_dim: Config::embedding_dimensions().unwrap_or(768),
+            embedding_dim: Config::embedding_dimensions()
+            .map_err(|e| StorageError::DatabaseError(format!("Failed to get embedding dimensions: {}", e)))?,
             created_at: chrono::Utc::now().to_rfc3339(),
         };
         
@@ -121,7 +122,8 @@ impl VectorStorage {
         chunk: &Chunk,
         embedding: Vec<f32>
     ) -> Result<(), StorageError> {
-        let expected_dim = Config::embedding_dimensions().unwrap_or(768);
+        let expected_dim = Config::embedding_dimensions()
+            .map_err(|e| StorageError::DatabaseError(format!("Failed to get embedding dimensions: {}", e)))?;
         if embedding.len() != expected_dim {
             return Err(StorageError::InvalidInput(
                 format!("Embedding must be {}-dimensional, got {}", expected_dim, embedding.len())
@@ -155,7 +157,8 @@ impl VectorStorage {
         }
         
         // Validate all embeddings match expected dimensions
-        let expected_dim = Config::embedding_dimensions().unwrap_or(768);
+        let expected_dim = Config::embedding_dimensions()
+            .map_err(|e| StorageError::DatabaseError(format!("Failed to get embedding dimensions: {}", e)))?;
         for (_, _, _, embedding) in &embeddings_data {
             if embedding.len() != expected_dim {
                 return Err(StorageError::InvalidInput(
@@ -241,7 +244,8 @@ impl VectorStorage {
     }
     
     pub async fn search_similar(&self, query_embedding: Vec<f32>, limit: usize) -> Result<Vec<EmbeddingRecord>, StorageError> {
-        let expected_dim = Config::embedding_dimensions().unwrap_or(768);
+        let expected_dim = Config::embedding_dimensions()
+            .map_err(|e| StorageError::DatabaseError(format!("Failed to get embedding dimensions: {}", e)))?;
         if query_embedding.len() != expected_dim {
             return Err(StorageError::InvalidInput(
                 format!("Query embedding must be {}-dimensional, got {}", expected_dim, query_embedding.len())
@@ -259,8 +263,22 @@ impl VectorStorage {
             similarities.push((similarity, record));
         }
         
-        // Sort by similarity (descending)
-        similarities.sort_by(|a, b| b.0.partial_cmp(&a.0).unwrap_or(std::cmp::Ordering::Equal));
+        // Sort by similarity (descending), handling potential NaN values
+        similarities.sort_by(|a, b| {
+            match b.0.partial_cmp(&a.0) {
+                Some(ordering) => ordering,
+                None => {
+                    // Handle NaN case - prefer the non-NaN value
+                    if b.0.is_nan() && a.0.is_nan() {
+                        std::cmp::Ordering::Equal
+                    } else if b.0.is_nan() {
+                        std::cmp::Ordering::Greater // a comes first (a is not NaN)
+                    } else {
+                        std::cmp::Ordering::Less // b comes first (b is not NaN)
+                    }
+                }
+            }
+        });
         
         // Take top results
         let results = similarities.into_iter()
@@ -318,7 +336,7 @@ mod tests {
         assert!(result.is_ok());
         
         let schema = storage.get_schema().unwrap();
-        assert_eq!(schema.embedding_dim, Config::embedding_dimensions().unwrap_or(768));
+        assert_eq!(schema.embedding_dim, Config::embedding_dimensions().unwrap());
         assert_eq!(schema.version, 1);
     }
     
@@ -336,7 +354,7 @@ mod tests {
             end_line: 1,
         };
         
-        let embedding = vec![0.1f32; Config::embedding_dimensions().unwrap_or(768)];
+        let embedding = vec![0.1f32; Config::embedding_dimensions().unwrap()];
         let result = storage.insert_embedding("test.rs", 0, &chunk, embedding).await;
         assert!(result.is_ok());
         
@@ -356,14 +374,14 @@ mod tests {
         let chunk1 = Chunk { content: "fn test1() {}".to_string(), start_line: 1, end_line: 1 };
         let chunk2 = Chunk { content: "fn test2() {}".to_string(), start_line: 3, end_line: 3 };
         
-        let embedding1 = vec![1.0f32; Config::embedding_dimensions().unwrap_or(768)];
-        let embedding2 = vec![0.5f32; Config::embedding_dimensions().unwrap_or(768)];
+        let embedding1 = vec![1.0f32; Config::embedding_dimensions().unwrap()];
+        let embedding2 = vec![0.5f32; Config::embedding_dimensions().unwrap()];
         
         storage.insert_embedding("test.rs", 0, &chunk1, embedding1.clone()).await.unwrap();
         storage.insert_embedding("test.rs", 1, &chunk2, embedding2).await.unwrap();
         
         // Search with query similar to embedding1
-        let query = vec![1.0f32; Config::embedding_dimensions().unwrap_or(768)];
+        let query = vec![1.0f32; Config::embedding_dimensions().unwrap()];
         let results = storage.search_similar(query, 2).await.unwrap();
         
         assert_eq!(results.len(), 2);

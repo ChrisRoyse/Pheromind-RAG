@@ -31,13 +31,13 @@ mod bm25_core {
         engine.add_document(doc).unwrap();
         
         // Verify search works
-        let results = engine.search("function", 5);
+        let results = engine.search("function", 5).expect("Search must succeed in test");
         assert_eq!(results.len(), 1);
         assert_eq!(results[0].doc_id, "test");
         
         // Verify empty query handling
-        assert_eq!(engine.search("", 5).len(), 0);
-        assert_eq!(engine.search("   ", 5).len(), 0);
+        assert_eq!(engine.search("", 5).expect("Empty search must succeed").len(), 0);
+        assert_eq!(engine.search("   ", 5).expect("Whitespace search must succeed").len(), 0);
     }
 
     #[test]
@@ -106,7 +106,7 @@ mod bm25_core {
         engine.add_document(doc1).unwrap();
         engine.add_document(doc2).unwrap();
         
-        let results = engine.search("search", 5);
+        let results = engine.search("search", 5).expect("Search must succeed in test");
         assert_eq!(results.len(), 2);
         
         // Due to term frequency saturation (BM25 k1 parameter), the document with
@@ -159,7 +159,7 @@ mod chunking_core {
 
     #[test]
     fn regex_chunking() {
-        let chunker = SimpleRegexChunker::with_chunk_size(100);
+        let chunker = SimpleRegexChunker::with_chunk_size(100).expect("Failed to create chunker");
         let content = "fn main() {\n    println!(\"hello\");\n}\n\nfn test() {\n    assert_eq!(1, 1);\n}";
         
         let chunks = chunker.chunk_file(content);
@@ -173,7 +173,7 @@ mod chunking_core {
 
     #[test]
     fn chunking_overlap() {
-        let chunker = SimpleRegexChunker::with_chunk_size(50);
+        let chunker = SimpleRegexChunker::with_chunk_size(50).expect("Failed to create chunker");
         let content = "a".repeat(150); // 150 chars
         
         let chunks = chunker.chunk_file(&content);
@@ -192,7 +192,7 @@ mod config_core {
 
     #[test]
     fn config_default() {
-        let config = Config::default();
+        let config = Config::new_test_config();
         // Basic config validation
         assert!(!config.project_path.as_os_str().is_empty());
     }

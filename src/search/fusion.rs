@@ -74,9 +74,14 @@ impl SimpleFusion {
             if !file_has_exact {
                 let key = format!("{}-{}", semantic.file_path, semantic.chunk_index);
                 if seen.insert(key) {
-                    // Calculate similarity score based on position in results
-                    // Closer matches (lower index) get higher scores
-                    let similarity = 1.0 - (idx as f32 / 100.0);
+                    // Use actual similarity score from vector search, skip if missing
+                    let similarity = match semantic.similarity_score {
+                        Some(score) => score,
+                        None => {
+                            log::error!("Semantic match for file '{}' chunk {} missing required similarity score. Skipping match.", semantic.file_path, semantic.chunk_index);
+                            continue;
+                        }
+                    };
                     
                     results.push(FusedResult {
                         file_path: semantic.file_path,
@@ -92,8 +97,22 @@ impl SimpleFusion {
             }
         }
         
-        // Sort by score descending
-        results.sort_by(|a, b| b.score.partial_cmp(&a.score).unwrap());
+        // Sort by score descending, handling potential NaN values
+        results.sort_by(|a, b| {
+            match b.score.partial_cmp(&a.score) {
+                Some(ordering) => ordering,
+                None => {
+                    // Handle NaN case - prefer the non-NaN value
+                    if b.score.is_nan() && a.score.is_nan() {
+                        std::cmp::Ordering::Equal
+                    } else if b.score.is_nan() {
+                        std::cmp::Ordering::Greater // a comes first (a is not NaN)
+                    } else {
+                        std::cmp::Ordering::Less // b comes first (b is not NaN)
+                    }
+                }
+            }
+        });
         
         // Take top 20 results
         results.truncate(20);
@@ -157,8 +176,14 @@ impl SimpleFusion {
             if !file_has_better_match {
                 let key = format!("{}-{}", semantic.file_path, semantic.chunk_index);
                 if seen.insert(key) {
-                    // Calculate similarity score based on position in results
-                    let similarity = 1.0 - (idx as f32 / 100.0);
+                    // Use actual similarity score from vector search, skip if missing
+                    let similarity = match semantic.similarity_score {
+                        Some(score) => score,
+                        None => {
+                            log::error!("Semantic match for file '{}' chunk {} missing required similarity score. Skipping match.", semantic.file_path, semantic.chunk_index);
+                            continue;
+                        }
+                    };
                     
                     results.push(FusedResult {
                         file_path: semantic.file_path,
@@ -174,8 +199,22 @@ impl SimpleFusion {
             }
         }
         
-        // Sort by score descending
-        results.sort_by(|a, b| b.score.partial_cmp(&a.score).unwrap());
+        // Sort by score descending, handling potential NaN values
+        results.sort_by(|a, b| {
+            match b.score.partial_cmp(&a.score) {
+                Some(ordering) => ordering,
+                None => {
+                    // Handle NaN case - prefer the non-NaN value
+                    if b.score.is_nan() && a.score.is_nan() {
+                        std::cmp::Ordering::Equal
+                    } else if b.score.is_nan() {
+                        std::cmp::Ordering::Greater // a comes first (a is not NaN)
+                    } else {
+                        std::cmp::Ordering::Less // b comes first (b is not NaN)
+                    }
+                }
+            }
+        });
         
         // Take top 20 results
         results.truncate(20);
@@ -271,8 +310,14 @@ impl SimpleFusion {
             if !file_has_better_match {
                 let key = format!("{}-{}", semantic.file_path, semantic.chunk_index);
                 if seen.insert(key) {
-                    // Calculate similarity score based on position in results
-                    let similarity = 1.0 - (idx as f32 / 100.0);
+                    // Use actual similarity score from vector search, skip if missing
+                    let similarity = match semantic.similarity_score {
+                        Some(score) => score,
+                        None => {
+                            log::error!("Semantic match for file '{}' chunk {} missing required similarity score. Skipping match.", semantic.file_path, semantic.chunk_index);
+                            continue;
+                        }
+                    };
                     
                     results.push(FusedResult {
                         file_path: semantic.file_path,
@@ -292,14 +337,24 @@ impl SimpleFusion {
         self.apply_weighted_fusion(&mut results, 0.4, 0.25, 0.25, 0.1);
         
         // Sort by final score
-        results.sort_by(|a, b| b.score.partial_cmp(&a.score).unwrap());
+        results.sort_by(|a, b| {
+            b.score.partial_cmp(&a.score).unwrap_or_else(|| {
+                // Handle NaN values explicitly - NaN scores indicate corrupted data
+                match (b.score.is_nan(), a.score.is_nan()) {
+                    (true, true) => std::cmp::Ordering::Equal,
+                    (true, false) => std::cmp::Ordering::Greater, // Non-NaN comes first
+                    (false, true) => std::cmp::Ordering::Less,    // Non-NaN comes first
+                    (false, false) => std::cmp::Ordering::Equal, // This shouldn't happen with partial_cmp
+                }
+            })
+        });
         
         // Take top 20 results
         results.truncate(20);
         results
     }
     
-    /// Fallback fusion for core functionality (BM25 + Exact matches only)
+    /// Core fusion functionality (BM25 + Exact matches only) - no fallbacks
     pub fn fuse_results_core(
         &self,
         exact_matches: Vec<ExactMatch>,
@@ -353,8 +408,22 @@ impl SimpleFusion {
             }
         }
         
-        // Sort by score descending
-        results.sort_by(|a, b| b.score.partial_cmp(&a.score).unwrap());
+        // Sort by score descending, handling potential NaN values
+        results.sort_by(|a, b| {
+            match b.score.partial_cmp(&a.score) {
+                Some(ordering) => ordering,
+                None => {
+                    // Handle NaN case - prefer the non-NaN value
+                    if b.score.is_nan() && a.score.is_nan() {
+                        std::cmp::Ordering::Equal
+                    } else if b.score.is_nan() {
+                        std::cmp::Ordering::Greater // a comes first (a is not NaN)
+                    } else {
+                        std::cmp::Ordering::Less // b comes first (b is not NaN)
+                    }
+                }
+            }
+        });
         
         // Take top 20 results
         results.truncate(20);
@@ -415,10 +484,15 @@ impl SimpleFusion {
             }
             
             // STRONG boost for exact filename matches
-            let filename = std::path::Path::new(&result.file_path)
+            let filename = match std::path::Path::new(&result.file_path)
                 .file_name()
-                .and_then(|n| n.to_str())
-                .unwrap_or("");
+                .and_then(|n| n.to_str()) {
+                    Some(name) => name,
+                    None => {
+                        log::error!("Invalid filename in path: {}. File path contains invalid UTF-8 characters.", result.file_path);
+                        continue; // Skip this result
+                    }
+                };
             let filename_lower = filename.to_lowercase();
             
             if filename_lower.contains(&query_lower) {
@@ -521,7 +595,17 @@ impl SimpleFusion {
         }
         
         // Re-sort after optimization
-        results.sort_by(|a, b| b.score.partial_cmp(&a.score).unwrap());
+        results.sort_by(|a, b| {
+            b.score.partial_cmp(&a.score).unwrap_or_else(|| {
+                // Handle NaN values explicitly - NaN scores indicate corrupted data
+                match (b.score.is_nan(), a.score.is_nan()) {
+                    (true, true) => std::cmp::Ordering::Equal,
+                    (true, false) => std::cmp::Ordering::Greater, // Non-NaN comes first
+                    (false, true) => std::cmp::Ordering::Less,    // Non-NaN comes first
+                    (false, false) => std::cmp::Ordering::Equal, // This shouldn't happen with partial_cmp
+                }
+            })
+        });
     }
     
     fn is_identifier_match(&self, line: &str, word: &str) -> bool {
@@ -554,11 +638,15 @@ impl SimpleFusion {
     
     fn is_test_file(&self, path: &str) -> bool {
         let path_lower = path.to_lowercase();
-        let filename = std::path::Path::new(&path)
+        let filename = match std::path::Path::new(&path)
             .file_name()
-            .and_then(|n| n.to_str())
-            .unwrap_or("")
-            .to_lowercase();
+            .and_then(|n| n.to_str()) {
+                Some(name) => name.to_lowercase(),
+                None => {
+                    log::error!("Invalid filename in path: {}. File path contains invalid UTF-8 characters.", path);
+                    return false; // Treat as not a test file if path is invalid
+                }
+            };
         
         // Check for test indicators in path or filename
         path_lower.contains("/test") || 

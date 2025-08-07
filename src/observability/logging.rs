@@ -88,8 +88,14 @@ pub fn init_logging(config: LogConfig) -> Result<(), Box<dyn std::error::Error +
     let env_filter = if let Some(filter) = &config.filter {
         EnvFilter::try_new(filter)?
     } else {
-        EnvFilter::try_from_default_env()
-            .unwrap_or_else(|_| EnvFilter::new(config.level.to_string().to_lowercase()))
+        // Try to read from environment variable first
+        match EnvFilter::try_from_default_env() {
+            Ok(env_filter) => env_filter,
+            Err(_) => {
+                // No RUST_LOG environment variable set - use configured level
+                EnvFilter::new(config.level.to_string().to_lowercase())
+            }
+        }
     };
 
     if config.json_format {

@@ -46,18 +46,22 @@ pub struct MemoryMonitor {
 }
 
 impl MemoryMonitor {
-    pub fn new() -> Self {
+    pub fn new() -> Result<Self, crate::error::EmbedError> {
         let mut system = System::new_all();
         system.refresh_all();
         
-        let process_pid = sysinfo::get_current_pid().unwrap_or(Pid::from(0));
+        let process_pid = sysinfo::get_current_pid()
+            .ok_or_else(|| crate::error::EmbedError::Internal {
+                message: "Unable to get current process PID for memory monitoring".to_string(),
+                backtrace: None,
+            })?;
         
-        Self {
+        Ok(Self {
             system: Arc::new(Mutex::new(system)),
             last_update: Arc::new(Mutex::new(Instant::now())),
             update_interval: Duration::from_secs(5),
             process_pid,
-        }
+        })
     }
 
     pub fn with_update_interval(mut self, interval: Duration) -> Self {
@@ -66,10 +70,14 @@ impl MemoryMonitor {
     }
 
     /// Get current memory usage information
-    pub fn get_memory_usage(&self) -> MemoryUsage {
-        self.refresh_if_needed();
+    pub fn get_memory_usage(&self) -> Result<MemoryUsage, crate::error::EmbedError> {
+        self.refresh_if_needed()?;
         
-        let system = self.system.lock().unwrap();
+        let system = self.system.lock()
+            .map_err(|_| crate::error::EmbedError::Internal {
+                message: "Failed to acquire system lock for memory monitoring".to_string(),
+                backtrace: None,
+            })?;
         
         let total_memory = system.total_memory();
         let available_memory = system.available_memory();
@@ -78,50 +86,60 @@ impl MemoryMonitor {
         let process_memory = system
             .process(self.process_pid)
             .map(|p| p.memory())
-            .unwrap_or(0);
+            .ok_or_else(|| crate::error::EmbedError::Internal {
+                message: format!("Unable to read memory usage for process PID {}", self.process_pid),
+                backtrace: None,
+            })?;
         
         let usage_percent = (used_memory as f64 / total_memory as f64) * 100.0;
         let memory_pressure = MemoryPressure::from_usage_percent(usage_percent);
         
-        MemoryUsage {
+        Ok(MemoryUsage {
             total_memory,
             available_memory,
             used_memory,
             process_memory,
             memory_pressure,
-        }
+        })
     }
 
     /// Check if system is under memory pressure
-    pub fn is_under_pressure(&self) -> bool {
-        matches!(self.get_memory_usage().memory_pressure, 
-                 MemoryPressure::High | MemoryPressure::Critical)
+    pub fn is_under_pressure(&self) -> Result<bool, crate::error::EmbedError> {
+        let usage = self.get_memory_usage()?;
+        Ok(matches!(usage.memory_pressure, 
+                    MemoryPressure::High | MemoryPressure::Critical))
     }
 
     /// Get memory pressure level
-    pub fn get_memory_pressure(&self) -> MemoryPressure {
-        self.get_memory_usage().memory_pressure
+    pub fn get_memory_pressure(&self) -> Result<MemoryPressure, crate::error::EmbedError> {
+        Ok(self.get_memory_usage()?.memory_pressure)
     }
 
     /// Refresh system information if enough time has passed
-    fn refresh_if_needed(&self) {
+    fn refresh_if_needed(&self) -> Result<(), crate::error::EmbedError> {
         let now = Instant::now();
-        let mut last_update = self.last_update.lock().unwrap();
+        let mut last_update = self.last_update.lock()
+            .map_err(|_| crate::error::EmbedError::Internal {
+                message: "Failed to acquire last_update lock for memory monitoring".to_string(),
+                backtrace: None,
+            })?;
         
         if now.duration_since(*last_update) >= self.update_interval {
-            let mut system = self.system.lock().unwrap();
+            let mut system = self.system.lock()
+                .map_err(|_| crate::error::EmbedError::Internal {
+                    message: "Failed to acquire system lock for memory monitoring".to_string(),
+                    backtrace: None,
+                })?;
             system.refresh_memory();
             system.refresh_processes();
             *last_update = now;
         }
+        Ok(())
     }
 }
 
-impl Default for MemoryMonitor {
-    fn default() -> Self {
-        Self::new()
-    }
-}
+// Default implementation removed - MemoryMonitor creation can fail
+// and must be handled explicitly
 
 /// Adaptive cache controller that adjusts cache sizes based on memory pressure
 pub struct CacheController {
@@ -132,13 +150,13 @@ pub struct CacheController {
 }
 
 impl CacheController {
-    pub fn new(base_cache_size: usize) -> Self {
-        Self {
-            memory_monitor: MemoryMonitor::new(),
+    pub fn new(base_cache_size: usize) -> Result<Self, crate::error::EmbedError> {
+        Ok(Self {
+            memory_monitor: MemoryMonitor::new()?,
             base_cache_size,
             min_cache_size: base_cache_size / 4,
             max_cache_size: base_cache_size * 2,
-        }
+        })
     }
 
     pub fn with_size_bounds(mut self, min_size: usize, max_size: usize) -> Self {
@@ -148,10 +166,10 @@ impl CacheController {
     }
 
     /// Calculate optimal cache size based on current memory pressure
-    pub fn calculate_optimal_cache_size(&self) -> usize {
-        let memory_usage = self.memory_monitor.get_memory_usage();
+    pub fn calculate_optimal_cache_size(&self) -> Result<usize, crate::error::EmbedError> {
+        let memory_usage = self.memory_monitor.get_memory_usage()?;
         
-        match memory_usage.memory_pressure {
+        let size = match memory_usage.memory_pressure {
             MemoryPressure::Low => {
                 // Low pressure: can use larger cache
                 debug!("Memory pressure: Low - using larger cache size");
@@ -172,27 +190,31 @@ impl CacheController {
                 warn!("Memory pressure: Critical - using minimum cache size");
                 self.min_cache_size
             }
-        }
+        };
+        Ok(size)
     }
 
     /// Create an adaptive LRU cache that adjusts its size based on memory pressure
-    pub fn create_adaptive_cache<K, V>(&self) -> AdaptiveCache<K, V>
+    pub fn create_adaptive_cache<K, V>(&self) -> Result<AdaptiveCache<K, V>, crate::error::EmbedError>
     where
         K: std::hash::Hash + Eq,
     {
-        let initial_size = self.calculate_optimal_cache_size();
-        AdaptiveCache::new(initial_size, self.clone())
+        let initial_size = self.calculate_optimal_cache_size()?;
+        // Create a new controller with the same configuration
+        let new_controller = Self::new(self.base_cache_size)?
+            .with_size_bounds(self.min_cache_size, self.max_cache_size);
+        Ok(AdaptiveCache::new(initial_size, new_controller)?)
     }
 
     /// Check if caches should be trimmed due to memory pressure
-    pub fn should_trim_caches(&self) -> bool {
-        matches!(self.memory_monitor.get_memory_pressure(),
-                 MemoryPressure::High | MemoryPressure::Critical)
+    pub fn should_trim_caches(&self) -> Result<bool, crate::error::EmbedError> {
+        let pressure = self.memory_monitor.get_memory_pressure()?;
+        Ok(matches!(pressure, MemoryPressure::High | MemoryPressure::Critical))
     }
 
     /// Log current memory status
-    pub fn log_memory_status(&self) {
-        let usage = self.memory_monitor.get_memory_usage();
+    pub fn log_memory_status(&self) -> Result<(), crate::error::EmbedError> {
+        let usage = self.memory_monitor.get_memory_usage()?;
         let usage_percent = (usage.used_memory as f64 / usage.total_memory as f64) * 100.0;
         
         info!(
@@ -204,19 +226,12 @@ impl CacheController {
             usage.process_memory / 1024 / 1024,
             usage.memory_pressure
         );
+        Ok(())
     }
 }
 
-impl Clone for CacheController {
-    fn clone(&self) -> Self {
-        Self {
-            memory_monitor: MemoryMonitor::new(),
-            base_cache_size: self.base_cache_size,
-            min_cache_size: self.min_cache_size,
-            max_cache_size: self.max_cache_size,
-        }
-    }
-}
+// Clone implementation removed - CacheController cannot be safely cloned
+// due to memory monitor initialization that can fail
 
 /// Adaptive LRU cache that automatically adjusts its size based on memory pressure
 pub struct AdaptiveCache<K, V>
@@ -233,27 +248,32 @@ impl<K, V> AdaptiveCache<K, V>
 where
     K: std::hash::Hash + Eq,
 {
-    pub fn new(initial_capacity: usize, controller: CacheController) -> Self {
-        let capacity = NonZeroUsize::new(initial_capacity.max(1)).unwrap();
+    pub fn new(initial_capacity: usize, controller: CacheController) -> Result<Self, crate::error::EmbedError> {
+        let capacity = NonZeroUsize::new(initial_capacity.max(1))
+            .ok_or_else(|| crate::error::EmbedError::Validation {
+                field: "initial_capacity".to_string(),
+                reason: "Cache capacity must be greater than 0".to_string(),
+                value: Some(initial_capacity.to_string()),
+            })?;
         
-        Self {
+        Ok(Self {
             cache: LruCache::new(capacity),
             controller,
             last_resize: Instant::now(),
             resize_interval: Duration::from_secs(30),
-        }
+        })
     }
 
     /// Get a value from the cache
-    pub fn get(&mut self, key: &K) -> Option<&V> {
-        self.maybe_resize();
-        self.cache.get(key)
+    pub fn get(&mut self, key: &K) -> Result<Option<&V>, crate::error::EmbedError> {
+        self.maybe_resize()?;
+        Ok(self.cache.get(key))
     }
 
     /// Put a value into the cache
-    pub fn put(&mut self, key: K, value: V) -> Option<V> {
-        self.maybe_resize();
-        self.cache.put(key, value)
+    pub fn put(&mut self, key: K, value: V) -> Result<Option<V>, crate::error::EmbedError> {
+        self.maybe_resize()?;
+        Ok(self.cache.put(key, value))
     }
 
     /// Get current cache size
@@ -277,8 +297,8 @@ where
     }
 
     /// Manually trigger cache resize based on current memory pressure
-    pub fn resize(&mut self) {
-        let optimal_size = self.controller.calculate_optimal_cache_size();
+    pub fn resize(&mut self) -> Result<(), crate::error::EmbedError> {
+        let optimal_size = self.controller.calculate_optimal_cache_size()?;
         let current_size = self.cache.cap().get();
         
         if optimal_size != current_size {
@@ -287,18 +307,24 @@ where
                 current_size, optimal_size
             );
             
-            let new_capacity = NonZeroUsize::new(optimal_size.max(1)).unwrap();
+            let new_capacity = NonZeroUsize::new(optimal_size.max(1))
+                .ok_or_else(|| crate::error::EmbedError::Internal {
+                    message: format!("Cache resize capacity {} is invalid", optimal_size),
+                    backtrace: None,
+                })?;
             self.cache.resize(new_capacity);
         }
         
         self.last_resize = Instant::now();
+        Ok(())
     }
 
     /// Maybe resize the cache if enough time has passed
-    fn maybe_resize(&mut self) {
+    fn maybe_resize(&mut self) -> Result<(), crate::error::EmbedError> {
         if self.last_resize.elapsed() >= self.resize_interval {
-            self.resize();
+            self.resize()?;
         }
+        Ok(())
     }
 }
 
@@ -308,8 +334,8 @@ mod tests {
 
     #[test]
     fn test_memory_monitor() {
-        let monitor = MemoryMonitor::new();
-        let usage = monitor.get_memory_usage();
+        let monitor = MemoryMonitor::new().unwrap();
+        let usage = monitor.get_memory_usage().unwrap();
         
         assert!(usage.total_memory > 0);
         assert!(usage.available_memory <= usage.total_memory);
@@ -326,8 +352,8 @@ mod tests {
 
     #[test]
     fn test_cache_controller() {
-        let controller = CacheController::new(1000);
-        let cache_size = controller.calculate_optimal_cache_size();
+        let controller = CacheController::new(1000).unwrap();
+        let cache_size = controller.calculate_optimal_cache_size().unwrap();
         
         // Cache size should be within reasonable bounds
         assert!(cache_size > 0);
@@ -337,14 +363,14 @@ mod tests {
 
     #[test]
     fn test_adaptive_cache() {
-        let controller = CacheController::new(100);
-        let mut cache = controller.create_adaptive_cache::<String, i32>();
+        let controller = CacheController::new(100).unwrap();
+        let mut cache = controller.create_adaptive_cache::<String, i32>().unwrap();
         
-        cache.put("key1".to_string(), 1);
-        cache.put("key2".to_string(), 2);
+        cache.put("key1".to_string(), 1).unwrap();
+        cache.put("key2".to_string(), 2).unwrap();
         
-        assert_eq!(cache.get(&"key1".to_string()), Some(&1));
-        assert_eq!(cache.get(&"key2".to_string()), Some(&2));
+        assert_eq!(cache.get(&"key1".to_string()).unwrap(), Some(&1));
+        assert_eq!(cache.get(&"key2".to_string()).unwrap(), Some(&2));
         assert_eq!(cache.len(), 2);
     }
 }

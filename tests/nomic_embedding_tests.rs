@@ -82,9 +82,8 @@ async fn test_nomic_caching() {
     // Embeddings should be identical
     assert_eq!(embedding1, embedding2);
     
-    // Note: Since we're using placeholder embeddings for now,
-    // both calls will be fast. Once real GGUF is implemented,
-    // cached call should be significantly faster
+    // Note: With real GGUF implementation, cached calls should be 
+    // significantly faster than initial computation
     println!("First call: {:?}, Cached call: {:?}", first_duration, cached_duration);
 }
 
@@ -134,8 +133,7 @@ async fn test_nomic_performance() {
     let embeddings_per_sec = 100.0 / duration.as_secs_f64();
     println!("Performance: {:.1} embeddings/second", embeddings_per_sec);
     
-    // Should meet performance target (200+ embeddings/sec with real model)
-    // With placeholder implementation, this will be much faster
+    // Should meet performance target (200+ embeddings/sec with real GGUF model)
 }
 
 #[cfg(feature = "ml")]
@@ -168,7 +166,7 @@ async fn test_nomic_memory_usage() {
     let pid = Pid::from_u32(std::process::id());
     let initial_memory = system.process(pid)
         .map(|p| p.memory())
-        .unwrap_or(0);
+        .expect("Failed to get initial memory usage - cannot perform memory monitoring test");
     
     // Initialize embedder
     let embedder = NomicEmbedder::get_global().unwrap();
@@ -184,7 +182,7 @@ async fn test_nomic_memory_usage() {
     system.refresh_processes();
     let final_memory = system.process(pid)
         .map(|p| p.memory())
-        .unwrap_or(0);
+        .expect("Failed to get final memory usage - cannot complete memory monitoring test");
     
     let memory_increase_mb = (final_memory - initial_memory) as f64 / 1024.0;
     println!("Memory increase: {:.1} MB", memory_increase_mb);

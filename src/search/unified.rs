@@ -95,18 +95,18 @@ impl UnifiedSearcher {
         #[cfg(feature = "tree-sitter")]
         let symbol_db = Arc::new(RwLock::new(SymbolDatabase::new()));
         
-        // Load configuration
-        let config = Config::default();
+        // Load configuration - must succeed, no defaults
+        let config = Config::load()
+            .map_err(|e| anyhow::anyhow!("Failed to load configuration: {}. Configuration is required for proper operation.", e))?;
         
         // Initialize BM25 components
         let bm25_engine = Arc::new(RwLock::new(BM25Engine::with_params(config.bm25_k1, config.bm25_b)));
         let bm25_index_path = db_path.join(&config.bm25_index_path);
         let mut inverted_index = InvertedIndex::new(bm25_index_path, config.bm25_cache_size)?;
         
-        // Try to load existing index
-        if let Err(e) = inverted_index.load().await {
-            println!("⚠️ Could not load existing BM25 index: {}. Starting fresh.", e);
-        }
+        // Load existing index - corruption or IO failures are fatal
+        inverted_index.load().await
+            .map_err(|e| anyhow::anyhow!("Failed to load BM25 index: {}. Index corruption is not acceptable.", e))?;
         
         let inverted_index = Arc::new(RwLock::new(inverted_index));
         let text_processor = CodeTextProcessor::with_config(
@@ -148,7 +148,7 @@ impl UnifiedSearcher {
             inverted_index,
             text_processor,
             bm25_enabled,
-            chunker: SimpleRegexChunker::new(),
+            chunker: SimpleRegexChunker::new()?,
             fusion: SimpleFusion::new(),
             preprocessor: QueryPreprocessor::new(),
             cache: SearchCache::new(100),
@@ -168,10 +168,19 @@ impl UnifiedSearcher {
         let processed_query = self.preprocessor.preprocess(query);
         println!("🔍 Searching for: '{}' (preprocessed: '{}')", query, processed_query);
         
+        // Check feature availability first
+        #[cfg(not(all(feature = "tantivy", feature = "vectordb", feature = "tree-sitter")))]
+        {
+            return Err(anyhow::anyhow!(
+                "Incomplete search configuration. This system requires all features (tantivy, vectordb, tree-sitter) to be enabled. \
+                Current configuration has incomplete capabilities and cannot provide reliable search results."
+            ));
+        }
+
         // Run searches based on available features
-        let mut fused = if self.bm25_enabled {
-            #[cfg(all(feature = "tantivy", feature = "vectordb", feature = "tree-sitter"))]
-            {
+        #[cfg(all(feature = "tantivy", feature = "vectordb", feature = "tree-sitter"))]
+        {
+            let mut fused = if self.bm25_enabled {
                 // Run ALL FOUR searches in parallel
                 let (exact_matches, semantic_matches, symbol_matches, bm25_matches) = tokio::join!(
                     self.search_exact(&processed_query),
@@ -190,36 +199,7 @@ impl UnifiedSearcher {
                 
                 // Fuse all four types of results
                 self.fusion.fuse_all_results_with_bm25(exact_matches, semantic_matches, symbol_matches, bm25_matches)
-            }
-            #[cfg(not(all(feature = "tantivy", feature = "vectordb", feature = "tree-sitter")))]
-            {
-                // Fallback to BM25 only when other features are missing
-                let bm25_matches = self.search_bm25(&processed_query).await?;
-                println!("📊 Found {} BM25 matches (limited features)", bm25_matches.len());
-                
-                // Convert BM25 matches to fused results using inverted index
-                let mut results = Vec::new();
-                let index = self.inverted_index.read().await;
-                
-                for bm25_match in bm25_matches {
-                    if let Some(doc_metadata) = index.get_document_metadata(&bm25_match.doc_id) {
-                        results.push(FusedResult {
-                            file_path: doc_metadata.file_path.clone(),
-                            score: bm25_match.score,
-                            match_type: MatchType::Statistical,
-                            line_number: Some(doc_metadata.chunk_index * 50), // Approximate line from chunk
-                            start_line: doc_metadata.chunk_index * 50,
-                            end_line: (doc_metadata.chunk_index + 1) * 50,
-                            chunk_index: Some(doc_metadata.chunk_index),
-                            content: format!("BM25 match in {} (score: {:.3})", doc_metadata.file_path, bm25_match.score),
-                        });
-                    }
-                }
-                results
-            }
-        } else {
-            #[cfg(all(feature = "tantivy", feature = "vectordb", feature = "tree-sitter"))]
-            {
+            } else {
                 // Run original three searches
                 let (exact_matches, semantic_matches, symbol_matches) = tokio::join!(
                     self.search_exact(&processed_query),
@@ -236,32 +216,32 @@ impl UnifiedSearcher {
                 
                 // Fuse three types of results
                 self.fusion.fuse_all_results(exact_matches, semantic_matches, symbol_matches)
+            };
+            
+            // Optimize ranking
+            self.fusion.optimize_ranking(&mut fused, &processed_query);
+            
+            // Expand to 3-chunk contexts - all expansions must succeed
+            let mut results = Vec::new();
+            for fused_match in fused {
+                let result = self.expand_to_three_chunk(fused_match).await
+                    .map_err(|e| anyhow::anyhow!("Failed to expand chunk context: {}. Search results incomplete.", e))?;
+                results.push(result);
             }
-            #[cfg(not(all(feature = "tantivy", feature = "vectordb", feature = "tree-sitter")))]
-            {
-                // Minimal functionality fallback
-                println!("📊 Running with minimal features enabled");
-                Vec::new()
-            }
-        };
-        
-        // Optimize ranking
-        self.fusion.optimize_ranking(&mut fused, &processed_query);
-        
-        // Expand to 3-chunk contexts
-        let mut results = Vec::new();
-        for fused_match in fused {
-            match self.expand_to_three_chunk(fused_match).await {
-                Ok(result) => results.push(result),
-                Err(e) => eprintln!("⚠️  Failed to expand chunk: {}", e),
-            }
+            
+            // Cache results for performance optimization
+            self.cache.insert(query.to_string(), results.clone())
+                .map_err(|e| anyhow::anyhow!("Failed to cache search results: {}. Search completed but caching failed.", e))?;
+            
+            println!("✅ Returning {} search results", results.len());
+            Ok(results)
         }
         
-        // Cache results
-        self.cache.insert(query.to_string(), results.clone());
-        
-        println!("✅ Returning {} search results", results.len());
-        Ok(results)
+        #[cfg(not(all(feature = "tantivy", feature = "vectordb", feature = "tree-sitter")))]
+        {
+            // This code is unreachable due to the early return above, but needed for compilation
+            unreachable!("Feature check should have returned early")
+        }
     }
     
     #[allow(dead_code)]
@@ -273,7 +253,7 @@ impl UnifiedSearcher {
         }
         #[cfg(not(feature = "tantivy"))]
         {
-            Ok(Vec::new())
+            Err(anyhow::anyhow!("Exact search not available: tantivy feature not enabled. Please enable the tantivy feature to use exact search."))
         }
     }
     
@@ -292,7 +272,7 @@ impl UnifiedSearcher {
     #[cfg(not(all(feature = "ml", feature = "vectordb")))]
     #[allow(dead_code)]
     async fn search_semantic(&self, _query: &str) -> Result<Vec<()>> {
-        Ok(Vec::new())
+        Err(anyhow::anyhow!("Semantic search not available: ml and vectordb features not enabled. Please enable both features to use semantic search."))
     }
     
     #[cfg(feature = "tree-sitter")]
@@ -315,16 +295,16 @@ impl UnifiedSearcher {
     #[cfg(not(feature = "tree-sitter"))]
     #[allow(dead_code)]
     async fn search_symbols(&self, _query: &str) -> Result<Vec<()>> {
-        Ok(Vec::new())
+        Err(anyhow::anyhow!("Symbol search not available: tree-sitter feature not enabled. Please enable the tree-sitter feature to use symbol search."))
     }
     
     async fn search_bm25(&self, query: &str) -> Result<Vec<BM25Match>> {
         if !self.bm25_enabled {
-            return Ok(Vec::new());
+            return Err(anyhow::anyhow!("BM25 search is disabled in configuration. Enable bm25_enabled in config to use statistical search."));
         }
         
         let engine = self.bm25_engine.read().await;
-        Ok(engine.search(query, 50))  // Get top 50 BM25 matches
+        engine.search(query, 50)  // Get top 50 BM25 matches with proper error handling
     }
     
     async fn expand_to_three_chunk(&self, fused_match: FusedResult) -> Result<SearchResult> {
@@ -339,23 +319,37 @@ impl UnifiedSearcher {
         let content = tokio::fs::read_to_string(&full_path).await?;
         let chunks = self.chunker.chunk_file(&content);
         
-        // Find the relevant chunk
+        // Find the relevant chunk - all methods must succeed
         let chunk_idx = match fused_match.match_type {
             MatchType::Exact => {
                 // Find chunk containing the line
-                self.find_chunk_for_line(&chunks, fused_match.line_number.unwrap_or(0))
+                let line_number = fused_match.line_number
+                    .ok_or_else(|| anyhow::anyhow!("Exact match missing required line number"))?;
+                self.find_chunk_for_line(&chunks, line_number)?
             },
             MatchType::Semantic => {
                 // Use the chunk index directly
-                fused_match.chunk_index.unwrap_or(0).min(chunks.len().saturating_sub(1))
+                let chunk_index = fused_match.chunk_index
+                    .ok_or_else(|| anyhow::anyhow!("Semantic match missing required chunk index"))?;
+                if chunk_index >= chunks.len() {
+                    return Err(anyhow::anyhow!("Semantic match chunk index {} exceeds file chunks ({})", chunk_index, chunks.len()));
+                }
+                chunk_index
             },
             MatchType::Symbol => {
                 // Find chunk containing the symbol's line
-                self.find_chunk_for_line(&chunks, fused_match.line_number.unwrap_or(fused_match.start_line))
+                let line_number = fused_match.line_number
+                    .ok_or_else(|| anyhow::anyhow!("Symbol match missing required line number and cannot use start_line as fallback"))?;
+                self.find_chunk_for_line(&chunks, line_number)?
             },
             MatchType::Statistical => {
                 // Use the chunk index from BM25 match
-                fused_match.chunk_index.unwrap_or(0).min(chunks.len().saturating_sub(1))
+                let chunk_index = fused_match.chunk_index
+                    .ok_or_else(|| anyhow::anyhow!("Statistical match missing required chunk index"))?;
+                if chunk_index >= chunks.len() {
+                    return Err(anyhow::anyhow!("Statistical match chunk index {} exceeds file chunks ({})", chunk_index, chunks.len()));
+                }
+                chunk_index
             }
         };
         
@@ -370,14 +364,13 @@ impl UnifiedSearcher {
         })
     }
     
-    fn find_chunk_for_line(&self, chunks: &[Chunk], line_number: usize) -> usize {
+    fn find_chunk_for_line(&self, chunks: &[Chunk], line_number: usize) -> Result<usize> {
         for (idx, chunk) in chunks.iter().enumerate() {
             if line_number >= chunk.start_line && line_number <= chunk.end_line {
-                return idx;
+                return Ok(idx);
             }
         }
-        // Default to first chunk if not found
-        0
+        Err(anyhow::anyhow!("Line number {} not found in any chunk. File structure may be inconsistent.", line_number))
     }
     
     pub async fn index_file(&self, file_path: &Path) -> Result<()> {
@@ -415,18 +408,16 @@ impl UnifiedSearcher {
             if let Some(lang) = language {
                 // Extract symbols using the indexer
                 let mut indexer = self.symbol_indexer.write().await;
-                match indexer.extract_symbols(&content, lang, file_path.to_str().unwrap_or("")) {
-                    Ok(symbols) => {
-                        if !symbols.is_empty() {
-                            // Add symbols to the database
-                            let mut db = self.symbol_db.write().await;
-                            db.add_symbols(symbols.clone());
-                            println!("🔍 Indexed {} symbols from {:?}", symbols.len(), file_path);
-                        }
-                    }
-                    Err(e) => {
-                        eprintln!("⚠️  Failed to extract symbols from {:?}: {}", file_path, e);
-                    }
+                let file_path_str = file_path.to_str()
+                    .ok_or_else(|| anyhow::anyhow!("File path contains invalid UTF-8 characters: {:?}", file_path))?;
+                let symbols = indexer.extract_symbols(&content, lang, file_path_str)
+                    .map_err(|e| anyhow::anyhow!("Failed to extract symbols from {:?}: {}. Symbol extraction must succeed for complete indexing.", file_path, e))?;
+                
+                if !symbols.is_empty() {
+                    // Add symbols to the database
+                    let mut db = self.symbol_db.write().await;
+                    db.add_symbols(symbols.clone());
+                    println!("🔍 Indexed {} symbols from {:?}", symbols.len(), file_path);
                 }
             }
         }
@@ -649,7 +640,9 @@ impl UnifiedSearcher {
             let storage = self.storage.write().await;
             storage.clear_all().await?;
         }
-        self.cache.clear();
+        // Clear cache - failures are fatal to maintain consistency
+        self.cache.clear()
+            .map_err(|e| anyhow::anyhow!("Failed to clear search cache: {}. Cache operations must complete successfully.", e))?;
         
         // Clear text searcher index
         #[cfg(feature = "tantivy")]

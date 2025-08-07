@@ -59,12 +59,21 @@ pub fn validate_phase1_safety() -> Result<()> {
     println!("🔍 Validating Phase 1 Safety Improvements...");
     
     // Test 1: Configuration safety
-    let config = Config::default();
+    let config = Config::load()
+        .map_err(|e| anyhow::anyhow!("Failed to load configuration for testing: {}", e))?;
     config.validate()?;
     println!("  ✅ Configuration validation passed");
     
     // Test 2: Storage safety (no unsafe impl)
-    let _storage = VectorStorage::new(StorageConfig::default())?;
+    #[cfg(test)]
+    let _storage = VectorStorage::new(StorageConfig::new_test_config())?;
+    #[cfg(not(test))]
+    let _storage = VectorStorage::new(StorageConfig {
+        max_vectors: 1_000_000,
+        dimension: 768,
+        cache_size: 10_000,
+        enable_compression: false,
+    })?;
     println!("  ✅ Storage created without unsafe code");
     
     // Test 3: Cache safety
