@@ -83,18 +83,25 @@ pub struct LoggingConfig {
     pub output: String,
 }
 
-impl Default for Config {
-    fn default() -> Self {
+// PRINCIPLE 0 ENFORCEMENT: No Default implementation allowed
+// Configuration MUST be explicitly provided - no fallback behavior permitted
+
+impl Config {
+    /// TEST-ONLY: Create explicit test configuration - NO DEFAULT BEHAVIOR
+    /// This function provides explicit values for all configuration fields
+    /// MUST NOT be used in production code
+    #[cfg(test)]
+    fn new_explicit_test_config() -> Self {
         Self {
             storage: StorageConfig {
                 backend: StorageBackend::Memory,
-                path: PathBuf::from("./data"),
+                path: PathBuf::from("./test_data"),
                 max_connections: 10,
                 connection_timeout_ms: 5000,
                 cache_size: 10000,
             },
             embedding: EmbeddingConfig {
-                model_path: PathBuf::from("./models/nomic-embed-text-v1.5.gguf"),
+                model_path: PathBuf::from("./test_models/nomic-embed-text-v1.5.gguf"),
                 model_type: "nomic".to_string(),
                 dimension: 768,
                 batch_size: 32,
@@ -120,9 +127,7 @@ impl Default for Config {
             },
         }
     }
-}
 
-impl Config {
     /// Load configuration from file with proper error handling
     pub fn load_from_file<P: AsRef<Path>>(path: P) -> Result<Self> {
         let path = path.as_ref();
@@ -559,8 +564,8 @@ mod tests {
     use tempfile::NamedTempFile;
     
     #[test]
-    fn test_default_config() {
-        let config = Config::default();
+    fn test_explicit_config() {
+        let config = Config::new_explicit_test_config();
         assert!(config.validate().is_ok());
     }
     
@@ -611,7 +616,7 @@ output = "stderr"
     
     #[test]
     fn test_invalid_config_validation() {
-        let mut config = Config::default();
+        let mut config = Config::new_explicit_test_config();
         config.embedding.dimension = 0;
         
         let result = config.validate();
@@ -621,7 +626,7 @@ output = "stderr"
     
     #[test]
     fn test_config_manager() {
-        let config = Config::default();
+        let config = Config::new_explicit_test_config();
         ConfigManager::init(config).unwrap();
         
         let retrieved = ConfigManager::get().unwrap();

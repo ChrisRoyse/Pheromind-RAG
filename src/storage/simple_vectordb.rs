@@ -167,8 +167,8 @@ impl VectorStorage {
             }
         }
         
-        // Use transaction for batch insert
-        let mut batch = sled::Batch::default();
+        // Use transaction for batch insert - explicitly create new batch
+        let mut batch = sled::Batch::new();
         
         for (file_path, chunk_index, chunk, embedding) in embeddings_data {
             let record = EmbeddingRecord {
@@ -191,7 +191,7 @@ impl VectorStorage {
     }
     
     pub async fn delete_by_file(&self, file_path: &str) -> Result<(), StorageError> {
-        let mut batch = sled::Batch::default();
+        let mut batch = sled::Batch::new();
         
         // Find all keys for this file
         for result in self.db.scan_prefix(b"embedding:") {
@@ -208,7 +208,7 @@ impl VectorStorage {
     }
     
     pub async fn clear_all(&self) -> Result<(), StorageError> {
-        let mut batch = sled::Batch::default();
+        let mut batch = sled::Batch::new();
         
         // Remove all embedding records but keep schema
         for result in self.db.scan_prefix(b"embedding:") {
@@ -263,21 +263,18 @@ impl VectorStorage {
             similarities.push((similarity, record));
         }
         
-        // Sort by similarity (descending), handling potential NaN values
-        similarities.sort_by(|a, b| {
-            match b.0.partial_cmp(&a.0) {
-                Some(ordering) => ordering,
-                None => {
-                    // Handle NaN case - prefer the non-NaN value
-                    if b.0.is_nan() && a.0.is_nan() {
-                        std::cmp::Ordering::Equal
-                    } else if b.0.is_nan() {
-                        std::cmp::Ordering::Greater // a comes first (a is not NaN)
-                    } else {
-                        std::cmp::Ordering::Less // b comes first (b is not NaN)
-                    }
-                }
+        // Validate all similarity scores are finite before sorting - PRINCIPLE 0: No NaN fallbacks
+        for (idx, (similarity, _)) in similarities.iter().enumerate() {
+            if !similarity.is_finite() {
+                return Err(StorageError::InvalidVector {
+                    reason: format!("Similarity calculation produced invalid result (NaN or infinite) at index {}. Score: {}. This indicates corrupted similarity computation and cannot be recovered from.", idx, similarity),
+                });
             }
+        }
+        
+        // Sort by similarity (descending) - safe after validation
+        similarities.sort_by(|a, b| {
+            b.0.partial_cmp(&a.0).unwrap() // Safe after validation
         });
         
         // Take top results

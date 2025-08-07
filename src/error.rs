@@ -134,6 +134,13 @@ pub enum EmbedError {
         message: String,
         backtrace: Option<String>,
     },
+    
+    #[error("Logging error: {message}")]
+    Logging {
+        message: String,
+        #[source]
+        source: Option<Box<dyn StdError + Send + Sync>>,
+    },
 }
 
 /// Result type alias for embed operations
@@ -231,6 +238,60 @@ pub enum SearchError {
         count: usize,
         limit: usize,
     },
+    
+    #[error("Invalid document ID format: {doc_id} - expected format 'filepath-chunkindex'")]
+    InvalidDocId {
+        doc_id: String,
+        expected_format: String,
+    },
+    
+    #[error("Data integrity violation: {issue} in file '{file_path}'")]
+    DataIntegrityViolation {
+        issue: String,
+        file_path: String,
+    },
+    
+    #[error("Missing required similarity score for {file_path} chunk {chunk_index}")]
+    MissingSimilarityScore {
+        file_path: String,
+        chunk_index: u32,
+    },
+    
+    #[error("Invalid file path with non-UTF8 characters: {path}")]
+    InvalidFilePath {
+        path: String,
+    },
+    
+    #[error("Corrupted data detected: {description}")]
+    CorruptedData {
+        description: String,
+    },
+}
+
+/// Logging-specific error type
+#[derive(Debug, Error)]
+pub enum LoggingError {
+    #[error("Logging initialization failed: {reason}")]
+    InitializationFailed {
+        reason: String,
+        config_detail: Option<String>,
+    },
+    
+    #[error("Invalid filter configuration: {filter}")]
+    InvalidFilter {
+        filter: String,
+        #[source]
+        source: Option<Box<dyn StdError + Send + Sync>>,
+    },
+    
+    #[error("Logger already initialized")]
+    AlreadyInitialized,
+    
+    #[error("Environment configuration error: {variable} is {}", if .value.is_some() { "set but invalid" } else { "not set" })]
+    EnvironmentError {
+        variable: String,
+        value: Option<String>,
+    },
 }
 
 // ==================== CONVERSION IMPLEMENTATIONS ====================
@@ -265,6 +326,15 @@ impl From<EmbeddingError> for EmbedError {
 impl From<SearchError> for EmbedError {
     fn from(err: SearchError) -> Self {
         EmbedError::Search {
+            message: err.to_string(),
+            source: Some(Box::new(err)),
+        }
+    }
+}
+
+impl From<LoggingError> for EmbedError {
+    fn from(err: LoggingError) -> Self {
+        EmbedError::Logging {
             message: err.to_string(),
             source: Some(Box::new(err)),
         }
@@ -326,13 +396,8 @@ where
 
 /// Safe replacement for unwrap() with better error messages
 pub trait SafeUnwrap<T> {
-    /// Unwrap with a descriptive error message
+    /// Unwrap with a descriptive error message - no fallbacks allowed
     fn safe_unwrap(self, context: &str) -> Result<T>;
-    
-    /// Unwrap or return a default value
-    fn unwrap_or_error<E>(self, error: E) -> Result<T>
-    where
-        E: Into<EmbedError>;
 }
 
 impl<T> SafeUnwrap<T> for Option<T> {
@@ -341,13 +406,6 @@ impl<T> SafeUnwrap<T> for Option<T> {
             message: format!("Unwrap failed: {context}"),
             backtrace: None,
         })
-    }
-    
-    fn unwrap_or_error<E>(self, error: E) -> Result<T>
-    where
-        E: Into<EmbedError>,
-    {
-        self.ok_or_else(|| error.into())
     }
 }
 
@@ -361,13 +419,6 @@ where
             backtrace: None,
         })
     }
-    
-    fn unwrap_or_error<Er>(self, error: Er) -> Result<T>
-    where
-        Er: Into<EmbedError>,
-    {
-        self.map_err(|_| error.into())
-    }
 }
 
 // ==================== RETRY MECHANISM ====================
@@ -380,21 +431,19 @@ pub struct RetryConfig {
     pub exponential_base: f64,
 }
 
-impl Default for RetryConfig {
-    fn default() -> Self {
-        Self {
-            max_attempts: 3,
-            initial_delay_ms: 100,
-            max_delay_ms: 5000,
-            exponential_base: 2.0,
-        }
-    }
-}
+// RetryConfig must be explicitly configured - no default fallback values allowed
+// Configuration must be intentional, not implicit
 
 impl RetryConfig {
-    /// Create a new RetryConfig with default values
-    pub fn new() -> Self {
-        Self::default()
+    /// Create a new RetryConfig - requires explicit configuration values
+    pub fn new(max_attempts: u32, initial_delay_ms: u64, max_delay_ms: u64, exponential_base: f64) -> Self {
+        // Explicit configuration required - no defaults
+        Self {
+            max_attempts,
+            initial_delay_ms,
+            max_delay_ms,
+            exponential_base,
+        }
     }
     
     /// Set the maximum number of retry attempts

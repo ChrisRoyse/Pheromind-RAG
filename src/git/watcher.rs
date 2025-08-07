@@ -72,7 +72,9 @@ impl GitWatcher {
                 " M" | "M " | "MM" | "AM" => changes.push(FileChange::Modified(file_path)),
                 "A " | "??" => changes.push(FileChange::Added(file_path)),
                 " D" | "D " | "DD" => changes.push(FileChange::Deleted(file_path)),
-                _ => {} // Ignore other statuses
+                _ => {
+                    log::debug!("Git watcher: Unrecognized status '{}' for file '{}' - status not tracked", status, file_path.display());
+                }
             }
         }
         
@@ -127,7 +129,7 @@ impl VectorUpdater {
     }
     
     pub async fn batch_update(&self, changes: Vec<FileChange>) -> Result<UpdateStats> {
-        let mut stats = UpdateStats::default();
+        let mut stats = UpdateStats::new();
         let start_time = Instant::now();
         
         // Group changes by type
@@ -163,7 +165,7 @@ impl VectorUpdater {
     
     pub async fn batch_update_with_progress(&self, changes: Vec<FileChange>) -> Result<UpdateStats> {
         let total = changes.len();
-        let mut stats = UpdateStats::default();
+        let mut stats = UpdateStats::new();
         let start_time = Instant::now();
         
         for (i, change) in changes.into_iter().enumerate() {
@@ -254,7 +256,7 @@ impl WatchCommand {
         
         if changes.is_empty() {
             println!("No changes detected");
-            return Ok(UpdateStats::default());
+            return Ok(UpdateStats::new());
         }
         
         println!("🔄 Detected {} file changes", changes.len());
@@ -262,12 +264,23 @@ impl WatchCommand {
     }
 }
 
-#[derive(Default, Debug)]
+#[derive(Debug)]
 pub struct UpdateStats {
     pub updated_files: usize,
     pub deleted_files: usize,
     pub failed_files: usize,
     pub total_time: Duration,
+}
+
+impl UpdateStats {
+    pub fn new() -> Self {
+        Self {
+            updated_files: 0,
+            deleted_files: 0,
+            failed_files: 0,
+            total_time: Duration::from_secs(0),
+        }
+    }
 }
 
 impl std::fmt::Display for UpdateStats {

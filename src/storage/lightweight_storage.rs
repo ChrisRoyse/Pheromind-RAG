@@ -71,21 +71,19 @@ impl LightweightStorage {
             })
             .collect();
         
-        // Sort by similarity (descending), handling potential NaN values
-        similarities.sort_by(|a, b| {
-            match b.0.partial_cmp(&a.0) {
-                Some(ordering) => ordering,
-                None => {
-                    // Handle NaN case - prefer the non-NaN value
-                    if b.0.is_nan() && a.0.is_nan() {
-                        std::cmp::Ordering::Equal
-                    } else if b.0.is_nan() {
-                        std::cmp::Ordering::Greater // a comes first (a is not NaN)
-                    } else {
-                        std::cmp::Ordering::Less // b comes first (b is not NaN)
-                    }
-                }
+        // Validate all similarity scores are finite before sorting - PRINCIPLE 0: No NaN fallbacks
+        for (idx, (similarity, _)) in similarities.iter().enumerate() {
+            if !similarity.is_finite() {
+                return Err(anyhow::anyhow!(
+                    "Similarity calculation produced invalid result (NaN or infinite) at index {}. Score: {}. This indicates corrupted similarity computation and cannot be recovered from.", 
+                    idx, similarity
+                ));
             }
+        }
+        
+        // Sort by similarity (descending) - safe after validation
+        similarities.sort_by(|a, b| {
+            b.0.partial_cmp(&a.0).unwrap() // Safe after validation
         });
         
         // Return top results

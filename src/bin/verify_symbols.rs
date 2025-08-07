@@ -27,7 +27,10 @@ fn main() {
         Ok(content) => {
             println!("File size: {} bytes", content.len());
             
-            match indexer.extract_symbols(&content, "rust", rust_file.to_str().unwrap()) {
+            let file_path_str = rust_file.to_str()
+                .ok_or_else(|| format!("Path contains invalid UTF-8 characters: {:?}", rust_file))?;
+            
+            match indexer.extract_symbols(&content, "rust", file_path_str) {
                 Ok(symbols) => {
                     println!("Symbols extracted: {}", symbols.len());
                     
@@ -60,7 +63,10 @@ fn main() {
         Ok(content) => {
             println!("File size: {} bytes", content.len());
             
-            match indexer.extract_symbols(&content, "python", python_file.to_str().unwrap()) {
+            let file_path_str = python_file.to_str()
+                .ok_or_else(|| format!("Path contains invalid UTF-8 characters: {:?}", python_file))?;
+            
+            match indexer.extract_symbols(&content, "python", file_path_str) {
                 Ok(symbols) => {
                     println!("Symbols extracted: {}", symbols.len());
                     
@@ -93,7 +99,10 @@ fn main() {
         Ok(content) => {
             println!("File size: {} bytes", content.len());
             
-            match indexer.extract_symbols(&content, "java", java_file.to_str().unwrap()) {
+            let file_path_str = java_file.to_str()
+                .ok_or_else(|| format!("Path contains invalid UTF-8 characters: {:?}", java_file))?;
+            
+            match indexer.extract_symbols(&content, "java", file_path_str) {
                 Ok(symbols) => {
                     println!("Symbols extracted: {}", symbols.len());
                     

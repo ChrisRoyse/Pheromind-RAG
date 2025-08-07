@@ -43,11 +43,8 @@ pub enum TokenType {
     Other,           // Everything else
 }
 
-impl Default for CodeTextProcessor {
-    fn default() -> Self {
-        Self::new()
-    }
-}
+// CodeTextProcessor must be explicitly created with new() - no default fallback allowed
+// This ensures intentional configuration of text processing
 
 impl CodeTextProcessor {
     pub fn new() -> Self {

@@ -24,7 +24,11 @@ impl LineValidator {
         
         // Check last chunk ends at last line
         let expected_end = if total_lines > 0 { total_lines - 1 } else { 0 };
-        let actual_end = chunks.last().unwrap().end_line;
+        let last_chunk = chunks.last()
+            .ok_or_else(|| ValidationError::Custom {
+                message: "Cannot validate last chunk: chunks collection is empty".to_string(),
+            })?;
+        let actual_end = last_chunk.end_line;
         if actual_end != expected_end {
             return Err(ValidationError::InvalidEnd {
                 expected: expected_end,
@@ -130,6 +134,7 @@ pub enum ValidationError {
     LineCountMismatch { chunk: usize, expected: usize, actual: usize },
     LineOutOfBounds { chunk: usize, line: usize },
     ContentMismatch { chunk: usize, line: usize, expected: String, actual: String },
+    Custom { message: String },
 }
 
 impl std::fmt::Display for ValidationError {
@@ -160,6 +165,9 @@ impl std::fmt::Display for ValidationError {
             ValidationError::ContentMismatch { chunk, line, expected, actual } => {
                 write!(f, "Chunk {} line {} content mismatch:\nExpected: '{}'\nActual: '{}'", 
                        chunk, line, expected, actual)
+            }
+            ValidationError::Custom { message } => {
+                write!(f, "{}", message)
             }
         }
     }

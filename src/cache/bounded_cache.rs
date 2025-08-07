@@ -11,7 +11,7 @@ use std::num::NonZeroUsize;
 use crate::error::{EmbedError, Result};
 
 /// Statistics for cache monitoring
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone)]
 pub struct CacheStats {
     pub hits: u64,
     pub misses: u64,
@@ -22,13 +22,25 @@ pub struct CacheStats {
 }
 
 impl CacheStats {
+    pub fn new() -> Self {
+        Self {
+            hits: 0,
+            misses: 0,
+            evictions: 0,
+            insertions: 0,
+            current_size: 0,
+            max_size: 0,
+        }
+    }
+
     /// Calculate hit rate as a percentage
-    pub fn hit_rate(&self) -> f64 {
+    /// Returns None if no cache operations have occurred (undefined mathematical state)
+    pub fn hit_rate(&self) -> Option<f64> {
         let total = self.hits + self.misses;
         if total == 0 {
-            0.0
+            None // Undefined: cannot calculate hit rate with no data
         } else {
-            (self.hits as f64 / total as f64) * 100.0
+            Some((self.hits as f64 / total as f64) * 100.0)
         }
     }
 }
@@ -70,8 +82,12 @@ where
         Ok(Self {
             inner: Arc::new(RwLock::new(LruCache::new(capacity))),
             stats: Arc::new(RwLock::new(CacheStats {
+                hits: 0,
+                misses: 0,
+                evictions: 0,
+                insertions: 0,
+                current_size: 0,
                 max_size: capacity.get(),
-                ..Default::default()
             })),
             max_size: capacity,
             ttl: None,
@@ -362,7 +378,7 @@ mod tests {
         assert_eq!(stats.misses, 1);
         assert_eq!(stats.insertions, 2);
         assert_eq!(stats.current_size, 2);
-        assert_eq!(stats.hit_rate(), 66.66666666666667);
+        assert_eq!(stats.hit_rate().unwrap(), 66.66666666666667);
     }
     
     #[test]

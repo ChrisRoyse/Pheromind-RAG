@@ -1,5 +1,5 @@
 use std::collections::HashMap;
-use anyhow::Result;
+use anyhow::{Result, Context};
 use serde::{Serialize, Deserialize};
 
 /// High-performance BM25 implementation optimized for code search
@@ -68,11 +68,8 @@ pub struct Token {
     pub importance_weight: f32,
 }
 
-impl Default for BM25Engine {
-    fn default() -> Self {
-        Self::new()
-    }
-}
+// BM25Engine must be explicitly configured with parameters - no default fallback allowed
+// Use BM25Engine::with_params(k1, b) or BM25Engine::new() explicitly
 
 impl BM25Engine {
     pub fn new() -> Self {
@@ -157,10 +154,10 @@ impl BM25Engine {
             let n = self.total_docs as f32;
             let df = stats.document_frequency as f32;
             // BM25 IDF formula: log((N - df + 0.5) / (df + 0.5))
-            // Use a minimum IDF of 0.01 to ensure terms always contribute something
-            // This is especially important for small document collections
+            // PRINCIPLE 0: No artificial minimums - return actual mathematical result
+            // If IDF is negative or zero, it represents true mathematical reality of term distribution
             let idf = ((n - df + 0.5) / (df + 0.5)).ln();
-            idf.max(0.01)  // Use small positive minimum to avoid zero scores
+            idf
         } else {
             // Term not in any document, return high IDF
             (self.total_docs as f32 + 1.0).ln()
@@ -235,26 +232,19 @@ impl BM25Engine {
         let mut matches: Vec<BM25Match> = Vec::new();
         
         for (doc_id, matched_terms) in candidate_docs {
-            let score = match self.calculate_bm25_score(&query_terms, &doc_id) {
-                Ok(score) => score,
-                Err(e) => {
-                    log::warn!("Failed to calculate BM25 score for document '{}': {}", doc_id, e);
-                    continue; // Skip documents that can't be scored
-                }
-            };
+            let score = self.calculate_bm25_score(&query_terms, &doc_id)
+                .with_context(|| format!("BM25 calculation failed for document '{}' - mathematical integrity compromised", doc_id))?;
                 
             // Calculate individual term contributions for debugging
             let mut term_scores = HashMap::new();
             for term in &query_terms {
-                match self.calculate_bm25_score(&[term.clone()], &doc_id) {
-                    Ok(single_term_score) if single_term_score > 0.0 => {
-                        term_scores.insert(term.clone(), single_term_score);
-                    }
-                    Ok(_) => {}, // Score is 0.0 or negative, skip
-                    Err(e) => {
-                        log::debug!("Failed to calculate single term score for '{}' in document '{}': {}", term, doc_id, e);
-                    }
+                let single_term_score = self.calculate_bm25_score(&[term.clone()], &doc_id)
+                    .with_context(|| format!("Single term BM25 calculation failed for term '{}' in document '{}' - mathematical integrity compromised", term, doc_id))?;
+                
+                if single_term_score > 0.0 {
+                    term_scores.insert(term.clone(), single_term_score);
                 }
+                // Note: Zero or negative scores are mathematically valid results, not errors
             }
             
             if score > 0.0 {
@@ -267,21 +257,19 @@ impl BM25Engine {
             }
         }
         
-        // Sort by score descending, handling potential NaN values
-        matches.sort_by(|a, b| {
-            match b.score.partial_cmp(&a.score) {
-                Some(ordering) => ordering,
-                None => {
-                    // Handle NaN case - prefer the non-NaN value, or maintain original order if both are NaN
-                    if b.score.is_nan() && a.score.is_nan() {
-                        std::cmp::Ordering::Equal
-                    } else if b.score.is_nan() {
-                        std::cmp::Ordering::Greater // a comes first (a is not NaN)
-                    } else {
-                        std::cmp::Ordering::Less // b comes first (b is not NaN)
-                    }
-                }
+        // Validate all scores are finite before sorting - PRINCIPLE 0: No NaN fallbacks
+        for (idx, match_result) in matches.iter().enumerate() {
+            if !match_result.score.is_finite() {
+                return Err(anyhow::anyhow!(
+                    "BM25 score calculation produced invalid result (NaN or infinite) for document '{}' (index {}). Score: {}. This indicates mathematical corruption in BM25 computation and cannot be recovered from.",
+                    match_result.doc_id, idx, match_result.score
+                ));
             }
+        }
+        
+        // Sort by score descending - safe after validation
+        matches.sort_by(|a, b| {
+            b.score.partial_cmp(&a.score).unwrap() // Safe after validation
         });
         
         // Return top results

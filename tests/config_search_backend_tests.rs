@@ -55,6 +55,7 @@ max_ngram_size = 2
     assert_eq!(config.chunk_size, 200);
     assert_eq!(config.search_backend, SearchBackend::Tantivy);
     assert_eq!(config.max_search_results, 50);
+    #[cfg(feature = "ml")]
     assert_eq!(config.embedding_cache_size, 5000);
 }
 

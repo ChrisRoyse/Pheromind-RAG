@@ -21,8 +21,16 @@ pub mod cache {
     pub mod bounded_cache;
 }
 
-// Embedding system (to be fixed in Phase 2)
+// Embedding system - requires ML feature for full functionality
+#[cfg(feature = "ml")]
 pub mod embedding;
+
+// Provide embedding cache even without ML feature
+#[cfg(not(feature = "ml"))]
+pub mod embedding {
+    pub mod cache;
+    pub use cache::{EmbeddingCache, CacheEntry, CacheStats};
+}
 
 // Search system (to be optimized in Phase 3)
 pub mod search;
@@ -40,8 +48,8 @@ pub mod chunking;
 // pub mod treesitter;    // TODO: Create or remove
 
 // Existing modules that were missing from lib.rs  
-// pub mod observability;  // TODO: Create or remove
-// pub mod utils;          // TODO: Create or remove
+pub mod observability;
+pub mod utils;
 
 // Re-export commonly used types
 pub use error::{EmbedError, Result};

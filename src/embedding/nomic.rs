@@ -198,7 +198,7 @@ impl NomicEmbedder {
         })
     }
     
-    fn load_transformer_layer(tensors: &HashMap<String, Tensor>, layer_idx: usize, device: &Device) -> Result<TransformerLayer> {
+    fn load_transformer_layer(tensors: &HashMap<String, Tensor>, layer_idx: usize, _device: &Device) -> Result<TransformerLayer> {
         // Require exact Nomic GGUF format - no fallbacks allowed
         let prefix = format!("blk.{}", layer_idx);
         
@@ -762,19 +762,14 @@ impl NomicEmbedder {
         let input_ids = &input_ids[..seq_len];
         let attention_mask = &attention_mask[..seq_len];
         
+        // Validate attention mask before processing
+        Self::validate_attention_mask(attention_mask, input_ids.len())?;
+
         // Convert to tensors
         let input_tensor = Tensor::new(input_ids, &self.device)?;
         let attention_tensor = Tensor::new(attention_mask, &self.device)?
             .to_dtype(DType::F32)?;
-        
-        // Ensure at least one token is attended to (prevent all-zero mask)
-        let attention_sum = attention_tensor.sum_all()?;
-        let _attention_tensor = if attention_sum.to_scalar::<f32>()? == 0.0 {
-            // If mask is all zeros, assume all tokens are valid (all ones)
-            Tensor::ones_like(&attention_tensor)?
-        } else {
-            attention_tensor
-        };
+        let _attention_tensor = attention_tensor;
         
         // Get token embeddings
         let hidden_states = self.token_embeddings.index_select(&input_tensor, 0)
@@ -883,7 +878,7 @@ impl NomicEmbedder {
         // Apply proper multi-head attention without fallbacks
         let q = hidden_states.matmul(&attention.q_proj.t()?)
             .map_err(|e| anyhow!("Query projection failed: {}", e))?;
-        let k = hidden_states.matmul(&attention.k_proj.t()?)
+        let _k = hidden_states.matmul(&attention.k_proj.t()?)
             .map_err(|e| anyhow!("Key projection failed: {}", e))?;
         let v = hidden_states.matmul(&attention.v_proj.t()?)
             .map_err(|e| anyhow!("Value projection failed: {}", e))?;
@@ -963,8 +958,7 @@ impl NomicEmbedder {
         let mask_sum = attention_mask.sum_all()?.to_scalar::<f32>()?;
         
         if mask_sum == 0.0 {
-            // If no valid tokens, return mean of all tokens
-            return Ok(hidden_states.mean(0)?);
+            return Err(anyhow!("Invalid attention mask: all zeros"));
         }
         
         // Expand attention mask to match hidden states shape for broadcasting
@@ -1010,6 +1004,51 @@ impl NomicEmbedder {
         }
         
         self.dimensions = dims;
+        Ok(())
+    }
+    
+    /// Validate attention mask dimensions and content
+    /// 
+    /// This function performs comprehensive validation of attention masks:
+    /// - Verifies dimensions match input dimensions
+    /// - Ensures at least one non-zero value exists
+    /// - Returns descriptive errors for each failure type
+    pub fn validate_attention_mask(attention_mask: &[u32], expected_length: usize) -> Result<()> {
+        // Check dimension match
+        if attention_mask.len() != expected_length {
+            return Err(anyhow!(
+                "Attention mask dimension mismatch: mask has {} elements but expected {} elements. \
+                 The attention mask must have exactly the same number of elements as the input sequence. \
+                 This mismatch indicates a tokenization or preprocessing error.",
+                attention_mask.len(),
+                expected_length
+            ));
+        }
+
+        // Check for at least one non-zero value
+        let has_attention = attention_mask.iter().any(|&val| val != 0);
+        if !has_attention {
+            return Err(anyhow!(
+                "Invalid attention mask: all values are zero. \
+                 An attention mask with all zeros means no tokens should be attended to, \
+                 which makes embedding generation impossible. This indicates the input \
+                 sequence was empty or improperly tokenized. At least one token must \
+                 have a non-zero attention value."
+            ));
+        }
+
+        // Additional validation: check for reasonable attention values
+        let max_attention = attention_mask.iter().max().copied()
+            .ok_or_else(|| anyhow!("Empty attention mask - cannot validate attention values"))?;
+        if max_attention > 1 {
+            log::warn!(
+                "Attention mask contains values greater than 1 (max: {}). \
+                 While not an error, attention masks typically use binary values (0 or 1). \
+                 Values greater than 1 may indicate unusual tokenization or mask generation.",
+                max_attention
+            );
+        }
+
         Ok(())
     }
     
@@ -1183,37 +1222,121 @@ mod tests {
             }
         }
     }
+    
+    #[test]
+    fn test_attention_mask_validation_valid() {
+        // Test valid attention mask
+        let mask = vec![1, 1, 1, 0, 0];
+        let result = NomicEmbedder::validate_attention_mask(&mask, 5);
+        assert!(result.is_ok(), "Valid attention mask should pass validation");
+        
+        // Test all ones
+        let mask = vec![1, 1, 1, 1, 1];
+        let result = NomicEmbedder::validate_attention_mask(&mask, 5);
+        assert!(result.is_ok(), "All-ones attention mask should pass validation");
+        
+        // Test single attention token
+        let mask = vec![1, 0, 0, 0, 0];
+        let result = NomicEmbedder::validate_attention_mask(&mask, 5);
+        assert!(result.is_ok(), "Single attention token should pass validation");
+    }
+    
+    #[test]
+    fn test_attention_mask_validation_dimension_mismatch() {
+        // Test dimension mismatch - mask too short
+        let mask = vec![1, 1, 1];
+        let result = NomicEmbedder::validate_attention_mask(&mask, 5);
+        assert!(result.is_err(), "Dimension mismatch should fail validation");
+        
+        let error_message = result.unwrap_err().to_string();
+        assert!(error_message.contains("dimension mismatch"), 
+                "Error should mention dimension mismatch: {}", error_message);
+        assert!(error_message.contains("mask has 3 elements but expected 5"),
+                "Error should specify exact dimensions: {}", error_message);
+        
+        // Test dimension mismatch - mask too long
+        let mask = vec![1, 1, 1, 1, 1, 1, 1];
+        let result = NomicEmbedder::validate_attention_mask(&mask, 5);
+        assert!(result.is_err(), "Dimension mismatch should fail validation");
+        
+        let error_message = result.unwrap_err().to_string();
+        assert!(error_message.contains("mask has 7 elements but expected 5"),
+                "Error should specify exact dimensions: {}", error_message);
+    }
+    
+    #[test]
+    fn test_attention_mask_validation_all_zeros() {
+        // Test all zeros
+        let mask = vec![0, 0, 0, 0, 0];
+        let result = NomicEmbedder::validate_attention_mask(&mask, 5);
+        assert!(result.is_err(), "All-zeros attention mask should fail validation");
+        
+        let error_message = result.unwrap_err().to_string();
+        assert!(error_message.contains("all values are zero"), 
+                "Error should mention all zeros: {}", error_message);
+        assert!(error_message.contains("embedding generation impossible"),
+                "Error should explain why all zeros is invalid: {}", error_message);
+        
+        // Test empty mask (which is also all zeros conceptually)
+        let mask: Vec<u32> = vec![];
+        let result = NomicEmbedder::validate_attention_mask(&mask, 0);
+        assert!(result.is_err(), "Empty attention mask should fail validation");
+    }
+    
+    #[test] 
+    fn test_attention_mask_validation_edge_cases() {
+        // Test very large attention values (should work but with warning)
+        let mask = vec![1, 5, 10, 1];
+        let result = NomicEmbedder::validate_attention_mask(&mask, 4);
+        assert!(result.is_ok(), "Large attention values should not fail validation");
+        
+        // Test single element masks
+        let mask = vec![1];
+        let result = NomicEmbedder::validate_attention_mask(&mask, 1);
+        assert!(result.is_ok(), "Single element mask with attention should pass");
+        
+        let mask = vec![0];
+        let result = NomicEmbedder::validate_attention_mask(&mask, 1);
+        assert!(result.is_err(), "Single element mask without attention should fail");
+        
+        // Test maximum u32 values
+        let mask = vec![u32::MAX, 1, 0];
+        let result = NomicEmbedder::validate_attention_mask(&mask, 3);
+        assert!(result.is_ok(), "Maximum u32 values should not fail validation");
+    }
+    
+    #[test]
+    fn test_attention_mask_validation_comprehensive_error_messages() {
+        // Test that error messages are descriptive and helpful
+        let mask = vec![1, 1];
+        let result = NomicEmbedder::validate_attention_mask(&mask, 5);
+        assert!(result.is_err());
+        
+        let error = result.unwrap_err();
+        let error_message = error.to_string();
+        
+        // Check that error message contains all required information
+        assert!(error_message.contains("dimension mismatch"), 
+                "Error should identify the problem type");
+        assert!(error_message.contains("tokenization or preprocessing error"),
+                "Error should explain potential cause");
+        assert!(error_message.contains("2") && error_message.contains("5"),
+                "Error should include actual dimensions");
+        
+        // Test all-zeros error message
+        let mask = vec![0, 0, 0];
+        let result = NomicEmbedder::validate_attention_mask(&mask, 3);
+        assert!(result.is_err());
+        
+        let error = result.unwrap_err();
+        let error_message = error.to_string();
+        
+        assert!(error_message.contains("all values are zero"),
+                "Error should identify all-zeros problem");
+        assert!(error_message.contains("embedding generation impossible"),
+                "Error should explain the consequence");
+        assert!(error_message.contains("At least one token must have a non-zero attention"),
+                "Error should specify the requirement");
+    }
 }
 
-// Stub implementation when ML feature is disabled
-#[cfg(not(feature = "ml"))]
-use std::path::PathBuf;
-#[cfg(not(feature = "ml"))]
-use std::sync::Arc;
-
-#[cfg(not(feature = "ml"))]
-pub struct NomicEmbedder;
-
-#[cfg(not(feature = "ml"))]
-impl NomicEmbedder {
-    pub fn new(_model_path: PathBuf, _tokenizer_path: PathBuf) -> Result<Self, crate::error::EmbedError> {
-        Err(crate::error::EmbedError::Internal {
-            message: "ML feature is disabled. Enable 'ml' feature to use Nomic embeddings.".to_string(),
-            backtrace: None,
-        })
-    }
-
-    pub fn embed_text(&self, _text: &str) -> Result<Vec<f32>, crate::error::EmbedError> {
-        Err(crate::error::EmbedError::Internal {
-            message: "ML feature is disabled. Enable 'ml' feature to use Nomic embeddings.".to_string(),
-            backtrace: None,
-        })
-    }
-
-    pub fn get_global() -> Result<Arc<Self>, crate::error::EmbedError> {
-        Err(crate::error::EmbedError::Internal {
-            message: "ML feature is disabled. Enable 'ml' feature to use Nomic embeddings.".to_string(),
-            backtrace: None,
-        })
-    }
-}

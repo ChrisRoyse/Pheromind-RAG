@@ -168,14 +168,41 @@ function authenticateUser(email, password) {
 
 This approach provides 55% better accuracy compared to returning isolated code snippets.
 
+## Build Requirements
+
+**IMPORTANT**: Embedding functionality requires the `ml` feature to be enabled at compile time.
+
+### Feature Flags
+
+- `ml` - **Required for embeddings** - Enables Nomic embedder with GGUF support
+- `vectordb` - LanceDB vector storage
+- `tantivy` - Full-text search with fuzzy matching  
+- `tree-sitter` - Symbol indexing for code analysis
+
+### Build Examples
+
+```bash
+# With embeddings (required for semantic search)
+cargo build --features ml,vectordb,tantivy
+
+# All features enabled
+cargo build --features full-system
+
+# Basic build without embeddings (text search only)
+cargo build --features tantivy
+```
+
+**Note**: Code using embeddings will not compile without the `ml` feature enabled.
+
 ## Getting Started
 
 1. Clone the repository
 2. Install Rust and dependencies
-3. Download all-MiniLM-L6-v2 model
-4. Run initial indexing: `reindex_all`
-5. Start MCP server
-6. Begin searching with `search_code`
+3. Build with ML feature: `cargo build --features ml,vectordb,tantivy`
+4. Download all-MiniLM-L6-v2 model
+5. Run initial indexing: `reindex_all`
+6. Start MCP server
+7. Begin searching with `search_code`
 
 ## License
 

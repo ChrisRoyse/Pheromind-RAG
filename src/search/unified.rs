@@ -6,6 +6,8 @@ use tokio::sync::RwLock;
 use crate::chunking::{SimpleRegexChunker, Chunk, ThreeChunkExpander};
 #[cfg(feature = "ml")]
 use crate::embedding::nomic::NomicEmbedder;
+#[cfg(feature = "ml")]
+use crate::embedding::{CacheStats};
 #[cfg(feature = "vectordb")]
 use crate::storage::lancedb_storage::LanceDBStorage;
 use crate::search::fusion::{SimpleFusion, FusedResult, MatchType};
@@ -24,12 +26,6 @@ use crate::search::search_adapter::{TextSearcher, create_text_searcher_with_root
 use crate::search::symbol_index::{SymbolIndexer, SymbolDatabase, Symbol};
 use crate::config::{Config, SearchBackend};
 
-// Helper struct for when ml feature is not available
-#[cfg(not(feature = "ml"))]
-struct MockCacheStats {
-    entries: usize,
-    max_size: usize,
-}
 
 // Use SearchResult from cache module to avoid duplication
 pub use crate::search::cache::SearchResult;
@@ -198,7 +194,7 @@ impl UnifiedSearcher {
                          exact_matches.len(), semantic_matches.len(), symbol_matches.len(), bm25_matches.len());
                 
                 // Fuse all four types of results
-                self.fusion.fuse_all_results_with_bm25(exact_matches, semantic_matches, symbol_matches, bm25_matches)
+                self.fusion.fuse_all_results_with_bm25(exact_matches, semantic_matches, symbol_matches, bm25_matches)?
             } else {
                 // Run original three searches
                 let (exact_matches, semantic_matches, symbol_matches) = tokio::join!(
@@ -237,11 +233,6 @@ impl UnifiedSearcher {
             Ok(results)
         }
         
-        #[cfg(not(all(feature = "tantivy", feature = "vectordb", feature = "tree-sitter")))]
-        {
-            // This code is unreachable due to the early return above, but needed for compilation
-            unreachable!("Feature check should have returned early")
-        }
     }
     
     #[allow(dead_code)]
@@ -531,7 +522,7 @@ impl UnifiedSearcher {
     pub async fn index_directory(&self, dir_path: &Path) -> Result<IndexStats> {
         println!("📂 Indexing directory: {:?} (include_test_files: {})", dir_path, self.include_test_files);
         
-        let mut stats = IndexStats::default();
+        let mut stats = IndexStats::new();
         let mut entries = tokio::fs::read_dir(dir_path).await?;
         
         while let Some(entry) = entries.next_entry().await? {
@@ -662,6 +653,7 @@ impl UnifiedSearcher {
         Ok(())
     }
     
+    #[cfg(feature = "ml")]
     pub async fn get_stats(&self) -> Result<SearcherStats> {
         #[cfg(feature = "vectordb")]
         let total_embeddings = {
@@ -673,16 +665,10 @@ impl UnifiedSearcher {
         
         let search_cache_stats = self.cache.stats();
         
-        #[cfg(feature = "ml")]
-        let embedding_cache_stats = crate::embedding::CacheStats {
-            entries: 0,
-            max_size: 100_000,
-            hit_ratio: 0.0,
-        };
-        #[cfg(not(feature = "ml"))]
-        let embedding_cache_stats = MockCacheStats {
+        let embedding_cache_stats = CacheStats {
             entries: 0,
             max_size: 0,
+            hit_ratio: 0.0,
         };
         
         Ok(SearcherStats {
@@ -690,19 +676,31 @@ impl UnifiedSearcher {
             cache_entries: search_cache_stats.valid_entries,
             cache_max_size: search_cache_stats.max_size,
             embedding_cache_entries: embedding_cache_stats.entries,
-            #[cfg(feature = "ml")]
-            embedding_cache_max_size: embedding_cache_stats.max_size,
-            #[cfg(not(feature = "ml"))]
             embedding_cache_max_size: embedding_cache_stats.max_size,
         })
     }
+    
+    #[cfg(not(feature = "ml"))]
+    pub async fn get_stats(&self) -> Result<SearcherStats> {
+        anyhow::bail!("Statistics functionality requires ML feature to be enabled")
+    }
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug)]
 pub struct IndexStats {
     pub files_indexed: usize,
     pub chunks_created: usize,
     pub errors: usize,
+}
+
+impl IndexStats {
+    pub fn new() -> Self {
+        Self {
+            files_indexed: 0,
+            chunks_created: 0,
+            errors: 0,
+        }
+    }
 }
 
 impl std::fmt::Display for IndexStats {

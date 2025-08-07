@@ -36,7 +36,16 @@ impl SymbolEnhancedSearcher {
             return Ok(symbol_results);
         }
         
-        // Fall back to regular hybrid search
+        // If query looks like a symbol search but no results found, return error
+        let query_lower = query.to_lowercase();
+        if self.looks_like_symbol_query(&query_lower) {
+            return Err(anyhow::anyhow!(
+                "No symbols found matching '{}'. Symbol search requires exact matches.",
+                query
+            ));
+        }
+        
+        // For non-symbol queries, explicitly delegate to base searcher
         self.base_searcher.search(query).await
     }
     
@@ -208,13 +217,35 @@ impl SymbolEnhancedSearcher {
         Ok(count)
     }
     
+    /// Check if query appears to be a symbol search
+    fn looks_like_symbol_query(&self, query_lower: &str) -> bool {
+        query_lower.starts_with("def ") || 
+        query_lower.starts_with("definition ") ||
+        query_lower.starts_with("find def") ||
+        query_lower.starts_with("go to def") ||
+        query_lower.starts_with("ref ") ||
+        query_lower.starts_with("references ") ||
+        query_lower.starts_with("find ref") ||
+        query_lower.starts_with("uses of") ||
+        query_lower.starts_with("class ") ||
+        query_lower.starts_with("function ") ||
+        query_lower.starts_with("struct ") ||
+        query_lower.starts_with("interface ") ||
+        self.looks_like_identifier(query_lower)
+    }
+    
     /// Check if a string looks like a code identifier
     fn looks_like_identifier(&self, s: &str) -> bool {
         // Check for camelCase, PascalCase, snake_case, CONSTANT_CASE
         let has_camel = s.chars().any(|c| c.is_uppercase()) && s.chars().any(|c| c.is_lowercase());
         let has_snake = s.contains('_');
         let is_constant = s.chars().all(|c| c.is_uppercase() || c == '_');
-        let starts_with_letter = s.chars().next().map_or(false, |c| c.is_alphabetic());
+        // Handle empty strings explicitly - they are not valid identifiers
+        if s.is_empty() {
+            return false; // Empty strings are explicitly not identifiers
+        }
+        let first_char = s.chars().next().unwrap(); // Safe after empty check
+        let starts_with_letter = first_char.is_alphabetic();
         
         starts_with_letter && (has_camel || has_snake || is_constant)
     }

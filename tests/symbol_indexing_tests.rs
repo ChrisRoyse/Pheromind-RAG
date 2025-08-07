@@ -216,16 +216,17 @@ fn test_tsx_symbol_extraction() {
     let mut indexer = SymbolIndexer::new().unwrap();
     let file_path = PathBuf::from("realistic_test/frontend/components/Table.tsx");
     
-    if let Ok(content) = std::fs::read_to_string(&file_path) {
-        let symbols = indexer.extract_symbols(&content, "tsx", file_path.to_str().unwrap()).unwrap();
-        
-        // TSX files should have React components
-        assert!(!symbols.is_empty(), "Should find symbols in TSX file");
-        
-        println!("Found {} TSX symbols", symbols.len());
-        for symbol in symbols.iter().take(5) {
-            println!("  - {} ({:?})", symbol.name, symbol.kind);
-        }
+    let content = std::fs::read_to_string(&file_path)
+        .expect("Failed to read TSX test file - test requires valid file");
+    
+    let symbols = indexer.extract_symbols(&content, "tsx", file_path.to_str().unwrap()).unwrap();
+    
+    // TSX files should have React components
+    assert!(!symbols.is_empty(), "Should find symbols in TSX file");
+    
+    println!("Found {} TSX symbols", symbols.len());
+    for symbol in symbols.iter().take(5) {
+        println!("  - {} ({:?})", symbol.name, symbol.kind);
     }
 }
 
@@ -247,12 +248,13 @@ fn test_realistic_test_directory() {
     
     let mut total_indexed = 0;
     for (file_path, lang) in test_files {
-        if let Ok(content) = std::fs::read_to_string(file_path) {
-            let symbols = indexer.extract_symbols(&content, lang, file_path).unwrap();
-            println!("{}: {} symbols", file_path, symbols.len());
-            db.add_symbols(symbols);
-            total_indexed += 1;
-        }
+        let content = std::fs::read_to_string(file_path)
+            .expect(&format!("Failed to read test file {} - test requires valid file", file_path));
+        
+        let symbols = indexer.extract_symbols(&content, lang, file_path).unwrap();
+        println!("{}: {} symbols", file_path, symbols.len());
+        db.add_symbols(symbols);
+        total_indexed += 1;
     }
     
     assert!(total_indexed > 0, "Should index at least some files");
@@ -415,10 +417,11 @@ fn test_symbol_search_performance() {
     // Measure indexing time
     let start = Instant::now();
     for (file_path, lang) in &test_files {
-        if let Ok(content) = std::fs::read_to_string(file_path) {
-            let symbols = indexer.extract_symbols(&content, lang, file_path).unwrap();
-            db.add_symbols(symbols);
-        }
+        let content = std::fs::read_to_string(file_path)
+            .expect(&format!("Failed to read test file {} for performance test", file_path));
+        
+        let symbols = indexer.extract_symbols(&content, lang, file_path).unwrap();
+        db.add_symbols(symbols);
     }
     let indexing_time = start.elapsed();
     
@@ -430,7 +433,8 @@ fn test_symbol_search_performance() {
     // Measure lookup time
     let start = Instant::now();
     for _ in 0..1000 {
-        let _ = db.find_definition("OrderService");
+        let found = db.find_definition("OrderService");
+        assert!(found.is_some(), "Should find OrderService definition");
     }
     let lookup_time = start.elapsed();
     

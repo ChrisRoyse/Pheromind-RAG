@@ -1,0 +1,358 @@
+name: Feature Compilation Tests
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  # Test core functionality without optional features
+  test-core:
+    name: Test Core (No Optional Features)
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Install Rust
+      uses: dtolnay/rust-toolchain@stable
+      with:
+        toolchain: stable
+        components: rustfmt, clippy
+    
+    - name: Cache dependencies
+      uses: actions/cache@v3
+      with:
+        path: |
+          ~/.cargo/registry
+          ~/.cargo/git
+          target
+        key: ${{ runner.os }}-cargo-core-${{ hashFiles('**/Cargo.lock') }}
+    
+    - name: Check core compilation (no features)
+      run: cargo check --no-default-features --features core
+    
+    - name: Test core functionality
+      run: cargo test --no-default-features --features core
+    
+    - name: Check core with clippy
+      run: cargo clippy --no-default-features --features core -- -D warnings
+
+  # Test each individual feature
+  test-individual-features:
+    name: Test Individual Features
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        feature: [ml, vectordb, tantivy, tree-sitter]
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Install Rust
+      uses: dtolnay/rust-toolchain@stable
+      with:
+        toolchain: stable
+        components: rustfmt, clippy
+    
+    - name: Cache dependencies
+      uses: actions/cache@v3
+      with:
+        path: |
+          ~/.cargo/registry
+          ~/.cargo/git
+          target
+        key: ${{ runner.os }}-cargo-${{ matrix.feature }}-${{ hashFiles('**/Cargo.lock') }}
+    
+    - name: Check compilation with ${{ matrix.feature }} feature
+      run: cargo check --no-default-features --features core,${{ matrix.feature }}
+    
+    - name: Test with ${{ matrix.feature }} feature
+      run: cargo test --no-default-features --features core,${{ matrix.feature }}
+    
+    - name: Check with clippy
+      run: cargo clippy --no-default-features --features core,${{ matrix.feature }} -- -D warnings
+
+  # Test feature combinations
+  test-feature-combinations:
+    name: Test Feature Combinations
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        features:
+          - "search-basic"
+          - "search-advanced" 
+          - "ml,vectordb"
+          - "ml,tantivy"
+          - "vectordb,tantivy"
+          - "ml,vectordb,tantivy"
+          - "full-system"
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Install Rust
+      uses: dtolnay/rust-toolchain@stable
+      with:
+        toolchain: stable
+        components: rustfmt, clippy
+    
+    - name: Cache dependencies
+      uses: actions/cache@v3
+      with:
+        path: |
+          ~/.cargo/registry
+          ~/.cargo/git
+          target
+        key: ${{ runner.os }}-cargo-combo-${{ hashFiles('**/Cargo.lock') }}
+    
+    - name: Check compilation with ${{ matrix.features }}
+      run: cargo check --no-default-features --features ${{ matrix.features }}
+    
+    - name: Test with ${{ matrix.features }}
+      run: cargo test --no-default-features --features ${{ matrix.features }}
+
+  # Test that binaries require their specific features
+  test-binary-requirements:
+    name: Test Binary Feature Requirements
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Install Rust
+      uses: dtolnay/rust-toolchain@stable
+      with:
+        toolchain: stable
+    
+    - name: Cache dependencies
+      uses: actions/cache@v3
+      with:
+        path: |
+          ~/.cargo/registry
+          ~/.cargo/git
+          target
+        key: ${{ runner.os }}-cargo-binaries-${{ hashFiles('**/Cargo.lock') }}
+    
+    - name: Verify tantivy_migrator requires tantivy feature
+      run: |
+        # This should fail without tantivy feature
+        if cargo check --bin tantivy_migrator --no-default-features --features core 2>/dev/null; then
+          echo "ERROR: tantivy_migrator should not compile without tantivy feature"
+          exit 1
+        else
+          echo "✅ tantivy_migrator correctly requires tantivy feature"
+        fi
+    
+    - name: Verify verify_symbols requires tree-sitter feature
+      run: |
+        # This should fail without tree-sitter feature
+        if cargo check --bin verify_symbols --no-default-features --features core 2>/dev/null; then
+          echo "ERROR: verify_symbols should not compile without tree-sitter feature"
+          exit 1
+        else
+          echo "✅ verify_symbols correctly requires tree-sitter feature"
+        fi
+    
+    - name: Verify binaries compile with correct features
+      run: |
+        cargo check --bin tantivy_migrator --features tantivy
+        cargo check --bin verify_symbols --features tree-sitter
+
+  # Test compile-time feature tests themselves
+  test-compile-time-tests:
+    name: Test Compile-Time Feature Tests
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Install Rust
+      uses: dtolnay/rust-toolchain@stable
+      with:
+        toolchain: stable
+    
+    - name: Cache dependencies
+      uses: actions/cache@v3
+      with:
+        path: |
+          ~/.cargo/registry
+          ~/.cargo/git
+          target
+        key: ${{ runner.os }}-cargo-compile-tests-${{ hashFiles('**/Cargo.lock') }}
+    
+    - name: Run compile-time feature tests (core only)
+      run: cargo test compile_time_feature_tests --no-default-features --features core
+    
+    - name: Run compile-time feature tests (with ML)
+      run: cargo test compile_time_feature_tests --features ml
+    
+    - name: Run compile-time feature tests (full system)
+      run: cargo test compile_time_feature_tests --features full-system
+
+  # Test attention mask validation specifically
+  test-attention-mask-validation:
+    name: Test Attention Mask Validation
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Install Rust
+      uses: dtolnay/rust-toolchain@stable
+      with:
+        toolchain: stable
+    
+    - name: Cache dependencies
+      uses: actions/cache@v3
+      with:
+        path: |
+          ~/.cargo/registry
+          ~/.cargo/git
+          target
+        key: ${{ runner.os }}-cargo-attention-${{ hashFiles('**/Cargo.lock') }}
+    
+    - name: Test attention mask validation with ML feature
+      run: cargo test test_attention_mask_validation --features ml
+    
+    - name: Test attention mask validation (comprehensive)
+      run: cargo test attention_mask --features ml
+
+  # Test feature gate isolation
+  test-feature-isolation:
+    name: Test Feature Gate Isolation
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Install Rust
+      uses: dtolnay/rust-toolchain@stable
+      with:
+        toolchain: stable
+    
+    - name: Cache dependencies
+      uses: actions/cache@v3
+      with:
+        path: |
+          ~/.cargo/registry
+          ~/.cargo/git
+          target
+        key: ${{ runner.os }}-cargo-isolation-${{ hashFiles('**/Cargo.lock') }}
+    
+    - name: Test that ML types are not available without feature
+      run: cargo test test_feature_gate_isolation --no-default-features --features core
+    
+    - name: Test that ML types are available with feature
+      run: cargo test test_ml_functionality --features ml
+
+  # Test documentation builds with different features
+  test-docs:
+    name: Test Documentation with Features
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Install Rust
+      uses: dtolnay/rust-toolchain@stable
+      with:
+        toolchain: stable
+    
+    - name: Cache dependencies
+      uses: actions/cache@v3
+      with:
+        path: |
+          ~/.cargo/registry
+          ~/.cargo/git
+          target
+        key: ${{ runner.os }}-cargo-docs-${{ hashFiles('**/Cargo.lock') }}
+    
+    - name: Test docs with core features
+      run: cargo doc --no-default-features --features core --no-deps
+    
+    - name: Test docs with all features
+      run: cargo doc --features full-system --no-deps
+
+  # Integration test for all features working together
+  integration-test:
+    name: Integration Test (All Features)
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Install Rust
+      uses: dtolnay/rust-toolchain@stable
+      with:
+        toolchain: stable
+    
+    - name: Cache dependencies
+      uses: actions/cache@v3
+      with:
+        path: |
+          ~/.cargo/registry
+          ~/.cargo/git
+          target
+        key: ${{ runner.os }}-cargo-integration-${{ hashFiles('**/Cargo.lock') }}
+    
+    - name: Build with all features
+      run: cargo build --features full-system
+    
+    - name: Test with all features
+      run: cargo test --features full-system
+    
+    - name: Check that all binaries build with their required features
+      run: |
+        cargo build --bin tantivy_migrator --features tantivy
+        cargo build --bin verify_symbols --features tree-sitter
+        cargo build --bin test_persistence --features tantivy
+        cargo build --bin test_project_scoping --features tantivy
+        cargo build --bin test_unified_project_scope --features tantivy
+
+  # Performance test to ensure feature flags don't significantly impact build times
+  test-build-performance:
+    name: Test Build Performance
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Install Rust
+      uses: dtolnay/rust-toolchain@stable
+      with:
+        toolchain: stable
+    
+    - name: Cache dependencies
+      uses: actions/cache@v3
+      with:
+        path: |
+          ~/.cargo/registry
+          ~/.cargo/git
+          target
+        key: ${{ runner.os }}-cargo-perf-${{ hashFiles('**/Cargo.lock') }}
+    
+    - name: Time core-only build
+      run: |
+        cargo clean
+        time cargo build --no-default-features --features core
+    
+    - name: Time full-system build
+      run: |
+        cargo clean  
+        time cargo build --features full-system
+
+  # Verify no unused dependencies in different feature configurations
+  test-unused-dependencies:
+    name: Test for Unused Dependencies
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Install Rust nightly (needed for cargo-udeps)
+      uses: dtolnay/rust-toolchain@nightly
+      with:
+        toolchain: nightly
+    
+    - name: Install cargo-udeps
+      run: cargo install cargo-udeps
+    
+    - name: Check unused deps with core features
+      run: cargo +nightly udeps --no-default-features --features core
+    
+    - name: Check unused deps with all features
+      run: cargo +nightly udeps --features full-system

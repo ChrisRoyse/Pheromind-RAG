@@ -436,7 +436,13 @@ impl SymbolIndexer {
     }
     
     fn node_to_symbol(&self, node: Node, capture_name: &str, code: &str, file_path: &str) -> Option<Symbol> {
-        let name = node.utf8_text(code.as_bytes()).ok()?.to_string();
+        let name = match node.utf8_text(code.as_bytes()) {
+            Ok(text) => text.to_string(),
+            Err(e) => {
+                log::error!("Failed to extract UTF-8 text from node at byte range {:?}: {}", node.byte_range(), e);
+                return None;
+            }
+        };
         
         // Skip empty or invalid names
         if name.is_empty() || name.contains('@') {

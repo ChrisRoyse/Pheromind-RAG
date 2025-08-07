@@ -2,6 +2,8 @@
 name = "embed-search"
 version = "0.1.0"
 edition = "2021"
+description = "Rust-based semantic search system with ML embeddings, vector storage, and symbol indexing"
+license = "MIT OR Apache-2.0"
 
 [dependencies]
 regex = "1.11"
@@ -123,23 +125,41 @@ required-features = ["tantivy"]
 
 [features]
 default = ["core"]
-# Core features (minimal dependencies)
+
+# Core features (minimal dependencies) - includes BM25 and basic text processing
 core = []
 
-# Individual feature flags for controlled testing
+# Individual feature flags for controlled capability addition:
+#
+# tree-sitter: Symbol indexing and parsing for code files
+# - Adds support for extracting function/class definitions from source code
+# - Required for symbol-based search functionality
 tree-sitter = ["dep:tree-sitter", "dep:tree-sitter-rust", "dep:tree-sitter-python", "dep:tree-sitter-javascript", "dep:tree-sitter-typescript", "dep:tree-sitter-go", "dep:tree-sitter-java", "dep:tree-sitter-c", "dep:tree-sitter-cpp", "dep:tree-sitter-html", "dep:tree-sitter-css", "dep:tree-sitter-json", "dep:tree-sitter-bash"]
+
+# ml: Machine learning embeddings using Candle and GGUF models
+# - Enables semantic similarity search using Nomic embeddings
+# - Requires significant disk space for model files (~500MB)
+# - Compilation time increases substantially with ML dependencies
 ml = ["dep:candle-core", "dep:candle-nn", "dep:candle-transformers", "dep:tokenizers", "dep:hf-hub", "dep:reqwest", "dep:dirs", "dep:memmap2", "dep:byteorder", "dep:rand"]
+
+# vectordb: LanceDB vector database storage
+# - Required for storing and searching embedding vectors
+# - Must be used together with 'ml' feature for semantic search
 vectordb = ["dep:lancedb", "dep:arrow", "dep:arrow-array", "dep:arrow-schema", "dep:sled"]
+
+# tantivy: Full-text search with fuzzy matching
+# - High-performance text indexing and retrieval
+# - Supports complex query syntax and ranking
 tantivy = ["dep:tantivy", "dep:tantivy-jieba"]
 
-# Convenience feature combinations
-search-basic = ["core", "tantivy"]
-search-advanced = ["core", "tree-sitter", "tantivy"] 
-full-system = ["tree-sitter", "ml", "vectordb", "tantivy"]
+# Convenience feature combinations:
+search-basic = ["core", "tantivy"]                    # Text search only
+search-advanced = ["core", "tree-sitter", "tantivy"]  # Text + symbol search
+full-system = ["tree-sitter", "ml", "vectordb", "tantivy"]  # All capabilities
 
-# Testing-specific features
-test-integration = ["full-system"]
-test-performance = ["full-system"]
+# Testing-specific features:
+test-integration = ["full-system"]  # Full system tests
+test-performance = ["full-system"]  # Performance benchmarks
 
 [profile.test]
 opt-level = 2  # Optimize tests for speed
@@ -179,3 +199,7 @@ path = "tests/production_embedding_verification.rs"
 [[test]]
 name = "search_accuracy_test"
 path = "tests/search_accuracy_test.rs"
+
+[[test]]
+name = "compile_time_feature_tests"
+path = "tests/compile_time_feature_tests.rs"

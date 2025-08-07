@@ -65,7 +65,7 @@ pub struct VectorStorage {
 }
 
 /// Storage statistics for monitoring
-#[derive(Debug, Default, Clone)]
+#[derive(Debug, Clone)]
 pub struct StorageStats {
     total_vectors: usize,
     total_searches: usize,
@@ -75,6 +75,18 @@ pub struct StorageStats {
     cache_misses: usize,
     #[allow(dead_code)]
     last_cleanup: u64,
+}
+
+impl StorageStats {
+    pub fn new() -> Self {
+        Self {
+            total_vectors: 0,
+            total_searches: 0,
+            cache_hits: 0,
+            cache_misses: 0,
+            last_cleanup: 0,
+        }
+    }
 }
 
 impl VectorStorage {
@@ -104,7 +116,7 @@ impl VectorStorage {
             metadata: Arc::new(RwLock::new(HashMap::new())),
             id_index: Arc::new(RwLock::new(HashMap::new())),
             config: Arc::new(config),
-            stats: Arc::new(RwLock::new(StorageStats::default())),
+            stats: Arc::new(RwLock::new(StorageStats::new())),
         })
     }
     
@@ -253,21 +265,22 @@ impl VectorStorage {
             }
         }
         
-        // Sort by similarity (descending), handling potential NaN values
-        similarities.sort_by(|a, b| {
-            match b.1.partial_cmp(&a.1) {
-                Some(ordering) => ordering,
-                None => {
-                    // Handle NaN case - prefer the non-NaN value
-                    if b.1.is_nan() && a.1.is_nan() {
-                        std::cmp::Ordering::Equal
-                    } else if b.1.is_nan() {
-                        std::cmp::Ordering::Greater // a comes first (a is not NaN)
-                    } else {
-                        std::cmp::Ordering::Less // b comes first (b is not NaN)
-                    }
-                }
+        // Validate all similarity scores are finite before sorting - PRINCIPLE 0: No NaN fallbacks
+        for (idx, (_, similarity)) in similarities.iter().enumerate() {
+            if !similarity.is_finite() {
+                return Err(EmbedError::Internal {
+                    message: format!(
+                        "Similarity calculation produced invalid result (NaN or infinite) at index {}. Score: {}. This indicates corrupted similarity computation and cannot be recovered from.", 
+                        idx, similarity
+                    ),
+                    backtrace: None,
+                });
             }
+        }
+        
+        // Sort by similarity (descending) - safe after validation
+        similarities.sort_by(|a, b| {
+            b.1.partial_cmp(&a.1).unwrap() // Safe after validation
         });
         
         // Return top-k results
@@ -289,7 +302,7 @@ impl VectorStorage {
         vectors.clear();
         metadata.clear();
         id_index.clear();
-        *stats = StorageStats::default();
+        *stats = StorageStats::new();
         
         Ok(())
     }

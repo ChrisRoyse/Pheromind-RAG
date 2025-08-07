@@ -117,28 +117,23 @@ impl SearchCache {
         Ok(())
     }
     
-    pub fn stats(&self) -> CacheStats {
-        let cache = match self.cache.lock() {
-            Ok(cache) => cache,
-            Err(_) => {
-                // Cache mutex is poisoned - return empty stats
-                return CacheStats {
-                    total_entries: 0,
-                    valid_entries: 0,
-                    max_size: self.max_size,
-                };
+    pub fn stats(&self) -> Result<CacheStats, crate::error::EmbedError> {
+        let cache = self.cache.lock().map_err(|_| {
+            crate::error::EmbedError::Internal {
+                message: "FATAL: Search cache mutex is poisoned. Cache operations cannot continue.".to_string(),
+                backtrace: None,
             }
-        };
+        })?;
         let valid_entries = cache
             .values()
             .filter(|entry| entry.timestamp.elapsed() < self.ttl)
             .count();
         
-        CacheStats {
+        Ok(CacheStats {
             total_entries: cache.len(),
             valid_entries,
             max_size: self.max_size,
-        }
+        })
     }
 }
 
@@ -221,7 +216,8 @@ mod tests {
         cache.insert("query2".to_string(), vec![create_test_result()]).unwrap();
         cache.insert("query3".to_string(), vec![create_test_result()]).unwrap();
         
-        let stats = cache.stats();
+        let stats = cache.stats()
+            .expect("Cache stats should be available");
         assert!(stats.total_entries <= 2); // Should not exceed max size
     }
 }

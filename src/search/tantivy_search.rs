@@ -159,7 +159,15 @@ impl TantivySearcher {
         let directory = MmapDirectory::open(index_path)
             .with_context(|| format!("Failed to open directory for new index: {:?}", index_path))?;
             
-        let index = Index::create(directory, schema, IndexSettings::default())
+        // Create fully explicit IndexSettings - no fallbacks or defaults allowed
+        // All settings must be explicitly configured
+        let index_settings = IndexSettings {
+            sort_by_field: None,  // No pre-sorting - explicit configuration
+            docstore_compression: tantivy::store::Compressor::Lz4,  // Explicit compression choice
+            docstore_blocksize: 16384,  // Explicit block size - no default masking
+        };
+        
+        let index = Index::create(directory, schema, index_settings)
             .with_context(|| format!("Failed to create new index: {:?}", index_path))?;
             
         Ok(index)
@@ -206,11 +214,12 @@ impl TantivySearcher {
         let mut writer: tantivy::IndexWriter<TantivyDocument> = self.index.writer(15_000_000)?;
         
         // Walk directory and index files line by line
-        for entry in WalkDir::new(path)
+        for entry_result in WalkDir::new(path)
             .follow_links(false)
             .into_iter()
-            .filter_map(|e| e.ok())
         {
+            let entry = entry_result
+                .with_context(|| format!("Failed to access directory entry while walking {:?}", path))?;
             let file_path = entry.path();
             
             // Skip directories and non-code files
@@ -243,9 +252,12 @@ impl TantivySearcher {
                         writer.add_document(doc)?;
                     }
                 }
-                Err(_) => {
-                    // Skip files that can't be read (binary files, etc.)
-                    continue;
+                Err(e) => {
+                    // PRINCIPLE 0: No silent file skipping - indexing must be complete or fail explicitly
+                    return Err(anyhow::anyhow!(
+                        "Failed to read file '{:?}' during indexing: {}. Indexing cannot guarantee completeness if files cannot be read.",
+                        file_path, e
+                    ));
                 }
             }
         }
@@ -433,6 +445,7 @@ impl TantivySearcher {
                 let upper_fuzzy_query = FuzzyTermQuery::new(upper_term, max_distance, true);
                 sub_queries.push((Occur::Should, Box::new(upper_fuzzy_query)));
             }
+            } // Close the if !word.is_empty() block
         }
         
         // Additional strategy: try partial matching within compound terms
@@ -568,9 +581,9 @@ impl TantivySearcher {
                     writer.add_document(doc)?;
                 }
             }
-            Err(_) => {
-                // Skip files that can't be read (binary files, etc.)
-                return Ok(());
+            Err(e) => {
+                // File read failed - return error instead of silently pretending success
+                return Err(anyhow::anyhow!("Failed to read file '{:?}' for indexing: {}. Cannot index unreadable file.", file_path, e));
             }
         }
         

@@ -11,6 +11,8 @@ use arrow::record_batch::RecordBatch;
 // LanceDB imports
 #[cfg(feature = "vectordb")]
 use crate::chunking::Chunk;
+#[cfg(feature = "vectordb")]
+use crate::search::SearchResult;
 
 #[cfg(feature = "vectordb")]
 #[derive(Debug)]
@@ -102,16 +104,7 @@ impl VectorStorage {
     }
 }
 
-// Stub types for compatibility
-#[cfg(feature = "vectordb")]
-#[derive(Debug)]
-pub struct SearchResult {
-    pub id: String,
-    pub file_path: String,
-    pub chunk_index: usize,
-    pub content: String,
-    pub score: f32,
-}
+// REMOVED: Stub types violate Principle 0 - use real types from lancedb_storage.rs
 
 #[cfg(feature = "vectordb")]
 #[cfg(test)]

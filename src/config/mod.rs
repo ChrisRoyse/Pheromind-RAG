@@ -7,10 +7,9 @@ use std::sync::RwLock;
 use crate::error::{EmbedError, Result as EmbedResult};
 
 /// Search backend options
-#[derive(Debug, Clone, Serialize, PartialEq, Eq, Default)]
+#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
 pub enum SearchBackend {
     /// Use Tantivy for full-text search with fuzzy matching
-    #[default]
     Tantivy,
 }
 
@@ -59,6 +58,7 @@ pub struct Config {
     pub chunk_size: usize,
     
     /// Cache configuration
+    #[cfg(feature = "ml")]
     pub embedding_cache_size: usize,
     pub search_cache_size: usize,
     
@@ -79,7 +79,9 @@ pub struct Config {
     pub search_backend: SearchBackend,
     
     /// Model configuration
+    #[cfg(feature = "ml")]
     pub model_name: String,
+    #[cfg(feature = "ml")]
     pub embedding_dimensions: usize,
     
     /// Logging configuration
@@ -118,6 +120,7 @@ impl Config {
         Self {
             project_path: PathBuf::from("."),
             chunk_size: 100,
+            #[cfg(feature = "ml")]
             embedding_cache_size: 10000,
             search_cache_size: 100,
             batch_size: 32,
@@ -128,7 +131,9 @@ impl Config {
             include_test_files: false,
             max_search_results: 20,
             search_backend: SearchBackend::Tantivy,
+            #[cfg(feature = "ml")]
             model_name: "sentence-transformers/all-MiniLM-L6-v2".to_string(),
+            #[cfg(feature = "ml")]
             embedding_dimensions: 768,
             log_level: "info".to_string(),
             
@@ -258,6 +263,7 @@ impl Config {
     }
 
     /// Get embedding cache size setting
+    #[cfg(feature = "ml")]
     pub fn embedding_cache_size() -> EmbedResult<usize> {
         Ok(CONFIG.read().map_err(|e| EmbedError::Concurrency {
             message: format!("Failed to acquire read lock for CONFIG: {}", e),
@@ -369,6 +375,7 @@ impl Config {
     
 
     /// Get model name
+    #[cfg(feature = "ml")]
     pub fn model_name() -> EmbedResult<String> {
         Ok(CONFIG.read().map_err(|e| EmbedError::Concurrency {
             message: format!("Failed to acquire read lock for CONFIG: {}", e),
@@ -380,6 +387,7 @@ impl Config {
     }
 
     /// Get embedding dimensions
+    #[cfg(feature = "ml")]
     pub fn embedding_dimensions() -> EmbedResult<usize> {
         Ok(CONFIG.read().map_err(|e| EmbedError::Concurrency {
             message: format!("Failed to acquire read lock for CONFIG: {}", e),
@@ -411,8 +419,11 @@ impl Config {
             return Err(anyhow!("chunk_size must be greater than 0"));
         }
         
-        if self.embedding_cache_size == 0 {
-            return Err(anyhow!("embedding_cache_size must be greater than 0"));
+        #[cfg(feature = "ml")]
+        {
+            if self.embedding_cache_size == 0 {
+                return Err(anyhow!("embedding_cache_size must be greater than 0"));
+            }
         }
         
         if self.search_cache_size == 0 {
@@ -431,8 +442,11 @@ impl Config {
             return Err(anyhow!("max_search_results must be greater than 0"));
         }
         
-        if self.embedding_dimensions == 0 {
-            return Err(anyhow!("embedding_dimensions must be greater than 0"));
+        #[cfg(feature = "ml")]
+        {
+            if self.embedding_dimensions == 0 {
+                return Err(anyhow!("embedding_dimensions must be greater than 0"));
+            }
         }
         
         if self.vector_db_path.is_empty() {
@@ -443,8 +457,11 @@ impl Config {
             return Err(anyhow!("cache_dir cannot be empty"));
         }
         
-        if self.model_name.is_empty() {
-            return Err(anyhow!("model_name cannot be empty"));
+        #[cfg(feature = "ml")]
+        {
+            if self.model_name.is_empty() {
+                return Err(anyhow!("model_name cannot be empty"));
+            }
         }
 
         // Validate log level
@@ -468,7 +485,7 @@ Chunking:
   chunk_size: {}
 
 Caching:
-  embedding_cache_size: {}
+{}
   search_cache_size: {}
   cache_dir: {}
 
@@ -488,14 +505,22 @@ Search:
   search_backend: {}
 
 Model:
-  model_name: {}
-  embedding_dimensions: {}
+{}{}
 
 Logging:
   log_level: {}
 "#,
             self.chunk_size,
-            self.embedding_cache_size,
+            {
+                #[cfg(feature = "ml")]
+                {
+                    format!("  embedding_cache_size: {}", self.embedding_cache_size)
+                }
+                #[cfg(not(feature = "ml"))]
+                {
+                    "  embedding_cache_size: (disabled - ML feature not enabled)".to_string()
+                }
+            },
             self.search_cache_size, 
             self.cache_dir,
             self.batch_size,
@@ -505,8 +530,26 @@ Logging:
             self.include_test_files,
             self.max_search_results,
             self.search_backend,
-            self.model_name,
-            self.embedding_dimensions,
+            {
+                #[cfg(feature = "ml")]
+                {
+                    format!("  model_name: {}", self.model_name)
+                }
+                #[cfg(not(feature = "ml"))]
+                {
+                    "  model_name: (disabled - ML feature not enabled)".to_string()
+                }
+            },
+            {
+                #[cfg(feature = "ml")]
+                {
+                    format!("\n  embedding_dimensions: {}", self.embedding_dimensions)
+                }
+                #[cfg(not(feature = "ml"))]
+                {
+                    "\n  embedding_dimensions: (disabled - ML feature not enabled)".to_string()
+                }
+            },
             self.log_level
         )
     }
@@ -521,9 +564,12 @@ mod tests {
     fn test_default_config() {
         let config = Config::new_test_config();
         assert_eq!(config.chunk_size, 100);
-        assert_eq!(config.embedding_cache_size, 10000);
+        #[cfg(feature = "ml")]
+        {
+            assert_eq!(config.embedding_cache_size, 10000);
+            assert_eq!(config.embedding_dimensions, 768);
+        }
         assert_eq!(config.batch_size, 32);
-        assert_eq!(config.embedding_dimensions, 768);
         assert_eq!(config.search_backend, SearchBackend::Tantivy);
         assert!(config.validate().is_ok());
     }
@@ -557,8 +603,8 @@ mod tests {
         // Test display
         assert_eq!(SearchBackend::Tantivy.to_string(), "Tantivy");
         
-        // Test default
-        assert_eq!(SearchBackend::default(), SearchBackend::Tantivy);
+        // Test explicit construction - no defaults allowed
+        assert_eq!(SearchBackend::Tantivy, SearchBackend::Tantivy);
     }
 
 

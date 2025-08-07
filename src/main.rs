@@ -35,8 +35,7 @@ struct Cli {
 enum Commands {
     /// Index files in the specified path
     Index {
-        /// Path to index (default: ./vectortest)
-        #[arg(default_value = "./vectortest")]
+        /// Path to index (required - no default)
         path: PathBuf,
     },
     /// Search for a query in the indexed files
@@ -142,7 +141,7 @@ async fn index_command(path: PathBuf, project_path: PathBuf, db_path: PathBuf) -
         let stats = searcher.index_directory(&full_path).await?;
         println!("✅ {}", stats);
     } else {
-        println!("❌ Path does not exist: {:?}", full_path);
+        return Err(anyhow::anyhow!("Path does not exist: {:?}", full_path));
     }
     
     Ok(())
@@ -265,8 +264,7 @@ async fn test_command(project_path: PathBuf, db_path: PathBuf) -> Result<()> {
     let vectortest_path = project_path.join("vectortest");
     
     if !vectortest_path.exists() {
-        println!("❌ vectortest directory not found!");
-        return Ok(());
+        return Err(anyhow::anyhow!("vectortest directory not found: {}. Cannot run tests without test data.", vectortest_path.display()));
     }
     
     // Clear index first

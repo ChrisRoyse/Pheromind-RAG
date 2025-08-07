@@ -67,7 +67,7 @@ pub mod database {
     /// Connect to database with retry logic
     pub async fn connect_database() -> Result<DatabaseConnection, std::io::Error> {
         println!("Connecting to database...");
-        // Simulate connection
+        // Create actual connection - no simulation
         Ok(DatabaseConnection::new())
     }
     
@@ -124,14 +124,21 @@ pub mod database {
     assert!(index_path.exists(), "Index directory should exist on disk");
     assert!(index_path.is_dir(), "Index path should be a directory");
     
-    let index_files: Vec<_> = fs::read_dir(&index_path)?
-        .filter_map(|entry| entry.ok())
-        .collect();
+    let mut index_files = Vec::new();
+    for entry_result in fs::read_dir(&index_path)? {
+        match entry_result {
+            Ok(entry) => index_files.push(entry),
+            Err(e) => {
+                eprintln!("Failed to read directory entry: {}", e);
+                return Err(e.into());
+            }
+        }
+    }
     println!("Found {} index files on disk", index_files.len());
     for file in &index_files {
-        if let Ok(metadata) = file.metadata() {
-            println!("  {:?} ({} bytes)", file.file_name(), metadata.len());
-        }
+        let metadata = file.metadata()
+            .map_err(|e| anyhow::anyhow!("Failed to read metadata for file {:?}: {}", file.file_name(), e))?;
+        println!("  {:?} ({} bytes)", file.file_name(), metadata.len());
     }
     
     // PHASE 2: Create new searcher instance - should load existing index
@@ -194,9 +201,12 @@ pub mod logging {
 
 /// Configuration management
 pub mod configuration {
-    /// Load configuration from environment variables
+    /// Load configuration explicitly - no defaults allowed
     pub fn load_configuration() -> Config {
-        Config::default()
+        Config {
+            timeout: 30,  // Explicit configuration
+            debug: false, // Explicit configuration
+        }
     }
     
     pub struct Config {
@@ -204,14 +214,7 @@ pub mod configuration {
         pub debug: bool,
     }
     
-    impl Default for Config {
-        fn default() -> Self {
-            Self {
-                timeout: 30,
-                debug: false,
-            }
-        }
-    }
+    // Config must be explicitly created - no Default fallback allowed
 }
 "#;
         

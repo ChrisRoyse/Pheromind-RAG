@@ -1,5 +1,6 @@
 use std::collections::HashSet;
 use crate::search::ExactMatch;
+use crate::error::SearchError;
 #[cfg(feature = "vectordb")]
 use crate::storage::lancedb_storage::LanceEmbeddingRecord;
 #[cfg(feature = "tree-sitter")]
@@ -33,12 +34,34 @@ impl SimpleFusion {
         Self
     }
     
+    /// Parse document ID in format "filepath-chunkindex"
+    /// Returns (file_path, chunk_index) or error if format is invalid
+    fn parse_doc_id(doc_id: &str) -> Result<(String, usize), SearchError> {
+        let parts: Vec<&str> = doc_id.rsplitn(2, '-').collect();
+        if parts.len() != 2 {
+            return Err(SearchError::InvalidDocId {
+                doc_id: doc_id.to_string(),
+                expected_format: "filepath-chunkindex".to_string(),
+            });
+        }
+        
+        let file_path = parts[1].to_string();
+        let chunk_index = parts[0].parse::<usize>().map_err(|_| {
+            SearchError::InvalidDocId {
+                doc_id: doc_id.to_string(),
+                expected_format: "filepath-chunkindex (chunk index must be numeric)".to_string(),
+            }
+        })?;
+        
+        Ok((file_path, chunk_index))
+    }
+    
     #[cfg(feature = "vectordb")]
     pub fn fuse_results(
         &self,
         exact_matches: Vec<ExactMatch>,
         semantic_matches: Vec<LanceEmbeddingRecord>,
-    ) -> Vec<FusedResult> {
+    ) -> Result<Vec<FusedResult>, SearchError> {
         let mut seen = HashSet::new();
         let mut results = Vec::new();
         
@@ -60,26 +83,36 @@ impl SimpleFusion {
         }
         
         // Add semantic matches with lower scores
-        for (idx, semantic) in semantic_matches.into_iter().enumerate() {
+        for (_idx, semantic) in semantic_matches.into_iter().enumerate() {
             // Check if we already have an exact match for this file
+            // FIXED: Replace .map_or(false, |line| {...}) with explicit Option handling
             let file_has_exact = results.iter().any(|r| {
                 r.file_path == semantic.file_path && 
                 r.match_type == MatchType::Exact &&
-                r.line_number.map_or(false, |line| {
-                    line >= semantic.start_line as usize && 
-                    line <= semantic.end_line as usize
-                })
+                match r.line_number {
+                    Some(line) => {
+                        line >= semantic.start_line as usize && 
+                        line <= semantic.end_line as usize
+                    }
+                    None => {
+                        // Exact match must have a line number - if missing, this is corrupted data
+                        log::error!("Exact match found without line number in file '{}'. This indicates corrupted search results.", r.file_path);
+                        false
+                    }
+                }
             });
             
             if !file_has_exact {
                 let key = format!("{}-{}", semantic.file_path, semantic.chunk_index);
                 if seen.insert(key) {
-                    // Use actual similarity score from vector search, skip if missing
+                    // Use actual similarity score from vector search - fail if missing
                     let similarity = match semantic.similarity_score {
                         Some(score) => score,
                         None => {
-                            log::error!("Semantic match for file '{}' chunk {} missing required similarity score. Skipping match.", semantic.file_path, semantic.chunk_index);
-                            continue;
+                            return Err(SearchError::MissingSimilarityScore {
+                                file_path: semantic.file_path,
+                                chunk_index: semantic.chunk_index,
+                            });
                         }
                     };
                     
@@ -97,26 +130,23 @@ impl SimpleFusion {
             }
         }
         
-        // Sort by score descending, handling potential NaN values
-        results.sort_by(|a, b| {
-            match b.score.partial_cmp(&a.score) {
-                Some(ordering) => ordering,
-                None => {
-                    // Handle NaN case - prefer the non-NaN value
-                    if b.score.is_nan() && a.score.is_nan() {
-                        std::cmp::Ordering::Equal
-                    } else if b.score.is_nan() {
-                        std::cmp::Ordering::Greater // a comes first (a is not NaN)
-                    } else {
-                        std::cmp::Ordering::Less // b comes first (b is not NaN)
-                    }
-                }
+        // Validate all scores for NaN/Infinity before sorting - fail on corrupted data
+        for result in &results {
+            if !result.score.is_finite() {
+                return Err(SearchError::CorruptedData {
+                    description: format!("Invalid score {} detected for file '{}'. Search results cannot contain NaN or infinite values.", result.score, result.file_path)
+                });
             }
+        }
+        
+        // Sort by score descending - now safe since we validated no NaN values
+        results.sort_by(|a, b| {
+            b.score.partial_cmp(&a.score).unwrap() // Safe after validation
         });
         
         // Take top 20 results
         results.truncate(20);
-        results
+        Ok(results)
     }
     
     #[cfg(all(feature = "vectordb", feature = "tree-sitter"))]
@@ -125,7 +155,7 @@ impl SimpleFusion {
         exact_matches: Vec<ExactMatch>,
         semantic_matches: Vec<LanceEmbeddingRecord>,
         symbol_matches: Vec<Symbol>,
-    ) -> Vec<FusedResult> {
+    ) -> Result<Vec<FusedResult>, SearchError> {
         let mut seen = HashSet::new();
         let mut results = Vec::new();
         
@@ -164,7 +194,7 @@ impl SimpleFusion {
         }
         
         // Add semantic matches with lower scores
-        for (idx, semantic) in semantic_matches.into_iter().enumerate() {
+        for (_idx, semantic) in semantic_matches.into_iter().enumerate() {
             // Skip if we already have an exact or symbol match for this location
             let file_has_better_match = results.iter().any(|r| {
                 r.file_path == semantic.file_path && 
@@ -176,12 +206,14 @@ impl SimpleFusion {
             if !file_has_better_match {
                 let key = format!("{}-{}", semantic.file_path, semantic.chunk_index);
                 if seen.insert(key) {
-                    // Use actual similarity score from vector search, skip if missing
+                    // Use actual similarity score from vector search - fail if missing
                     let similarity = match semantic.similarity_score {
                         Some(score) => score,
                         None => {
-                            log::error!("Semantic match for file '{}' chunk {} missing required similarity score. Skipping match.", semantic.file_path, semantic.chunk_index);
-                            continue;
+                            return Err(SearchError::MissingSimilarityScore {
+                                file_path: semantic.file_path,
+                                chunk_index: semantic.chunk_index,
+                            });
                         }
                     };
                     
@@ -199,26 +231,23 @@ impl SimpleFusion {
             }
         }
         
-        // Sort by score descending, handling potential NaN values
-        results.sort_by(|a, b| {
-            match b.score.partial_cmp(&a.score) {
-                Some(ordering) => ordering,
-                None => {
-                    // Handle NaN case - prefer the non-NaN value
-                    if b.score.is_nan() && a.score.is_nan() {
-                        std::cmp::Ordering::Equal
-                    } else if b.score.is_nan() {
-                        std::cmp::Ordering::Greater // a comes first (a is not NaN)
-                    } else {
-                        std::cmp::Ordering::Less // b comes first (b is not NaN)
-                    }
-                }
+        // Validate all scores for NaN/Infinity before sorting - fail on corrupted data
+        for result in &results {
+            if !result.score.is_finite() {
+                return Err(SearchError::CorruptedData {
+                    description: format!("Invalid score {} detected for file '{}'. Search results cannot contain NaN or infinite values.", result.score, result.file_path)
+                });
             }
+        }
+        
+        // Sort by score descending - now safe since we validated no NaN values
+        results.sort_by(|a, b| {
+            b.score.partial_cmp(&a.score).unwrap() // Safe after validation
         });
         
         // Take top 20 results
         results.truncate(20);
-        results
+        Ok(results)
     }
     
     /// Enhanced fusion with BM25 results (4-way fusion)
@@ -229,7 +258,7 @@ impl SimpleFusion {
         semantic_matches: Vec<LanceEmbeddingRecord>,
         symbol_matches: Vec<Symbol>,
         bm25_matches: Vec<BM25Match>,
-    ) -> Vec<FusedResult> {
+    ) -> Result<Vec<FusedResult>, SearchError> {
         let mut seen = HashSet::new();
         let mut results = Vec::new();
         
@@ -253,27 +282,29 @@ impl SimpleFusion {
         // 2. Process BM25 matches (high priority for statistical relevance)
         for bm25 in bm25_matches {
             // Extract file path and chunk index from doc_id (format: "filepath-chunkindex")
-            let parts: Vec<&str> = bm25.doc_id.rsplitn(2, '-').collect();
-            let (file_path, chunk_index) = if parts.len() == 2 {
-                (parts[1].to_string(), parts[0].parse::<usize>().ok())
-            } else {
-                (bm25.doc_id.clone(), None)
-            };
+            let (file_path, chunk_index) = Self::parse_doc_id(&bm25.doc_id)?;
+            let chunk_index = Some(chunk_index);
             
             let key = format!("bm25-{}", bm25.doc_id);
             if seen.insert(key) {
                 // Normalize BM25 score (typically ranges from 0-20, normalize to 0-0.9)
                 let normalized_score = (bm25.score / 10.0).min(0.9);
                 
+                // BM25 matches must have valid chunk indices
+                let chunk_idx = chunk_index.ok_or_else(|| SearchError::InvalidDocId {
+                    doc_id: bm25.doc_id.clone(),
+                    expected_format: "BM25 matches require chunk index".to_string(),
+                })?;
+                
                 results.push(FusedResult {
                     file_path,
                     line_number: None,
-                    chunk_index,
+                    chunk_index: Some(chunk_idx),
                     score: normalized_score,
                     match_type: MatchType::Statistical,
                     content: format!("BM25 match (score: {:.2})", bm25.score),
-                    start_line: 0,
-                    end_line: 0,
+                    start_line: chunk_idx,
+                    end_line: chunk_idx,
                 });
             }
         }
@@ -296,7 +327,7 @@ impl SimpleFusion {
         }
         
         // 4. Process semantic matches
-        for (idx, semantic) in semantic_matches.into_iter().enumerate() {
+        for (_idx, semantic) in semantic_matches.into_iter().enumerate() {
             // Skip if we already have a better match for this location
             let file_has_better_match = results.iter().any(|r| {
                 r.file_path == semantic.file_path && 
@@ -310,12 +341,14 @@ impl SimpleFusion {
             if !file_has_better_match {
                 let key = format!("{}-{}", semantic.file_path, semantic.chunk_index);
                 if seen.insert(key) {
-                    // Use actual similarity score from vector search, skip if missing
+                    // Use actual similarity score from vector search - fail if missing
                     let similarity = match semantic.similarity_score {
                         Some(score) => score,
                         None => {
-                            log::error!("Semantic match for file '{}' chunk {} missing required similarity score. Skipping match.", semantic.file_path, semantic.chunk_index);
-                            continue;
+                            return Err(SearchError::MissingSimilarityScore {
+                                file_path: semantic.file_path,
+                                chunk_index: semantic.chunk_index,
+                            });
                         }
                     };
                     
@@ -336,22 +369,29 @@ impl SimpleFusion {
         // Apply weighted fusion scoring
         self.apply_weighted_fusion(&mut results, 0.4, 0.25, 0.25, 0.1);
         
-        // Sort by final score
+        // Validate all scores before sorting
+        for result in &results {
+            if result.score.is_nan() || result.score.is_infinite() {
+                return Err(SearchError::QueryInvalid {
+                    message: format!(
+                        "Invalid score detected in search results: {} for file {}",
+                        result.score,
+                        result.file_path
+                    ),
+                    query: format!("Score validation failed"),
+                });
+            }
+        }
+        
+        // Sort by final score - all scores are now guaranteed to be valid
         results.sort_by(|a, b| {
-            b.score.partial_cmp(&a.score).unwrap_or_else(|| {
-                // Handle NaN values explicitly - NaN scores indicate corrupted data
-                match (b.score.is_nan(), a.score.is_nan()) {
-                    (true, true) => std::cmp::Ordering::Equal,
-                    (true, false) => std::cmp::Ordering::Greater, // Non-NaN comes first
-                    (false, true) => std::cmp::Ordering::Less,    // Non-NaN comes first
-                    (false, false) => std::cmp::Ordering::Equal, // This shouldn't happen with partial_cmp
-                }
-            })
+            b.score.partial_cmp(&a.score)
+                .expect("All scores validated as non-NaN before sorting")
         });
         
         // Take top 20 results
         results.truncate(20);
-        results
+        Ok(results)
     }
     
     /// Core fusion functionality (BM25 + Exact matches only) - no fallbacks
@@ -359,7 +399,7 @@ impl SimpleFusion {
         &self,
         exact_matches: Vec<ExactMatch>,
         bm25_matches: Vec<BM25Match>,
-    ) -> Vec<FusedResult> {
+    ) -> Result<Vec<FusedResult>, SearchError> {
         let mut seen = HashSet::new();
         let mut results = Vec::new();
         
@@ -383,51 +423,50 @@ impl SimpleFusion {
         // Process BM25 matches
         for bm25 in bm25_matches {
             // Extract file path and chunk index from doc_id (format: "filepath-chunkindex")
-            let parts: Vec<&str> = bm25.doc_id.rsplitn(2, '-').collect();
-            let (file_path, chunk_index) = if parts.len() == 2 {
-                (parts[1].to_string(), parts[0].parse::<usize>().ok())
-            } else {
-                (bm25.doc_id.clone(), None)
-            };
+            let (file_path, chunk_index) = Self::parse_doc_id(&bm25.doc_id)?;
+            let chunk_index = Some(chunk_index);
             
             let key = format!("bm25-{}", bm25.doc_id);
             if seen.insert(key) {
                 // Normalize BM25 score (typically ranges from 0-20, normalize to 0-0.9)
                 let normalized_score = (bm25.score / 10.0).min(0.9);
                 
+                // BM25 matches must have valid chunk indices
+                let chunk_idx = chunk_index.ok_or_else(|| SearchError::InvalidDocId {
+                    doc_id: bm25.doc_id.clone(),
+                    expected_format: "BM25 matches require chunk index".to_string(),
+                })?;
+                
                 results.push(FusedResult {
                     file_path,
                     line_number: None,
-                    chunk_index,
+                    chunk_index: Some(chunk_idx),
                     score: normalized_score,
                     match_type: MatchType::Statistical,
                     content: format!("BM25 match (score: {:.2})", bm25.score),
-                    start_line: 0,
-                    end_line: 0,
+                    start_line: chunk_idx,
+                    end_line: chunk_idx,
                 });
             }
         }
         
-        // Sort by score descending, handling potential NaN values
-        results.sort_by(|a, b| {
-            match b.score.partial_cmp(&a.score) {
-                Some(ordering) => ordering,
-                None => {
-                    // Handle NaN case - prefer the non-NaN value
-                    if b.score.is_nan() && a.score.is_nan() {
-                        std::cmp::Ordering::Equal
-                    } else if b.score.is_nan() {
-                        std::cmp::Ordering::Greater // a comes first (a is not NaN)
-                    } else {
-                        std::cmp::Ordering::Less // b comes first (b is not NaN)
-                    }
-                }
+        // Validate all scores for NaN/Infinity before sorting - fail on corrupted data
+        for result in &results {
+            if !result.score.is_finite() {
+                return Err(SearchError::CorruptedData {
+                    description: format!("Invalid score {} detected for file '{}'. Search results cannot contain NaN or infinite values.", result.score, result.file_path)
+                });
             }
+        }
+        
+        // Sort by score descending - now safe since we validated no NaN values
+        results.sort_by(|a, b| {
+            b.score.partial_cmp(&a.score).unwrap() // Safe after validation
         });
         
         // Take top 20 results
         results.truncate(20);
-        results
+        Ok(results)
     }
     
     /// Apply weighted fusion to combine scores from different search types
@@ -451,7 +490,7 @@ impl SimpleFusion {
         }
     }
     
-    pub fn optimize_ranking(&self, results: &mut Vec<FusedResult>, query: &str) {
+    pub fn optimize_ranking(&self, results: &mut Vec<FusedResult>, query: &str) -> Result<(), SearchError> {
         let query_lower = query.to_lowercase();
         let query_words: Vec<&str> = query_lower.split_whitespace().collect();
         
@@ -460,7 +499,7 @@ impl SimpleFusion {
             let file_path_lower = result.file_path.to_lowercase();
             
             // Deprioritize test files 
-            let is_test_file = self.is_test_file(&result.file_path);
+            let is_test_file = self.is_test_file(&result.file_path)?;
             if is_test_file {
                 result.score *= 0.5; // Moderate penalty for test files
             }
@@ -489,8 +528,9 @@ impl SimpleFusion {
                 .and_then(|n| n.to_str()) {
                     Some(name) => name,
                     None => {
-                        log::error!("Invalid filename in path: {}. File path contains invalid UTF-8 characters.", result.file_path);
-                        continue; // Skip this result
+                        return Err(SearchError::InvalidFilePath {
+                            path: result.file_path.clone(),
+                        });
                     }
                 };
             let filename_lower = filename.to_lowercase();
@@ -583,9 +623,11 @@ impl SimpleFusion {
                 result.score *= 1.1;
             }
             
-            // Cap semantic match scores to avoid overwhelming exact matches
+            // Validate semantic scores - fail if invalid instead of capping
             if result.match_type == MatchType::Semantic && result.score > 1.5 {
-                result.score = 1.5;
+                return Err(SearchError::CorruptedData {
+                    description: format!("Semantic score {} exceeds expected maximum (1.5) for file '{}'. This indicates corrupted similarity calculation.", result.score, result.file_path)
+                });
             }
             
             // Ensure exact matches stay above semantic matches
@@ -594,18 +636,21 @@ impl SimpleFusion {
             }
         }
         
-        // Re-sort after optimization
+        // Validate all scores again before re-sorting - fail on corrupted data
+        for result in results.iter() {
+            if !result.score.is_finite() {
+                return Err(SearchError::CorruptedData {
+                    description: format!("Invalid score {} detected after optimization for file '{}'. Rankings contain corrupted data.", result.score, result.file_path)
+                });
+            }
+        }
+        
+        // Re-sort after optimization - now safe since we validated no NaN values
         results.sort_by(|a, b| {
-            b.score.partial_cmp(&a.score).unwrap_or_else(|| {
-                // Handle NaN values explicitly - NaN scores indicate corrupted data
-                match (b.score.is_nan(), a.score.is_nan()) {
-                    (true, true) => std::cmp::Ordering::Equal,
-                    (true, false) => std::cmp::Ordering::Greater, // Non-NaN comes first
-                    (false, true) => std::cmp::Ordering::Less,    // Non-NaN comes first
-                    (false, false) => std::cmp::Ordering::Equal, // This shouldn't happen with partial_cmp
-                }
-            })
+            b.score.partial_cmp(&a.score).unwrap() // Safe after validation
         });
+        
+        Ok(())
     }
     
     fn is_identifier_match(&self, line: &str, word: &str) -> bool {
@@ -636,20 +681,21 @@ impl SimpleFusion {
         }
     }
     
-    fn is_test_file(&self, path: &str) -> bool {
+    fn is_test_file(&self, path: &str) -> Result<bool, SearchError> {
         let path_lower = path.to_lowercase();
         let filename = match std::path::Path::new(&path)
             .file_name()
             .and_then(|n| n.to_str()) {
                 Some(name) => name.to_lowercase(),
                 None => {
-                    log::error!("Invalid filename in path: {}. File path contains invalid UTF-8 characters.", path);
-                    return false; // Treat as not a test file if path is invalid
+                    return Err(SearchError::InvalidFilePath {
+                        path: path.to_string(),
+                    });
                 }
             };
         
         // Check for test indicators in path or filename
-        path_lower.contains("/test") || 
+        Ok(path_lower.contains("/test") || 
         path_lower.contains("\\test") ||
         path_lower.contains("/tests/") ||
         path_lower.contains("\\tests\\") ||
@@ -658,7 +704,7 @@ impl SimpleFusion {
         path_lower.contains("_test.") ||
         path_lower.contains("test_") ||
         path_lower.contains("_spec.") ||
-        path_lower.contains("spec_")
+        path_lower.contains("spec_"))
     }
 }
 
@@ -693,7 +739,7 @@ mod tests {
             }
         ];
         
-        let results = fusion.fuse_results(exact_matches, semantic_matches);
+        let results = fusion.fuse_results(exact_matches, semantic_matches).unwrap();
         
         assert_eq!(results.len(), 1);
         assert_eq!(results[0].match_type, MatchType::Exact);
@@ -719,7 +765,7 @@ mod tests {
             }
         ];
         
-        let results = fusion.fuse_results_core(exact_matches, vec![]);
+        let results = fusion.fuse_results_core(exact_matches, vec![]).unwrap();
         
         assert_eq!(results.len(), 1); // Duplicates removed
     }

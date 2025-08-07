@@ -6,8 +6,24 @@ use tracing_subscriber::{
     EnvFilter,
 };
 use std::io;
+use crate::error::LoggingError;
 
 /// Configuration for logging setup
+/// 
+/// **IMPORTANT**: This struct requires explicit configuration - no defaults are provided.
+/// Either provide an explicit filter via `filter()` method or set the RUST_LOG environment variable.
+/// 
+/// # Example
+/// 
+/// ```
+/// use tracing::Level;
+/// use your_crate::observability::logging::LogConfig;
+/// 
+/// // Explicit configuration required
+/// let config = LogConfig::new(Level::INFO)
+///     .filter("your_crate=debug")
+///     .colors(true);
+/// ```
 #[derive(Debug, Clone)]
 pub struct LogConfig {
     pub level: Level,
@@ -19,10 +35,11 @@ pub struct LogConfig {
     pub filter: Option<String>,
 }
 
-impl Default for LogConfig {
-    fn default() -> Self {
+
+impl LogConfig {
+    pub fn new(level: Level) -> Self {
         Self {
-            level: Level::INFO,
+            level,
             enable_colors: true,
             enable_timestamps: true,
             show_target: false,
@@ -31,12 +48,6 @@ impl Default for LogConfig {
             filter: None,
         }
     }
-}
-
-impl LogConfig {
-    pub fn new() -> Self {
-        Self::default()
-    }
 
     pub fn level(mut self, level: Level) -> Self {
         self.level = level;
@@ -44,11 +55,11 @@ impl LogConfig {
     }
 
     pub fn debug() -> Self {
-        Self::new().level(Level::DEBUG)
+        Self::new(Level::DEBUG)
     }
 
     pub fn trace() -> Self {
-        Self::new().level(Level::TRACE)
+        Self::new(Level::TRACE)
     }
 
     pub fn colors(mut self, enable: bool) -> Self {
@@ -83,17 +94,33 @@ impl LogConfig {
 }
 
 /// Initialize logging with the given configuration
-pub fn init_logging(config: LogConfig) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-    // Build the env filter
+/// 
+/// **IMPORTANT**: No fallback behavior is provided. This function will fail explicitly if:
+/// - No filter is provided via `LogConfig::filter()` AND
+/// - No RUST_LOG environment variable is set
+/// 
+/// This ensures all logging configuration is explicit and intentional.
+pub fn init_logging(config: LogConfig) -> Result<(), LoggingError> {
+    // Build the env filter - require explicit configuration
     let env_filter = if let Some(filter) = &config.filter {
-        EnvFilter::try_new(filter)?
+        EnvFilter::try_new(filter).map_err(|e| LoggingError::InvalidFilter {
+            filter: filter.clone(),
+            source: Some(Box::new(e)),
+        })?
     } else {
-        // Try to read from environment variable first
-        match EnvFilter::try_from_default_env() {
-            Ok(env_filter) => env_filter,
+        // Check if RUST_LOG environment variable is set
+        match std::env::var("RUST_LOG") {
+            Ok(env_filter_str) => EnvFilter::try_new(&env_filter_str).map_err(|_e| {
+                LoggingError::EnvironmentError {
+                    variable: "RUST_LOG".to_string(),
+                    value: Some(env_filter_str.clone()),
+                }
+            })?,
             Err(_) => {
-                // No RUST_LOG environment variable set - use configured level
-                EnvFilter::new(config.level.to_string().to_lowercase())
+                return Err(LoggingError::InitializationFailed {
+                    reason: "No logging filter configured".to_string(),
+                    config_detail: Some("Either provide explicit filter via LogConfig::filter() or set RUST_LOG environment variable".to_string()),
+                });
             }
         }
     };
@@ -108,7 +135,11 @@ pub fn init_logging(config: LogConfig) -> Result<(), Box<dyn std::error::Error +
                     .with_current_span(true)
                     .with_writer(io::stdout)
             )
-            .try_init()?;
+            .try_init()
+            .map_err(|e| LoggingError::InitializationFailed {
+                reason: "Failed to initialize JSON logger".to_string(),
+                config_detail: Some(format!("Error: {}", e)),
+            })?;
     } else {
         // Pretty format for human-readable logging - use default timer to avoid type issues
         let fmt_layer = fmt::layer()
@@ -120,19 +151,19 @@ pub fn init_logging(config: LogConfig) -> Result<(), Box<dyn std::error::Error +
         tracing_subscriber::registry()
             .with(env_filter)
             .with(fmt_layer)
-            .try_init()?;
+            .try_init()
+            .map_err(|e| LoggingError::InitializationFailed {
+                reason: "Failed to initialize formatted logger".to_string(),
+                config_detail: Some(format!("Error: {}", e)),
+            })?;
     }
 
     Ok(())
 }
 
-/// Initialize logging with default configuration
-pub fn init_default_logging() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-    init_logging(LogConfig::default())
-}
 
 /// Initialize development logging (debug level with colors)
-pub fn init_dev_logging() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+pub fn init_dev_logging() -> Result<(), LoggingError> {
     init_logging(
         LogConfig::debug()
             .colors(true)
@@ -142,10 +173,9 @@ pub fn init_dev_logging() -> Result<(), Box<dyn std::error::Error + Send + Sync>
 }
 
 /// Initialize production logging (info level, JSON format)
-pub fn init_prod_logging() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+pub fn init_prod_logging() -> Result<(), LoggingError> {
     init_logging(
-        LogConfig::new()
-            .level(Level::INFO)
+        LogConfig::new(Level::INFO)
             .json_format(true)
             .colors(false)
             .timestamps(true)
@@ -193,6 +223,7 @@ pub fn log_search_operation(
 }
 
 /// Structured logging helper for embedding operations
+#[cfg(feature = "ml")]
 pub fn log_embedding_operation(
     text_length: usize,
     duration: std::time::Duration,
@@ -249,8 +280,7 @@ mod tests {
 
     #[test]
     fn test_log_config_builder() {
-        let config = LogConfig::new()
-            .level(Level::DEBUG)
+        let config = LogConfig::new(Level::DEBUG)
             .colors(false)
             .json_format(true)
             .filter("embed_search=debug");
@@ -272,8 +302,9 @@ mod tests {
 
     #[tokio::test]
     async fn test_logging_macros() {
-        // Initialize logging for testing
-        let _ = init_logging(LogConfig::new().level(Level::DEBUG));
+        // Initialize logging for testing with explicit filter - FIXED: Propagate error
+        init_logging(LogConfig::new(Level::DEBUG).filter("test=debug"))
+            .expect("Failed to initialize logging for test. This indicates a configuration problem that must be resolved.");
 
         // Test sync performance macro
         let result = log_performance!("test_operation", {
@@ -291,8 +322,9 @@ mod tests {
 
     #[test]
     fn test_structured_logging_helpers() {
-        // Initialize logging for testing
-        let _ = init_logging(LogConfig::new().level(Level::DEBUG));
+        // Initialize logging for testing with explicit filter - FIXED: Propagate error
+        init_logging(LogConfig::new(Level::DEBUG).filter("test=debug"))
+            .expect("Failed to initialize logging for test. This indicates a configuration problem that must be resolved.");
 
         log_search_operation(
             "test query",
@@ -301,6 +333,8 @@ mod tests {
             "test_source"
         );
 
+        // Test embedding operation logging (when ml feature is available)
+        #[cfg(feature = "ml")]
         log_embedding_operation(
             256,
             std::time::Duration::from_millis(50),

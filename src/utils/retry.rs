@@ -84,7 +84,8 @@ where
         current_interval: config.initial_delay,
         start_time: std::time::Instant::now(),
         randomization_factor: if config.jitter { 0.5 } else { 0.0 },
-        reset_interval: Duration::from_secs(600), // 10 minutes - explicit value required
+        // Note: reset_interval field doesn't exist in backoff crate - configuration is explicit via other fields
+        clock: backoff::SystemClock {},
     };
 
     let mut attempt = 0;

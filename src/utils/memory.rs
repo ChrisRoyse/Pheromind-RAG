@@ -51,7 +51,7 @@ impl MemoryMonitor {
         system.refresh_all();
         
         let process_pid = sysinfo::get_current_pid()
-            .ok_or_else(|| crate::error::EmbedError::Internal {
+            .map_err(|_| crate::error::EmbedError::Internal {
                 message: "Unable to get current process PID for memory monitoring".to_string(),
                 backtrace: None,
             })?;

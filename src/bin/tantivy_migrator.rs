@@ -389,9 +389,19 @@ impl MigrationTool {
             let path = entry.path();
             
             if path.extension().and_then(|s| s.to_str()) == Some("json") {
-                if let Ok(content) = fs::read_to_string(&path) {
-                    if let Ok(backup) = serde_json::from_str::<MigrationBackup>(&content) {
-                        backups.push(backup);
+                match fs::read_to_string(&path) {
+                    Ok(content) => {
+                        match serde_json::from_str::<MigrationBackup>(&content) {
+                            Ok(backup) => backups.push(backup),
+                            Err(e) => {
+                                eprintln!("Error: Failed to parse backup file {:?}: {}", path, e);
+                                return Err(anyhow::anyhow!("Failed to parse backup file {:?}: {}", path, e));
+                            }
+                        }
+                    }
+                    Err(e) => {
+                        eprintln!("Error: Failed to read backup file {:?}: {}", path, e);
+                        return Err(anyhow::anyhow!("Failed to read backup file {:?}: {}", path, e));
                     }
                 }
             }
@@ -627,12 +637,18 @@ impl MigrationTool {
             let start = Instant::now();
             
             // Test search performance
-            if let Ok(searcher) = create_text_searcher_with_root(&SearchBackend::Tantivy, self.project_path.clone()).await {
-                let search_start = Instant::now();
-                let _results = searcher.search("async fn").await;
-                let search_duration = search_start.elapsed();
-                
-                measurements.push((start, search_duration));
+            match create_text_searcher_with_root(&SearchBackend::Tantivy, self.project_path.clone()).await {
+                Ok(searcher) => {
+                    let search_start = Instant::now();
+                    let _results = searcher.search("async fn").await;
+                    let search_duration = search_start.elapsed();
+                    
+                    measurements.push((start, search_duration));
+                }
+                Err(e) => {
+                    eprintln!("Failed to create searcher for performance monitoring: {}", e);
+                    return Err(e.into());
+                }
             }
             
             sleep(Duration::from_secs(1)).await;

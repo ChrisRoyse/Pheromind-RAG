@@ -7,6 +7,23 @@ use std::path::{Path, PathBuf};
 use regex::Regex;
 use walkdir::WalkDir;
 
+#[derive(Debug)]
+struct DirectoryTraversalError {
+    source: walkdir::Error,
+}
+
+impl std::fmt::Display for DirectoryTraversalError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "Directory traversal failed: {}", self.source)
+    }
+}
+
+impl std::error::Error for DirectoryTraversalError {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        Some(&self.source)
+    }
+}
+
 #[derive(Debug, Clone)]
 struct UnsafeImpl {
     type_name: String,
@@ -29,18 +46,22 @@ fn audit_unsafe_implementations() -> Vec<UnsafeImpl> {
     let unsafe_pattern = Regex::new(r"unsafe\s+impl\s+(Send|Sync)").unwrap();
     let safety_comment_pattern = Regex::new(r"(?i)safety:|safe\s+because").unwrap();
     
-    for entry in WalkDir::new("src")
+    let entries: Result<Vec<_>, _> = WalkDir::new("src")
         .into_iter()
-        .filter_map(|e| e.ok())
-        .filter(|e| e.path().extension().map_or(false, |ext| ext == "rs"))
+        .collect();
+    let entries = entries
+        .map_err(|e| DirectoryTraversalError { source: e })
+        .expect("Safety audit must traverse all directories");
+    
+    for entry in entries
+        .into_iter()
+        .filter(|e| {
+            e.path().extension()
+                .map_or(false, |ext| ext == "rs")
+        })
     {
-        let content = match fs::read_to_string(entry.path()) {
-            Ok(content) => content,
-            Err(e) => {
-                eprintln!("Warning: Could not read file {:?}: {}", entry.path(), e);
-                continue;
-            }
-        };
+        let content = fs::read_to_string(entry.path())
+            .unwrap_or_else(|e| panic!("SAFETY AUDIT FAILURE: Cannot read file {:?} for safety analysis: {}. Safety audit must access all source files to be valid.", entry.path(), e));
         
         for (line_num, line) in content.lines().enumerate() {
             if unsafe_pattern.is_match(line) {
@@ -74,18 +95,22 @@ fn scan_for_unwrap_calls() -> Vec<UnwrapCall> {
     let mut unwrap_calls = Vec::new();
     let unwrap_pattern = Regex::new(r"\.unwrap\(\)").unwrap();
     
-    for entry in WalkDir::new("src")
+    let entries: Result<Vec<_>, _> = WalkDir::new("src")
         .into_iter()
-        .filter_map(|e| e.ok())
-        .filter(|e| e.path().extension().map_or(false, |ext| ext == "rs"))
+        .collect();
+    let entries = entries
+        .map_err(|e| DirectoryTraversalError { source: e })
+        .expect("Safety audit must traverse all directories");
+    
+    for entry in entries
+        .into_iter()
+        .filter(|e| {
+            e.path().extension()
+                .map_or(false, |ext| ext == "rs")
+        })
     {
-        let content = match fs::read_to_string(entry.path()) {
-            Ok(content) => content,
-            Err(e) => {
-                eprintln!("Warning: Could not read file {:?}: {}", entry.path(), e);
-                continue;
-            }
-        };
+        let content = fs::read_to_string(entry.path())
+            .unwrap_or_else(|e| panic!("SAFETY AUDIT FAILURE: Cannot read file {:?} for safety analysis: {}. Safety audit must access all source files to be valid.", entry.path(), e));
         
         for (line_num, line) in content.lines().enumerate() {
             if unwrap_pattern.is_match(line) {
@@ -106,18 +131,22 @@ fn scan_for_expect_calls() -> Vec<UnwrapCall> {
     let mut expect_calls = Vec::new();
     let expect_pattern = Regex::new(r"\.expect\(").unwrap();
     
-    for entry in WalkDir::new("src")
+    let entries: Result<Vec<_>, _> = WalkDir::new("src")
         .into_iter()
-        .filter_map(|e| e.ok())
-        .filter(|e| e.path().extension().map_or(false, |ext| ext == "rs"))
+        .collect();
+    let entries = entries
+        .map_err(|e| DirectoryTraversalError { source: e })
+        .expect("Safety audit must traverse all directories");
+    
+    for entry in entries
+        .into_iter()
+        .filter(|e| {
+            e.path().extension()
+                .map_or(false, |ext| ext == "rs")
+        })
     {
-        let content = match fs::read_to_string(entry.path()) {
-            Ok(content) => content,
-            Err(e) => {
-                eprintln!("Warning: Could not read file {:?}: {}", entry.path(), e);
-                continue;
-            }
-        };
+        let content = fs::read_to_string(entry.path())
+            .unwrap_or_else(|e| panic!("SAFETY AUDIT FAILURE: Cannot read file {:?} for safety analysis: {}. Safety audit must access all source files to be valid.", entry.path(), e));
         
         for (line_num, line) in content.lines().enumerate() {
             if expect_pattern.is_match(line) {
@@ -138,18 +167,22 @@ fn scan_for_panic_calls() -> Vec<UnwrapCall> {
     let mut panic_calls = Vec::new();
     let panic_pattern = Regex::new(r"panic!\(").unwrap();
     
-    for entry in WalkDir::new("src")
+    let entries: Result<Vec<_>, _> = WalkDir::new("src")
         .into_iter()
-        .filter_map(|e| e.ok())
-        .filter(|e| e.path().extension().map_or(false, |ext| ext == "rs"))
+        .collect();
+    let entries = entries
+        .map_err(|e| DirectoryTraversalError { source: e })
+        .expect("Safety audit must traverse all directories");
+    
+    for entry in entries
+        .into_iter()
+        .filter(|e| {
+            e.path().extension()
+                .map_or(false, |ext| ext == "rs")
+        })
     {
-        let content = match fs::read_to_string(entry.path()) {
-            Ok(content) => content,
-            Err(e) => {
-                eprintln!("Warning: Could not read file {:?}: {}", entry.path(), e);
-                continue;
-            }
-        };
+        let content = fs::read_to_string(entry.path())
+            .unwrap_or_else(|e| panic!("SAFETY AUDIT FAILURE: Cannot read file {:?} for safety analysis: {}. Safety audit must access all source files to be valid.", entry.path(), e));
         
         for (line_num, line) in content.lines().enumerate() {
             if panic_pattern.is_match(line) {
@@ -332,19 +365,23 @@ fn test_bounded_caches() {
     let cache_pattern = Regex::new(r"(HashMap|BTreeMap|Vec)<.*>").unwrap();
     let bounded_pattern = Regex::new(r"(LruCache|BoundedCache|max_size|capacity)").unwrap();
     
-    for entry in WalkDir::new("src")
+    let entries: Result<Vec<_>, _> = WalkDir::new("src")
         .into_iter()
-        .filter_map(|e| e.ok())
+        .collect();
+    let entries = entries
+        .map_err(|e| DirectoryTraversalError { source: e })
+        .expect("Safety audit must traverse all directories");
+    
+    for entry in entries
+        .into_iter()
         .filter(|e| e.path().to_string_lossy().contains("cache"))
-        .filter(|e| e.path().extension().map_or(false, |ext| ext == "rs"))
+        .filter(|e| {
+            e.path().extension()
+                .map_or(false, |ext| ext == "rs")
+        })
     {
-        let content = match fs::read_to_string(entry.path()) {
-            Ok(content) => content,
-            Err(e) => {
-                eprintln!("Warning: Could not read file {:?}: {}", entry.path(), e);
-                continue;
-            }
-        };
+        let content = fs::read_to_string(entry.path())
+            .unwrap_or_else(|e| panic!("SAFETY AUDIT FAILURE: Cannot read file {:?} for safety analysis: {}. Safety audit must access all source files to be valid.", entry.path(), e));
         
         if cache_pattern.is_match(&content) {
             assert!(

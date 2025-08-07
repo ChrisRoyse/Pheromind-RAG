@@ -102,9 +102,8 @@ mod accuracy_tests {
             Ok(entries) => {
                 println!("📚 Directory contents:");
                 for entry in entries {
-                    if let Ok(entry) = entry {
-                        println!("  - {:?}", entry.path());
-                    }
+                    let entry = entry.expect("Failed to read directory entry");
+                    println!("  - {:?}", entry.path());
                 }
             },
             Err(e) => println!("❌ Cannot read directory: {}", e),
@@ -389,7 +388,9 @@ async fn test_search_performance() {
     
     for query in queries {
         let query_start = std::time::Instant::now();
-        let _ = env.searcher.search(query).await.unwrap();
+        let results = env.searcher.search(query).await
+            .expect(&format!("Search should succeed for query: {}", query));
+        assert!(results.len() > 0 || query.is_empty(), "Search should return results or be empty query: {}", query);
         let query_time = query_start.elapsed();
         
         assert!(
@@ -541,7 +542,9 @@ async fn test_bm25_integration_comprehensive() {
     let mut latencies = Vec::new();
     for query in &perf_queries {
         let start = Instant::now();
-        let _ = searcher.search(query).await.unwrap();
+        let results = searcher.search(query).await
+            .expect(&format!("Performance test search should succeed for query: {}", query));
+        assert!(!results.is_empty() || query.len() < 2, "Performance test should return results for meaningful queries: {}", query);
         latencies.push(start.elapsed().as_millis());
     }
     

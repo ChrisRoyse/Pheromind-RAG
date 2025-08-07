@@ -37,6 +37,8 @@ pub enum LanceStorageError {
     SearchError(String),
     InvalidInput(String),
     ConfigError(String),
+    InsufficientRecords { available: usize, required: usize },
+    IndexingNotImplemented(String),
 }
 
 #[cfg(feature = "vectordb")]
@@ -49,6 +51,10 @@ impl std::fmt::Display for LanceStorageError {
             LanceStorageError::SearchError(msg) => write!(f, "Search error: {}", msg),
             LanceStorageError::InvalidInput(msg) => write!(f, "Invalid input: {}", msg),
             LanceStorageError::ConfigError(msg) => write!(f, "Configuration error: {}", msg),
+            LanceStorageError::InsufficientRecords { available, required } => 
+                write!(f, "Insufficient records for operation: {} available, {} required. Add more data before proceeding.", available, required),
+            LanceStorageError::IndexingNotImplemented(msg) => 
+                write!(f, "Vector indexing not implemented: {}. Implementation required before use.", msg),
         }
     }
 }
@@ -81,17 +87,48 @@ pub struct SearchOptions {
 }
 
 #[cfg(feature = "vectordb")]
-impl Default for SearchOptions {
-    fn default() -> Self {
-        Self {
-            limit: 10,
-            offset: 0,
+impl SearchOptions {
+    /// Create new SearchOptions with explicit parameters
+    pub fn new(limit: usize, offset: usize) -> Result<Self, LanceStorageError> {
+        if limit == 0 {
+            return Err(LanceStorageError::InvalidInput(
+                "Search limit must be greater than 0".to_string()
+            ));
+        }
+        
+        Ok(Self {
+            limit,
+            offset,
             min_similarity: None,
             file_filter: None,
-            use_index: true,
+            use_index: false, // Explicit false since indexing not implemented
+        })
+    }
+    
+    /// Set minimum similarity threshold (must be between 0.0 and 1.0)
+    pub fn with_min_similarity(mut self, min_similarity: f32) -> Result<Self, LanceStorageError> {
+        if !(0.0..=1.0).contains(&min_similarity) {
+            return Err(LanceStorageError::InvalidInput(
+                "Minimum similarity must be between 0.0 and 1.0".to_string()
+            ));
         }
+        self.min_similarity = Some(min_similarity);
+        Ok(self)
+    }
+    
+    /// Set file filter pattern
+    pub fn with_file_filter(mut self, file_filter: String) -> Self {
+        self.file_filter = Some(file_filter);
+        self
+    }
+    
+    /// Enable index usage (will fail if indexing not implemented)
+    pub fn with_index(mut self, use_index: bool) -> Self {
+        self.use_index = use_index;
+        self
     }
 }
+
 
 /// Vector index configuration
 #[cfg(feature = "vectordb")]
@@ -102,24 +139,59 @@ pub struct IndexConfig {
     pub num_sub_vectors: Option<usize>,
 }
 
+#[cfg(feature = "vectordb")]
+impl IndexConfig {
+    /// Create new IndexConfig with explicit index type
+    pub fn new(index_type: IndexType) -> Self {
+        Self {
+            index_type,
+            num_partitions: None,
+            num_sub_vectors: None,
+        }
+    }
+    
+    /// Set number of partitions for IVF index (must be > 0)
+    pub fn with_partitions(mut self, num_partitions: usize) -> Result<Self, LanceStorageError> {
+        if num_partitions == 0 {
+            return Err(LanceStorageError::InvalidInput(
+                "Number of partitions must be greater than 0".to_string()
+            ));
+        }
+        self.num_partitions = Some(num_partitions);
+        Ok(self)
+    }
+    
+    /// Set number of sub-vectors for PQ (must be > 0)
+    pub fn with_sub_vectors(mut self, num_sub_vectors: usize) -> Result<Self, LanceStorageError> {
+        if num_sub_vectors == 0 {
+            return Err(LanceStorageError::InvalidInput(
+                "Number of sub-vectors must be greater than 0".to_string()
+            ));
+        }
+        self.num_sub_vectors = Some(num_sub_vectors);
+        Ok(self)
+    }
+}
+
 #[derive(Debug, Clone)]
 pub enum IndexType {
     IvfPq,    // Inverted File with Product Quantization
     Flat,     // Flat (exact) search
 }
 
-#[cfg(feature = "vectordb")]
-impl Default for IndexConfig {
-    fn default() -> Self {
-        Self {
-            index_type: IndexType::IvfPq,
-            num_partitions: Some(256),
-            num_sub_vectors: Some(16),
-        }
-    }
-}
 
 /// Real LanceDB vector storage for configurable dimensional embeddings
+/// 
+/// ## Requirements
+/// - Embedding dimensions must be configured via Config::embedding_dimensions()
+/// - Index creation requires minimum 100 records in the table
+/// - Vector indexing is NOT IMPLEMENTED - create_index() will fail with clear error
+/// - SearchOptions must be constructed explicitly with validated parameters
+/// - IndexConfig must be constructed explicitly with specific index type
+/// 
+/// ## No Fallback Behavior
+/// This storage implementation provides no default or fallback behavior.
+/// All configuration must be explicit and will fail clearly when requirements are not met.
 #[cfg(feature = "vectordb")]
 pub struct LanceDBStorage {
     connection: Arc<Connection>,
@@ -135,7 +207,10 @@ pub struct LanceDBStorage {
 impl LanceDBStorage {
     /// Create new LanceDB storage connection
     pub async fn new(db_path: PathBuf) -> Result<Self, LanceStorageError> {
-        Self::new_with_config(db_path, IndexConfig::default(), true).await
+        let index_config = IndexConfig::new(IndexType::IvfPq)
+            .with_partitions(256)?
+            .with_sub_vectors(16)?;
+        Self::new_with_config(db_path, index_config, true).await
     }
 
     /// Create new LanceDB storage connection with custom configuration
@@ -209,7 +284,6 @@ impl LanceDBStorage {
 
     /// Create vector index for faster similarity search
     pub async fn create_index(&self) -> Result<(), LanceStorageError> {
-        let start = Instant::now();
         
         let table = self.connection.open_table(&self.table_name).execute().await
             .map_err(|e| LanceStorageError::DatabaseError(format!("Failed to open table: {}", e)))?;
@@ -219,31 +293,15 @@ impl LanceDBStorage {
             .map_err(|e| LanceStorageError::DatabaseError(format!("Failed to count rows: {}", e)))?;
         
         if count < 100 {
-            info!("Skipping index creation: only {} records (minimum 100 required)", count);
-            return Ok(());
+            return Err(LanceStorageError::InsufficientRecords { 
+                available: count, 
+                required: 100 
+            });
         }
 
-        // For now, skip complex indexing as LanceDB API has changed
-        // The system will still work with the default indexing
-        info!("Index creation skipped - using default LanceDB indexing");
-        
-        // In future versions, we can implement proper indexing once the API is stable
-        // retry_database_operation(
-        //     "create_index",
-        //     || {
-        //         let table = table.clone();
-        //         Box::pin(async move {
-        //             // table.create_index implementation here
-        //             Ok(())
-        //         })
-        //     },
-        //     Some(RetryConfig::new().max_retries(2))
-        // ).await.map_err(|e| LanceStorageError::DatabaseError(e.to_string()))?;
-
-        let duration = start.elapsed();
-        info!("✅ Created vector index in {:.2}s for {} records", duration.as_secs_f64(), count);
-        
-        Ok(())
+        Err(LanceStorageError::IndexingNotImplemented(
+            "Explicit index configuration and implementation required".to_string()
+        ))
     }
     
     /// Insert a single embedding record
@@ -360,10 +418,7 @@ impl LanceDBStorage {
     
     /// Perform vector similarity search (legacy method for backward compatibility)
     pub async fn search_similar(&self, query_embedding: Vec<f32>, limit: usize) -> Result<Vec<LanceEmbeddingRecord>, LanceStorageError> {
-        let options = SearchOptions {
-            limit,
-            ..Default::default()
-        };
+        let options = SearchOptions::new(limit, 0)?;
         self.search_similar_with_options(query_embedding, options).await
     }
 
@@ -518,7 +573,8 @@ impl LanceDBStorage {
     /// Delete all records from the table
     pub async fn clear_all(&self) -> Result<(), LanceStorageError> {
         // Drop and recreate table
-        let _ = self.connection.drop_table(&self.table_name).await;
+        self.connection.drop_table(&self.table_name).await
+            .map_err(|e| LanceStorageError::DatabaseError(format!("Failed to drop table '{}': {}", self.table_name, e)))?;
         self.init_table().await?;
         
         println!("🧹 Cleared all records from LanceDB table");
@@ -567,6 +623,22 @@ mod tests {
         let storage = storage.unwrap();
         let init_result = storage.init_table().await;
         assert!(init_result.is_ok(), "Table initialization should succeed");
+    }
+    
+    #[test]
+    fn test_default_implementations_do_not_exist() {
+        // This test will fail to compile if Default implementations exist
+        // Uncommenting these lines should cause compilation errors:
+        
+        // let _search_options = SearchOptions::default(); // Should not compile
+        // let _index_config = IndexConfig::default(); // Should not compile
+        
+        // Instead, explicit construction is required:
+        let search_options = SearchOptions::new(10, 0);
+        assert!(search_options.is_ok());
+        
+        let index_config = IndexConfig::new(IndexType::IvfPq);
+        assert_eq!(index_config.num_partitions, None);
     }
     
     #[tokio::test]

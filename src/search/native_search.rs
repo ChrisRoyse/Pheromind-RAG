@@ -68,14 +68,26 @@ impl NativeSearcher {
         // Collect all files to search
         let files: Vec<PathBuf> = self.collect_files(search_dir)?;
         
-        // Search files in parallel
-        let matches: Vec<SearchMatch> = files
+        // Search files in parallel - collect errors instead of ignoring them
+        let search_results: Vec<Result<Vec<SearchMatch>>> = files
             .into_par_iter()
-            .filter_map(|file_path| {
-                self.search_file(&regex, &file_path).ok()
+            .map(|file_path| {
+                self.search_file(&regex, &file_path)
             })
-            .flatten()
             .collect();
+        
+        // Check for errors and report them
+        let mut matches = Vec::new();
+        for result in search_results {
+            match result {
+                Ok(file_matches) => matches.extend(file_matches),
+                Err(e) => {
+                    // PRINCIPLE 0: No error masking - all file access failures must be reported
+                    // System cannot guarantee search completeness if files cannot be read
+                    return Err(anyhow::Error::from(e).context("File search failed - cannot guarantee search completeness"));
+                }
+            }
+        }
 
         Ok(matches)
     }
@@ -101,31 +113,35 @@ impl NativeSearcher {
             walker = walker.max_depth(depth);
         }
 
-        let files: Vec<PathBuf> = walker
-            .into_iter()
-            .filter_map(|entry| entry.ok())
-            .filter(|entry| {
-                let path = entry.path();
-                
-                // Skip directories
-                if !path.is_file() {
-                    return false;
+        let mut files = Vec::new();
+        for entry_result in walker {
+            match entry_result {
+                Ok(entry) => {
+                    let path = entry.path();
+                    
+                    // Skip directories
+                    if !path.is_file() {
+                        continue;
+                    }
+                    
+                    // Skip hidden files if configured
+                    if self.ignore_hidden && self.is_hidden(path) {
+                        continue;
+                    }
+                    
+                    // Skip binary files and common non-text files
+                    if !self.is_text_file(path) {
+                        continue;
+                    }
+                    
+                    files.push(path.to_path_buf());
                 }
-                
-                // Skip hidden files if configured
-                if self.ignore_hidden && self.is_hidden(path) {
-                    return false;
+                Err(e) => {
+                    log::error!("Failed to access directory entry: {}", e);
+                    // Continue with other entries but log the error
                 }
-                
-                // Skip binary files and common non-text files
-                if !self.is_text_file(path) {
-                    return false;
-                }
-                
-                true
-            })
-            .map(|entry| entry.path().to_path_buf())
-            .collect();
+            }
+        }
 
         Ok(files)
     }
@@ -195,11 +211,8 @@ impl NativeSearcher {
     }
 }
 
-impl Default for NativeSearcher {
-    fn default() -> Self {
-        Self::new()
-    }
-}
+// NativeSearcher must be explicitly created with new() - no default fallback allowed
+// This ensures intentional configuration of search parameters
 
 #[cfg(test)]
 mod tests {

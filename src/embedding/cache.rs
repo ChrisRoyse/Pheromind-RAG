@@ -6,6 +6,7 @@ use lru::LruCache;
 use sha2::{Sha256, Digest};
 use serde::{Serialize, Deserialize};
 use anyhow::Result;
+#[cfg(feature = "ml")]
 use crate::config::Config;
 
 /// Cache entry containing embedding vector and metadata
@@ -26,6 +27,7 @@ pub struct EmbeddingCache {
 impl EmbeddingCache {
     /// Create a new embedding cache using configuration values
     /// Returns an error if configuration is not properly initialized
+    #[cfg(feature = "ml")]
     pub fn from_config() -> Result<Self, crate::error::EmbedError> {
         let config = Config::get()?;
         Self::new_with_persistence(config.embedding_cache_size, &config.cache_dir)
@@ -87,16 +89,21 @@ impl EmbeddingCache {
     }
 
     /// Get embedding from cache if it exists
-    pub fn get(&self, content: &str) -> Option<Vec<f32>> {
+    pub fn get(&self, content: &str) -> Result<Option<Vec<f32>>, crate::error::EmbedError> {
         let hash = Self::hash_content(content);
         
-        if let Ok(mut cache) = self.cache.lock() {
-            if let Some(entry) = cache.get(&hash) {
-                return Some(entry.embedding.clone());
+        let mut cache = self.cache.lock().map_err(|_| {
+            crate::error::EmbedError::Internal {
+                message: "FATAL: Embedding cache mutex is poisoned. Cache operations cannot continue.".to_string(),
+                backtrace: None,
             }
-        }
+        })?;
         
-        None
+        if let Some(entry) = cache.get(&hash) {
+            Ok(Some(entry.embedding.clone()))
+        } else {
+            Ok(None)
+        }
     }
 
     /// Store embedding in cache
@@ -125,38 +132,50 @@ impl EmbeddingCache {
         }
     }
 
-    /// Get cache statistics
-    pub fn stats(&self) -> CacheStats {
-        if let Ok(cache) = self.cache.lock() {
-            CacheStats {
-                entries: cache.len(),
-                max_size: self.max_size,
-                hit_ratio: 0.0, // Could implement hit tracking if needed
+    /// Get cache statistics - fails immediately if mutex is poisoned
+    pub fn stats(&self) -> Result<CacheStats, crate::error::EmbedError> {
+        let cache = self.cache.lock().map_err(|_| {
+            crate::error::EmbedError::Internal {
+                message: "FATAL: Embedding cache mutex is poisoned. Cache operations cannot continue.".to_string(),
+                backtrace: None,
             }
-        } else {
-            CacheStats::default()
-        }
+        })?;
+        
+        Ok(CacheStats {
+            entries: cache.len(),
+            max_size: self.max_size,
+            hit_ratio: 0.0, // Could implement hit tracking if needed
+        })
     }
 
     /// Clear all cache entries
-    pub fn clear(&self) {
-        if let Ok(mut cache) = self.cache.lock() {
-            cache.clear();
-        }
+    pub fn clear(&self) -> Result<(), crate::error::EmbedError> {
+        let mut cache = self.cache.lock().map_err(|_| {
+            crate::error::EmbedError::Internal {
+                message: "FATAL: Embedding cache mutex is poisoned. Cache cannot be cleared.".to_string(),
+                backtrace: None,
+            }
+        })?;
+        
+        cache.clear();
+        Ok(())
     }
 
     /// Get the number of entries in the cache
-    pub fn len(&self) -> usize {
-        if let Ok(cache) = self.cache.lock() {
-            cache.len()
-        } else {
-            0
-        }
+    pub fn len(&self) -> Result<usize, crate::error::EmbedError> {
+        let cache = self.cache.lock().map_err(|_| {
+            crate::error::EmbedError::Internal {
+                message: "FATAL: Embedding cache mutex is poisoned. Cache length cannot be determined.".to_string(),
+                backtrace: None,
+            }
+        })?;
+        
+        Ok(cache.len())
     }
 
     /// Check if cache is empty
-    pub fn is_empty(&self) -> bool {
-        self.len() == 0
+    pub fn is_empty(&self) -> Result<bool, crate::error::EmbedError> {
+        Ok(self.len()? == 0)
     }
 
     /// Save cache to disk (if persistence is enabled)
@@ -167,19 +186,20 @@ impl EmbeddingCache {
             
             let cache_file = cache_dir.join("embeddings.cache");
             
-            if let Ok(cache) = self.cache.lock() {
-                // Convert LRU cache to a serializable format
-                let entries: Vec<(String, CacheEntry)> = cache
-                    .iter()
-                    .map(|(k, v)| (k.clone(), v.clone()))
-                    .collect();
-                
-                let serialized = serde_json::to_string_pretty(&entries)?;
-                let mut file = fs::File::create(&cache_file)?;
-                file.write_all(serialized.as_bytes())?;
-                
-                println!("💾 Saved {} cache entries to {:?}", entries.len(), cache_file);
-            }
+            let cache = self.cache.lock()
+                .map_err(|_| anyhow::anyhow!("Failed to acquire cache lock for save - cache is poisoned"))?;
+            
+            // Convert LRU cache to a serializable format
+            let entries: Vec<(String, CacheEntry)> = cache
+                .iter()
+                .map(|(k, v)| (k.clone(), v.clone()))
+                .collect();
+            
+            let serialized = serde_json::to_string_pretty(&entries)?;
+            let mut file = fs::File::create(&cache_file)?;
+            file.write_all(serialized.as_bytes())?;
+            
+            println!("💾 Saved {} cache entries to {:?}", entries.len(), cache_file);
         }
         
         Ok(())
@@ -194,13 +214,14 @@ impl EmbeddingCache {
                 let content = fs::read_to_string(&cache_file)?;
                 let entries: Vec<(String, CacheEntry)> = serde_json::from_str(&content)?;
                 
-                if let Ok(mut cache) = self.cache.lock() {
-                    for (key, entry) in entries {
-                        cache.put(key, entry);
-                    }
-                    
-                    println!("📂 Loaded {} cache entries from {:?}", cache.len(), cache_file);
+                let mut cache = self.cache.lock()
+                    .map_err(|_| anyhow::anyhow!("Failed to acquire cache lock for load - cache is poisoned"))?;
+                
+                for (key, entry) in entries {
+                    cache.put(key, entry);
                 }
+                
+                println!("📂 Loaded {} cache entries from {:?}", cache.len(), cache_file);
             }
         }
         
@@ -208,8 +229,10 @@ impl EmbeddingCache {
     }
 
     /// Batch get embeddings from cache
-    pub fn get_batch(&self, contents: &[&str]) -> Vec<Option<Vec<f32>>> {
-        contents.iter().map(|content| self.get(content)).collect()
+    pub fn get_batch(&self, contents: &[&str]) -> Result<Vec<Option<Vec<f32>>>, crate::error::EmbedError> {
+        contents.iter()
+            .map(|content| self.get(content))
+            .collect::<Result<Vec<_>, _>>()
     }
 
     /// Batch put embeddings into cache
@@ -222,11 +245,21 @@ impl EmbeddingCache {
 }
 
 /// Cache statistics
-#[derive(Debug, Default)]
+#[derive(Debug)]
 pub struct CacheStats {
     pub entries: usize,
     pub max_size: usize,
     pub hit_ratio: f32,
+}
+
+impl CacheStats {
+    pub fn new() -> Self {
+        Self {
+            entries: 0,
+            max_size: 0,
+            hit_ratio: 0.0,
+        }
+    }
 }
 
 impl std::fmt::Display for CacheStats {
@@ -260,23 +293,23 @@ mod tests {
         let cache = EmbeddingCache::new(10).unwrap();
         
         // Test empty cache
-        assert!(cache.is_empty());
-        assert_eq!(cache.len(), 0);
-        assert!(cache.get("test content").is_none());
+        assert!(cache.is_empty().unwrap());
+        assert_eq!(cache.len().unwrap(), 0);
+        assert!(cache.get("test content").unwrap().is_none());
         
         // Test put and get
         let embedding = vec![1.0, 2.0, 3.0];
         cache.put("test content", embedding.clone()).unwrap();
         
-        assert_eq!(cache.len(), 1);
-        assert!(!cache.is_empty());
+        assert_eq!(cache.len().unwrap(), 1);
+        assert!(!cache.is_empty().unwrap());
         
-        let retrieved = cache.get("test content");
+        let retrieved = cache.get("test content").unwrap();
         assert!(retrieved.is_some());
         assert_eq!(retrieved.unwrap(), embedding);
         
         // Test cache miss
-        assert!(cache.get("different content").is_none());
+        assert!(cache.get("different content").unwrap().is_none());
     }
 
     #[test]
@@ -286,16 +319,16 @@ mod tests {
         // Fill cache to capacity
         cache.put("content1", vec![1.0]).unwrap();
         cache.put("content2", vec![2.0]).unwrap();
-        assert_eq!(cache.len(), 2);
+        assert_eq!(cache.len().unwrap(), 2);
         
         // Add third item, should evict first
         cache.put("content3", vec![3.0]).unwrap();
-        assert_eq!(cache.len(), 2);
+        assert_eq!(cache.len().unwrap(), 2);
         
         // content1 should be evicted
-        assert!(cache.get("content1").is_none());
-        assert!(cache.get("content2").is_some());
-        assert!(cache.get("content3").is_some());
+        assert!(cache.get("content1").unwrap().is_none());
+        assert!(cache.get("content2").unwrap().is_some());
+        assert!(cache.get("content3").unwrap().is_some());
     }
 
     #[test]
@@ -327,10 +360,10 @@ mod tests {
         
         // Test batch put
         cache.put_batch(&contents, embeddings.clone()).unwrap();
-        assert_eq!(cache.len(), 3);
+        assert_eq!(cache.len().unwrap(), 3);
         
         // Test batch get
-        let retrieved = cache.get_batch(&contents);
+        let retrieved = cache.get_batch(&contents).unwrap();
         assert_eq!(retrieved.len(), 3);
         
         for (original, retrieved_opt) in embeddings.iter().zip(retrieved.iter()) {
@@ -340,7 +373,7 @@ mod tests {
         
         // Test partial cache hits
         let mixed_contents = vec!["content1", "missing", "content3"];
-        let mixed_retrieved = cache.get_batch(&mixed_contents);
+        let mixed_retrieved = cache.get_batch(&mixed_contents).unwrap();
         
         assert!(mixed_retrieved[0].is_some());
         assert!(mixed_retrieved[1].is_none());
@@ -362,7 +395,7 @@ mod tests {
         // Create new cache instance and load from disk
         {
             let cache = EmbeddingCache::new_with_persistence(10, cache_dir).unwrap();
-            let retrieved = cache.get("persistent content");
+            let retrieved = cache.get("persistent content").unwrap();
             
             assert!(retrieved.is_some());
             assert_eq!(retrieved.unwrap(), vec![1.0, 2.0, 3.0]);

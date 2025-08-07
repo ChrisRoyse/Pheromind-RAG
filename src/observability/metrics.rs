@@ -1,7 +1,51 @@
+//! Observability Metrics System
+//!
+//! **CRITICAL**: This module provides NO fallback or default behavior.
+//! All metrics must be explicitly configured and initialized.
+//!
+//! ## Usage Requirements
+//!
+//! 1. **Global Metrics**: Must call `init_metrics()` before any access via `metrics()`
+//! 2. **Local Metrics**: Must explicitly construct via `SearchMetrics::new()`, etc.
+//! 3. **No Defaults**: All `Default` implementations have been removed
+//!
+//! ## Example
+//!
+//! ```rust
+//! use your_crate::observability::metrics::{init_metrics, metrics, SearchMetrics};
+//!
+//! // Initialize global metrics (required)
+//! init_metrics().expect("Failed to initialize metrics");
+//!
+//! // Now can access global metrics
+//! let collector = metrics();
+//!
+//! // Or use local metrics directly
+//! let search_metrics = SearchMetrics::new();
+//! ```
+
 use std::collections::HashMap;
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, OnceLock};
 use std::time::{Duration, Instant};
 use tracing::{debug, info};
+use anyhow::Result;
+
+/// Mathematical validation helpers for safe division operations
+mod math_helpers {
+    /// Safely divide two numbers, returning None if denominator is zero
+    pub fn safe_division(numerator: f64, denominator: f64) -> Option<f64> {
+        if denominator == 0.0 {
+            None // Mathematically undefined
+        } else {
+            Some(numerator / denominator)
+        }
+    }
+    
+    /// Safely calculate percentage (numerator/denominator * 100), returning None if denominator is zero
+    pub fn safe_percentage(numerator: f64, denominator: f64) -> Option<f64> {
+        safe_division(numerator, denominator).map(|ratio| ratio * 100.0)
+    }
+}
 
 /// Simple histogram implementation for tracking durations
 #[derive(Debug, Clone)]
@@ -43,11 +87,13 @@ impl Histogram {
         self.counts[bucket_index] += 1;
     }
 
-    pub fn mean(&self) -> f64 {
+    /// Calculate the mean of observed values
+    /// Returns None if no values have been observed (undefined mathematical state)
+    pub fn mean(&self) -> Option<f64> {
         if self.count == 0 {
-            0.0
+            None // Undefined: cannot calculate mean of empty dataset
         } else {
-            self.sum / self.count as f64
+            Some(self.sum / self.count as f64)
         }
     }
 
@@ -59,9 +105,11 @@ impl Histogram {
         self.sum
     }
 
-    pub fn percentile(&self, percentile: f64) -> f64 {
+    /// Calculate the specified percentile of observed values
+    /// Returns None if no values have been observed (undefined mathematical state)
+    pub fn percentile(&self, percentile: f64) -> Option<f64> {
         if self.count == 0 {
-            return 0.0;
+            return None; // Undefined: cannot calculate percentile of empty dataset
         }
 
         let target_count = (self.count as f64 * percentile / 100.0) as u64;
@@ -71,20 +119,22 @@ impl Histogram {
             cumulative_count += count;
             if cumulative_count >= target_count {
                 if i == 0 {
-                    return 0.0;
+                    return Some(0.0);
                 } else if i <= self.buckets.len() {
-                    return self.buckets[i - 1];
+                    return Some(self.buckets[i - 1]);
                 } else {
-                    return self.buckets[self.buckets.len() - 1];
+                    return Some(self.buckets[self.buckets.len() - 1]);
                 }
             }
         }
 
-        self.buckets[self.buckets.len() - 1]
+        Some(self.buckets[self.buckets.len() - 1])
     }
 }
 
 /// Metrics for search operations
+/// 
+/// **IMPORTANT**: No default implementation provided. Must be explicitly constructed via `new()`.
 #[derive(Debug, Clone)]
 pub struct SearchMetrics {
     pub search_duration: Histogram,
@@ -113,23 +163,18 @@ impl SearchMetrics {
         }
     }
 
-    pub fn success_rate(&self) -> f64 {
+    /// Calculate success rate as a fraction (0.0 to 1.0)
+    /// Returns None if no search operations have occurred (undefined mathematical state)
+    pub fn success_rate(&self) -> Option<f64> {
         let total = self.search_count + self.failed_searches;
-        if total == 0 {
-            0.0
-        } else {
-            self.search_count as f64 / total as f64
-        }
+        math_helpers::safe_division(self.search_count as f64, total as f64)
     }
 }
 
-impl Default for SearchMetrics {
-    fn default() -> Self {
-        Self::new()
-    }
-}
 
 /// Metrics for embedding operations
+/// 
+/// **IMPORTANT**: No default implementation provided. Must be explicitly constructed via `new()`.
 #[derive(Debug, Clone)]
 pub struct EmbeddingMetrics {
     pub embedding_duration: Histogram,
@@ -150,6 +195,7 @@ impl EmbeddingMetrics {
         }
     }
 
+    #[cfg(feature = "ml")]
     pub fn record_embedding(&mut self, duration: Duration, from_cache: bool) {
         self.embedding_duration.observe(duration.as_secs_f64());
         self.embedding_count += 1;
@@ -161,25 +207,19 @@ impl EmbeddingMetrics {
         }
     }
 
-    pub fn cache_hit_rate(&self) -> f64 {
+    /// Calculate cache hit rate as a fraction (0.0 to 1.0)
+    /// Returns None if no cache operations have occurred (undefined mathematical state)
+    pub fn cache_hit_rate(&self) -> Option<f64> {
         let total = self.cache_hits + self.cache_misses;
-        if total == 0 {
-            0.0
-        } else {
-            self.cache_hits as f64 / total as f64
-        }
+        math_helpers::safe_division(self.cache_hits as f64, total as f64)
     }
 
+    #[cfg(feature = "ml")]
     pub fn set_embedding_dimension(&mut self, dimension: usize) {
         self.embedding_dimension = Some(dimension);
     }
 }
 
-impl Default for EmbeddingMetrics {
-    fn default() -> Self {
-        Self::new()
-    }
-}
 
 /// Metrics for cache operations
 #[derive(Debug, Clone)]
@@ -218,13 +258,11 @@ impl CacheMetrics {
         self.size = size;
     }
 
-    pub fn hit_rate(&self) -> f64 {
+    /// Calculate hit rate as a fraction (0.0 to 1.0)
+    /// Returns None if no cache operations have occurred (undefined mathematical state)
+    pub fn hit_rate(&self) -> Option<f64> {
         let total = self.hits + self.misses;
-        if total == 0 {
-            0.0
-        } else {
-            self.hits as f64 / total as f64
-        }
+        math_helpers::safe_division(self.hits as f64, total as f64)
     }
 
     pub fn utilization(&self) -> f64 {
@@ -237,6 +275,9 @@ impl CacheMetrics {
 }
 
 /// Central metrics collector
+/// 
+/// **IMPORTANT**: No default implementation provided. Must be explicitly constructed via `new()`.
+/// For global usage, must call `init_metrics()` before accessing via `metrics()` function.
 #[derive(Debug)]
 pub struct MetricsCollector {
     search_metrics: Arc<Mutex<SearchMetrics>>,
@@ -270,6 +311,7 @@ impl MetricsCollector {
     }
 
     /// Record an embedding operation
+    #[cfg(feature = "ml")]
     pub fn record_embedding(&self, duration: Duration, from_cache: bool) {
         if let Ok(mut metrics) = self.embedding_metrics.lock() {
             metrics.record_embedding(duration, from_cache);
@@ -283,48 +325,103 @@ impl MetricsCollector {
     }
 
     /// Record cache operation
-    pub fn record_cache_hit(&self, cache_name: &str) {
-        if let Ok(mut caches) = self.cache_metrics.lock() {
-            let entry = caches.entry(cache_name.to_string()).or_insert_with(|| CacheMetrics::new(1000));
-            entry.record_hit();
-        }
+    pub fn record_cache_hit(&self, cache_name: &str) -> Result<()> {
+        let mut caches = self.cache_metrics.lock()
+            .map_err(|e| anyhow::anyhow!("Failed to acquire cache metrics lock: {}", e))?;
+        
+        let entry = caches.get_mut(cache_name)
+            .ok_or_else(|| anyhow::anyhow!("Cache '{}' not initialized. Call update_cache_size first.", cache_name))?;
+        
+        entry.record_hit();
+        Ok(())
     }
 
-    pub fn record_cache_miss(&self, cache_name: &str) {
-        if let Ok(mut caches) = self.cache_metrics.lock() {
-            let entry = caches.entry(cache_name.to_string()).or_insert_with(|| CacheMetrics::new(1000));
-            entry.record_miss();
-        }
+    pub fn record_cache_miss(&self, cache_name: &str) -> Result<()> {
+        let mut caches = self.cache_metrics.lock()
+            .map_err(|e| anyhow::anyhow!("Failed to acquire cache metrics lock: {}", e))?;
+        
+        let entry = caches.get_mut(cache_name)
+            .ok_or_else(|| anyhow::anyhow!("Cache '{}' not initialized. Call update_cache_size first.", cache_name))?;
+        
+        entry.record_miss();
+        Ok(())
     }
 
-    pub fn update_cache_size(&self, cache_name: &str, size: u64, max_size: u64) {
-        if let Ok(mut caches) = self.cache_metrics.lock() {
-            let entry = caches.entry(cache_name.to_string()).or_insert_with(|| CacheMetrics::new(max_size));
-            entry.update_size(size);
-            entry.max_size = max_size;
+    pub fn update_cache_size(&self, cache_name: &str, size: u64, max_size: u64) -> Result<()> {
+        let mut caches = self.cache_metrics.lock()
+            .map_err(|e| anyhow::anyhow!("Failed to acquire cache metrics lock: {}", e))?;
+        
+        // Initialize cache metrics if not present
+        if !caches.contains_key(cache_name) {
+            caches.insert(cache_name.to_string(), CacheMetrics::new(max_size));
         }
+        
+        let entry = caches.get_mut(cache_name)
+            .ok_or_else(|| anyhow::anyhow!("Failed to access cache metrics for '{}'", cache_name))?;
+        
+        entry.update_size(size);
+        entry.max_size = max_size;
+        Ok(())
     }
 
     /// Get search metrics snapshot
-    pub fn get_search_metrics(&self) -> SearchMetrics {
-        self.search_metrics.lock().unwrap().clone()
+    /// 
+    /// # Errors
+    /// 
+    /// Returns error if the search metrics mutex is poisoned due to a panic in another thread.
+    /// This indicates a serious system corruption that must be handled explicitly.
+    pub fn get_search_metrics(&self) -> Result<SearchMetrics> {
+        self.search_metrics
+            .lock()
+            .map_err(|e| anyhow::anyhow!("Search metrics mutex poisoned: {}", e))
+            .map(|guard| guard.clone())
     }
 
     /// Get embedding metrics snapshot
-    pub fn get_embedding_metrics(&self) -> EmbeddingMetrics {
-        self.embedding_metrics.lock().unwrap().clone()
+    /// 
+    /// # Errors
+    /// 
+    /// Returns error if the embedding metrics mutex is poisoned due to a panic in another thread.
+    /// This indicates a serious system corruption that must be handled explicitly.
+    #[cfg(feature = "ml")]
+    pub fn get_embedding_metrics(&self) -> Result<EmbeddingMetrics> {
+        self.embedding_metrics
+            .lock()
+            .map_err(|e| anyhow::anyhow!("Embedding metrics mutex poisoned: {}", e))
+            .map(|guard| guard.clone())
     }
 
     /// Get cache metrics snapshot
-    pub fn get_cache_metrics(&self, cache_name: &str) -> Option<CacheMetrics> {
-        self.cache_metrics.lock().unwrap().get(cache_name).cloned()
+    /// 
+    /// # Errors
+    /// 
+    /// Returns error if the cache metrics mutex is poisoned due to a panic in another thread.
+    /// This indicates a serious system corruption that must be handled explicitly.
+    pub fn get_cache_metrics(&self, cache_name: &str) -> Result<Option<CacheMetrics>> {
+        self.cache_metrics
+            .lock()
+            .map_err(|e| anyhow::anyhow!("Cache metrics mutex poisoned: {}", e))
+            .map(|guard| guard.get(cache_name).cloned())
     }
 
     /// Print comprehensive metrics report
     pub fn print_report(&self) {
         let uptime = self.start_time.elapsed();
-        let search_metrics = self.get_search_metrics();
-        let embedding_metrics = self.get_embedding_metrics();
+        let search_metrics = match self.get_search_metrics() {
+            Ok(metrics) => metrics,
+            Err(e) => {
+                tracing::error!("Failed to get search metrics: {}", e);
+                return;
+            }
+        };
+        #[cfg(feature = "ml")]
+        let embedding_metrics = match self.get_embedding_metrics() {
+            Ok(metrics) => metrics,
+            Err(e) => {
+                tracing::error!("Failed to get embedding metrics: {}", e);
+                return;
+            }
+        };
         
         info!("=== Performance Metrics Report ===");
         info!("Uptime: {:.2}s", uptime.as_secs_f64());
@@ -333,19 +430,43 @@ impl MetricsCollector {
         info!("Search Operations:");
         info!("  Total searches: {}", search_metrics.search_count);
         info!("  Failed searches: {}", search_metrics.failed_searches);
-        info!("  Success rate: {:.2}%", search_metrics.success_rate() * 100.0);
-        info!("  Mean latency: {:.3}s", search_metrics.search_duration.mean());
-        info!("  95th percentile latency: {:.3}s", search_metrics.search_duration.percentile(95.0));
-        info!("  Mean results per search: {:.1}", search_metrics.results_count.mean());
+        match search_metrics.success_rate() {
+            Some(rate) => info!("  Success rate: {:.2}%", rate * 100.0),
+            None => info!("  Success rate: N/A (no searches performed)"),
+        }
+        match search_metrics.search_duration.mean() {
+            Some(mean) => info!("  Mean latency: {:.3}s", mean),
+            None => info!("  Mean latency: N/A (no data)"),
+        }
+        match search_metrics.search_duration.percentile(95.0) {
+            Some(p95) => info!("  95th percentile latency: {:.3}s", p95),
+            None => info!("  95th percentile latency: N/A (insufficient data)"),
+        }
+        match search_metrics.results_count.mean() {
+            Some(mean) => info!("  Mean results per search: {:.1}", mean),
+            None => info!("  Mean results per search: N/A (no data)"),
+        }
         
         // Embedding metrics
-        info!("Embedding Operations:");
-        info!("  Total embeddings: {}", embedding_metrics.embedding_count);
-        info!("  Cache hit rate: {:.2}%", embedding_metrics.cache_hit_rate() * 100.0);
-        info!("  Mean embedding time: {:.3}s", embedding_metrics.embedding_duration.mean());
-        info!("  95th percentile embedding time: {:.3}s", embedding_metrics.embedding_duration.percentile(95.0));
-        if let Some(dim) = embedding_metrics.embedding_dimension {
-            info!("  Embedding dimension: {}", dim);
+        #[cfg(feature = "ml")]
+        {
+            info!("Embedding Operations:");
+            info!("  Total embeddings: {}", embedding_metrics.embedding_count);
+            match embedding_metrics.cache_hit_rate() {
+                Some(rate) => info!("  Cache hit rate: {:.2}%", rate * 100.0),
+                None => info!("  Cache hit rate: N/A (no embeddings)"),
+            }
+            match embedding_metrics.embedding_duration.mean() {
+                Some(mean) => info!("  Mean embedding time: {:.3}s", mean),
+                None => info!("  Mean embedding time: N/A (no data)"),
+            }
+            match embedding_metrics.embedding_duration.percentile(95.0) {
+                Some(p95) => info!("  95th percentile embedding time: {:.3}s", p95),
+                None => info!("  95th percentile embedding time: N/A (insufficient data)"),
+            }
+            if let Some(dim) = embedding_metrics.embedding_dimension {
+                info!("  Embedding dimension: {}", dim);
+            }
         }
         
         // Cache metrics
@@ -353,8 +474,12 @@ impl MetricsCollector {
             if !caches.is_empty() {
                 info!("Cache Statistics:");
                 for (name, metrics) in caches.iter() {
-                    info!("  {}: hit_rate={:.2}%, utilization={:.2}%", 
-                          name, metrics.hit_rate() * 100.0, metrics.utilization() * 100.0);
+                    match metrics.hit_rate() {
+                        Some(rate) => info!("  {}: hit_rate={:.2}%, utilization={:.2}%", 
+                                          name, rate * 100.0, metrics.utilization() * 100.0),
+                        None => info!("  {}: hit_rate=N/A, utilization={:.2}%", 
+                                      name, metrics.utilization() * 100.0),
+                    }
                 }
             }
         }
@@ -363,34 +488,78 @@ impl MetricsCollector {
     }
 
     /// Get performance summary for logging
-    pub fn get_performance_summary(&self) -> String {
-        let search_metrics = self.get_search_metrics();
-        let embedding_metrics = self.get_embedding_metrics();
+    pub fn get_performance_summary(&self) -> Result<String> {
+        let search_metrics = self.get_search_metrics()?;
+        #[cfg(feature = "ml")]
+        let embedding_metrics = self.get_embedding_metrics()?;
         
-        format!(
-            "searches={} ({}% success, {:.3}s avg), embeddings={} ({:.1}% cache hits, {:.3}s avg)",
-            search_metrics.search_count,
-            (search_metrics.success_rate() * 100.0) as u32,
-            search_metrics.search_duration.mean(),
-            embedding_metrics.embedding_count,
-            embedding_metrics.cache_hit_rate() * 100.0,
-            embedding_metrics.embedding_duration.mean()
-        )
+        #[cfg(feature = "ml")]
+        {
+            let success_str = search_metrics.success_rate()
+                .map(|r| format!("{}%", (r * 100.0) as u32))
+                .ok_or_else(|| anyhow::anyhow!("No search success rate data available"))?;
+            let search_avg_str = search_metrics.search_duration.mean()
+                .map(|m| format!("{:.3}s", m))
+                .ok_or_else(|| anyhow::anyhow!("No search duration data available"))?;
+            let cache_hit_str = embedding_metrics.cache_hit_rate()
+                .map(|r| format!("{:.1}%", r * 100.0))
+                .ok_or_else(|| anyhow::anyhow!("No cache hit rate data available"))?;
+            let embed_avg_str = embedding_metrics.embedding_duration.mean()
+                .map(|m| format!("{:.3}s", m))
+                .ok_or_else(|| anyhow::anyhow!("No embedding duration data available"))?;
+            
+            Ok(format!(
+                "searches={} ({} success, {} avg), embeddings={} ({} cache hits, {} avg)",
+                search_metrics.search_count,
+                success_str,
+                search_avg_str,
+                embedding_metrics.embedding_count,
+                cache_hit_str,
+                embed_avg_str
+            ))
+        }
+        #[cfg(not(feature = "ml"))]
+        {
+            let success_str = search_metrics.success_rate()
+                .map(|r| format!("{}%", (r * 100.0) as u32))
+                .ok_or_else(|| anyhow::anyhow!("No search success rate data available"))?;
+            let search_avg_str = search_metrics.search_duration.mean()
+                .map(|m| format!("{:.3}s", m))
+                .ok_or_else(|| anyhow::anyhow!("No search duration data available"))?;
+            
+            Ok(format!(
+                "searches={} ({} success, {} avg)",
+                search_metrics.search_count,
+                success_str,
+                search_avg_str
+            ))
+        }
     }
 }
 
-impl Default for MetricsCollector {
-    fn default() -> Self {
-        Self::new()
-    }
-}
 
-/// Global metrics instance
-static METRICS: once_cell::sync::Lazy<MetricsCollector> = once_cell::sync::Lazy::new(MetricsCollector::new);
+/// Global metrics instance - requires explicit initialization
+static METRICS: OnceLock<MetricsCollector> = OnceLock::new();
+
+/// Initialize the global metrics collector
+/// 
+/// This must be called exactly once before any metrics operations.
+/// Subsequent calls will be ignored.
+pub fn init_metrics() -> Result<(), &'static str> {
+    METRICS
+        .set(MetricsCollector::new())
+        .map_err(|_| "Metrics already initialized")
+}
 
 /// Get the global metrics collector
+/// 
+/// # Panics
+/// 
+/// This function will panic if metrics have not been explicitly initialized via `init_metrics()`
 pub fn metrics() -> &'static MetricsCollector {
-    &METRICS
+    METRICS.get().expect(
+        "METRICS not initialized! Call init_metrics() before accessing metrics."
+    )
 }
 
 #[cfg(test)]
@@ -408,7 +577,7 @@ mod tests {
         hist.observe(10.0);
         
         assert_eq!(hist.count(), 5);
-        assert_eq!(hist.mean(), 2.63);
+        assert_eq!(hist.mean().unwrap(), 2.63);
     }
 
     #[test]
@@ -421,10 +590,11 @@ mod tests {
         
         assert_eq!(metrics.search_count, 2);
         assert_eq!(metrics.failed_searches, 1);
-        assert_eq!(metrics.success_rate(), 2.0 / 3.0);
+        assert_eq!(metrics.success_rate().unwrap(), 2.0 / 3.0);
     }
 
     #[test]
+    #[cfg(feature = "ml")]
     fn test_embedding_metrics() {
         let mut metrics = EmbeddingMetrics::new();
         
@@ -435,7 +605,7 @@ mod tests {
         assert_eq!(metrics.embedding_count, 3);
         assert_eq!(metrics.cache_hits, 2);
         assert_eq!(metrics.cache_misses, 1);
-        assert_eq!(metrics.cache_hit_rate(), 2.0 / 3.0);
+        assert_eq!(metrics.cache_hit_rate().unwrap(), 2.0 / 3.0);
     }
 
     #[test]
@@ -449,7 +619,7 @@ mod tests {
         
         assert_eq!(metrics.hits, 2);
         assert_eq!(metrics.misses, 1);
-        assert_eq!(metrics.hit_rate(), 2.0 / 3.0);
+        assert_eq!(metrics.hit_rate().unwrap(), 2.0 / 3.0);
         assert_eq!(metrics.utilization(), 0.5);
     }
 
@@ -458,17 +628,46 @@ mod tests {
         let collector = MetricsCollector::new();
         
         collector.record_search(Duration::from_millis(100), 5, true);
+        #[cfg(feature = "ml")]
         collector.record_embedding(Duration::from_millis(50), false);
         collector.record_cache_hit("test_cache");
         
-        let search_metrics = collector.get_search_metrics();
-        let embedding_metrics = collector.get_embedding_metrics();
+        let search_metrics = collector.get_search_metrics()
+            .expect("Should be able to get search metrics");
+        #[cfg(feature = "ml")]
+        let embedding_metrics = collector.get_embedding_metrics()
+            .expect("Should be able to get embedding metrics");
         
         assert_eq!(search_metrics.search_count, 1);
+        #[cfg(feature = "ml")]
         assert_eq!(embedding_metrics.embedding_count, 1);
         
-        let cache_metrics = collector.get_cache_metrics("test_cache");
+        let cache_metrics = collector.get_cache_metrics("test_cache")
+            .expect("Should be able to get cache metrics");
         assert!(cache_metrics.is_some());
         assert_eq!(cache_metrics.unwrap().hits, 1);
+    }
+
+    #[test]
+    fn test_explicit_metrics_usage() {
+        // Test that individual metrics components work without defaults
+        let search_metrics = SearchMetrics::new();
+        #[cfg(feature = "ml")]
+        let embedding_metrics = EmbeddingMetrics::new();
+        let cache_metrics = CacheMetrics::new(100);
+        
+        // Verify no defaults are used - all fields are explicitly set
+        assert_eq!(search_metrics.search_count, 0);
+        #[cfg(feature = "ml")]
+        assert_eq!(embedding_metrics.embedding_count, 0);
+        assert_eq!(cache_metrics.max_size, 100);
+        
+        // Test that MetricsCollector constructor works explicitly
+        let collector = MetricsCollector::new();
+        collector.record_search(Duration::from_millis(100), 5, true);
+        
+        let retrieved = collector.get_search_metrics()
+            .expect("Should be able to get search metrics");
+        assert_eq!(retrieved.search_count, 1);
     }
 }

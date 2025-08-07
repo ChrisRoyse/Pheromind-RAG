@@ -4,7 +4,8 @@ use std::fs;
 use std::path::Path;
 
 fn benchmark_chunking_performance(c: &mut Criterion) {
-    let chunker = SimpleRegexChunker::new();
+    let chunker = SimpleRegexChunker::new()
+        .expect("Failed to create chunker for benchmarking");
     
     // Synthetic content of various sizes
     let test_cases = vec![
@@ -32,7 +33,8 @@ fn benchmark_chunking_performance(c: &mut Criterion) {
 }
 
 fn benchmark_line_validation(c: &mut Criterion) {
-    let chunker = SimpleRegexChunker::new();
+    let chunker = SimpleRegexChunker::new()
+        .expect("Failed to create chunker for line validation benchmark");
     
     // Prepare test data
     let content = generate_code_content(1000);
@@ -55,7 +57,8 @@ fn benchmark_line_validation(c: &mut Criterion) {
 }
 
 fn benchmark_real_files(c: &mut Criterion) {
-    let chunker = SimpleRegexChunker::new();
+    let chunker = SimpleRegexChunker::new()
+        .expect("Failed to create chunker for real files benchmark");
     
     // Test with actual files from vectortest if available
     let test_files = vec![
