@@ -1,5 +1,4 @@
 use std::collections::HashSet;
-use rustc_hash::FxHashMap;
 use crate::search::ExactMatch;
 use crate::error::SearchError;
 #[cfg(feature = "vectordb")]

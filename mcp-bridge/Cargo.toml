@@ -1,0 +1,61 @@
+[package]
+name = "mcp-bridge"
+version = "1.0.0"
+edition = "2021"
+description = "Rust bridge for high-performance embedding operations in MCP server"
+authors = ["embed-team"]
+license = "MIT"
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+# Neon for Node.js bindings
+neon = { version = "1.0", default-features = false, features = ["napi-6"] }
+
+# ONNX Runtime for ML model inference
+ort = { version = "2.0.0-rc.10", default-features = false, features = ["load-dynamic"] }
+
+# FAISS for vector similarity search
+faiss = { version = "0.12", optional = true }
+
+# Tokenizers for text processing
+tokenizers = { version = "0.19" }
+
+# Serde for JSON serialization
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+
+# Rayon for parallel processing
+rayon = "1.8"
+
+# SIMD for optimized vector operations
+wide = "0.7"
+
+# Error handling
+anyhow = "1.0"
+thiserror = "1.0"
+
+# Async runtime
+tokio = { version = "1.0", features = ["rt", "rt-multi-thread"] }
+
+# Logging
+log = "0.4"
+env_logger = "0.10"
+
+[features]
+default = ["faiss"]
+faiss = ["dep:faiss"]
+gpu = ["ort/cuda", "ort/tensorrt"]
+
+[profile.release]
+lto = true
+codegen-units = 1
+panic = "abort"
+opt-level = 3
+
+[profile.dev]
+opt-level = 1
+
+[build-dependencies]
+neon-build = "0.10"

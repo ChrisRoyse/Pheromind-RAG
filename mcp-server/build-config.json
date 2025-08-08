@@ -1,0 +1,20 @@
+{
+  "name": "@embed/mcp-server",
+  "description": "MCP server for hybrid embedding search",
+  "main": "dist/index.js",
+  "type": "module",
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "scripts": {
+    "prebuild": "rm -rf dist",
+    "build": "tsc && npm run copy-assets",
+    "copy-assets": "cp -r ../mcp-bridge/target/release/*.node dist/ 2>/dev/null || true",
+    "postbuild": "chmod +x dist/index.js"
+  },
+  "files": [
+    "dist/**/*",
+    "README.md",
+    "package.json"
+  ]
+}

@@ -743,6 +743,178 @@ impl UnifiedSearcher {
         }
     }
     
+    /// Update a single file in all search engines
+    /// This removes the old version and re-indexes the new version
+    pub async fn update_file(&self, file_path: &Path) -> Result<()> {
+        println!("🔄 Updating file: {:?}", file_path);
+        
+        // First remove the old version from all engines
+        self.remove_file(file_path).await?;
+        
+        // Then re-index the new version
+        self.index_file(file_path).await?;
+        
+        println!("✅ Updated file: {:?}", file_path);
+        Ok(())
+    }
+    
+    /// Remove a file from all search engines
+    pub async fn remove_file(&self, file_path: &Path) -> Result<()> {
+        println!("🗑️  Removing file: {:?}", file_path);
+        
+        // Remove from Tantivy text searcher
+        #[cfg(feature = "tantivy")]
+        {
+            let mut text_searcher = self.text_searcher.write().await;
+            if let Err(e) = text_searcher.remove_document(file_path).await {
+                println!("⚠️ Failed to remove from Tantivy: {}", e);
+            }
+        }
+        
+        // Remove from vector database
+        #[cfg(feature = "vectordb")]
+        {
+            let storage = self.storage.write().await;
+            let file_path_str = file_path.to_string_lossy();
+            if let Err(e) = storage.delete_by_file(&file_path_str).await {
+                println!("⚠️ Failed to remove from vector DB: {}", e);
+            }
+        }
+        
+        // Remove from symbol database
+        #[cfg(feature = "tree-sitter")]
+        {
+            let mut symbol_db = self.symbol_db.write().await;
+            let file_path_str = file_path.to_str()
+                .ok_or_else(|| anyhow::anyhow!("File path contains invalid UTF-8: {:?}", file_path))?;
+            symbol_db.remove_file_symbols(file_path_str);
+        }
+        
+        // Remove from BM25 engine - find all chunks for this file and remove them
+        if self.bm25_enabled {
+            let content = match tokio::fs::read_to_string(file_path).await {
+                Ok(content) => content,
+                Err(_) => {
+                    // File doesn't exist anymore, estimate chunk count based on index
+                    let chunks = self.chunker.chunk_file("");
+                    let mut engine = self.bm25_engine.write().await;
+                    let mut index = self.inverted_index.write().await;
+                    
+                    // Remove all documents matching this file path pattern
+                    let file_path_str = file_path.to_string_lossy();
+                    let doc_ids_to_remove = index.get_documents_by_file_pattern(&file_path_str);
+                    
+                    for doc_id in doc_ids_to_remove {
+                        if let Err(e) = engine.remove_document(&doc_id) {
+                            println!("⚠️ Failed to remove BM25 document {}: {}", doc_id, e);
+                        }
+                        if let Err(e) = index.remove_document(&doc_id) {
+                            println!("⚠️ Failed to remove from inverted index {}: {}", doc_id, e);
+                        }
+                    }
+                    
+                    // Update statistics
+                    if let Err(e) = engine.update_statistics() {
+                        println!("⚠️ Failed to update BM25 statistics: {}", e);
+                    }
+                    
+                    return Ok(());
+                }
+            };
+            
+            let chunks = self.chunker.chunk_file(&content);
+            let mut engine = self.bm25_engine.write().await;
+            let mut index = self.inverted_index.write().await;
+            
+            for (idx, _chunk) in chunks.iter().enumerate() {
+                let doc_id = format!("{}-{}", file_path.to_string_lossy(), idx);
+                
+                // Remove from BM25 engine
+                if let Err(e) = engine.remove_document(&doc_id) {
+                    println!("⚠️ Failed to remove BM25 document {}: {}", doc_id, e);
+                }
+                
+                // Remove from inverted index
+                if let Err(e) = index.remove_document(&doc_id) {
+                    println!("⚠️ Failed to remove from inverted index {}: {}", doc_id, e);
+                }
+            }
+            
+            // Update statistics after removal
+            if let Err(e) = engine.update_statistics() {
+                println!("⚠️ Failed to update BM25 statistics: {}", e);
+            }
+            
+            // Save inverted index
+            if let Err(e) = index.save().await {
+                println!("⚠️ Failed to save inverted index: {}", e);
+            }
+        }
+        
+        // Clear cache entries that might reference this file
+        self.cache.clear().unwrap_or_else(|e| {
+            println!("⚠️ Failed to clear cache after file removal: {}", e);
+        });
+        
+        println!("🗑️  Removed file: {:?}", file_path);
+        Ok(())
+    }
+    
+    /// Update multiple files in batch for better performance
+    pub async fn batch_update_files(&self, file_paths: &[&Path]) -> Result<BatchUpdateStats> {
+        println!("🔄 Batch updating {} files", file_paths.len());
+        
+        let mut stats = BatchUpdateStats::new();
+        
+        // Process files in batches to avoid memory issues
+        const BATCH_SIZE: usize = 10;
+        
+        for batch in file_paths.chunks(BATCH_SIZE) {
+            // Remove all files in this batch first
+            for &file_path in batch {
+                match self.remove_file(file_path).await {
+                    Ok(_) => {
+                        stats.removed_count += 1;
+                    }
+                    Err(e) => {
+                        println!("⚠️ Failed to remove {}: {}", file_path.display(), e);
+                        stats.error_count += 1;
+                    }
+                }
+            }
+            
+            // Then re-index all files in this batch
+            for &file_path in batch {
+                match self.index_file(file_path).await {
+                    Ok(_) => {
+                        stats.updated_count += 1;
+                        
+                        // Count chunks created
+                        if let Ok(content) = tokio::fs::read_to_string(file_path).await {
+                            let chunks = self.chunker.chunk_file(&content);
+                            stats.chunks_updated += chunks.len();
+                        }
+                    }
+                    Err(e) => {
+                        println!("⚠️ Failed to re-index {}: {}", file_path.display(), e);
+                        stats.error_count += 1;
+                    }
+                }
+            }
+        }
+        
+        // Update BM25 statistics once at the end
+        if self.bm25_enabled {
+            let mut engine = self.bm25_engine.write().await;
+            if let Err(e) = engine.update_statistics() {
+                println!("⚠️ Failed to update BM25 statistics after batch update: {}", e);
+            }
+        }
+        
+        println!("✅ Batch update completed: {} updated, {} errors", stats.updated_count, stats.error_count);
+        Ok(stats)
+    }
+    
     pub async fn clear_index(&self) -> Result<()> {
         #[cfg(feature = "vectordb")]
         {
@@ -758,6 +930,15 @@ impl UnifiedSearcher {
         {
             let mut text_searcher = self.text_searcher.write().await;
             text_searcher.clear_index().await?;
+        }
+        
+        // Clear BM25 engine and inverted index
+        if self.bm25_enabled {
+            let mut engine = self.bm25_engine.write().await;
+            engine.clear();
+            
+            let mut index = self.inverted_index.write().await;
+            index.clear();
         }
         
         // Clear symbol database
@@ -838,6 +1019,35 @@ pub struct SearcherStats {
     pub cache_max_size: usize,
     pub embedding_cache_entries: usize,
     pub embedding_cache_max_size: usize,
+}
+
+#[derive(Debug)]
+pub struct BatchUpdateStats {
+    pub updated_count: usize,
+    pub removed_count: usize,
+    pub chunks_updated: usize,
+    pub error_count: usize,
+}
+
+impl BatchUpdateStats {
+    pub fn new() -> Self {
+        Self {
+            updated_count: 0,
+            removed_count: 0,
+            chunks_updated: 0,
+            error_count: 0,
+        }
+    }
+}
+
+impl std::fmt::Display for BatchUpdateStats {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "Batch Update: {} files updated, {} files removed, {} chunks updated, {} errors",
+            self.updated_count, self.removed_count, self.chunks_updated, self.error_count
+        )
+    }
 }
 
 impl std::fmt::Display for SearcherStats {

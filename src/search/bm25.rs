@@ -301,6 +301,132 @@ impl BM25Engine {
         }
     }
     
+    /// Update an existing document in the BM25 index
+    /// This removes the old document and adds the new one in a thread-safe manner
+    pub fn update_document(&mut self, doc: BM25Document) -> Result<()> {
+        // Remove existing document if it exists
+        if let Err(_) = self.remove_document(&doc.id) {
+            // Document didn't exist, proceed with addition
+        }
+        
+        // Add the updated document
+        self.add_document(doc)
+    }
+    
+    /// Remove a document from the BM25 index
+    pub fn remove_document(&mut self, doc_id: &str) -> Result<()> {
+        // Get document length before removal
+        let doc_length = self.document_lengths.get(doc_id)
+            .ok_or_else(|| anyhow::anyhow!("Document '{}' not found in BM25 index", doc_id))?;
+        let doc_length = *doc_length;
+        
+        // Update document count and average length
+        if self.total_docs > 0 {
+            let total_length = (self.avg_doc_length * self.total_docs as f32) - doc_length as f32;
+            self.total_docs -= 1;
+            self.avg_doc_length = if self.total_docs > 0 {
+                total_length / self.total_docs as f32
+            } else {
+                0.0
+            };
+        }
+        
+        // Remove document length entry
+        self.document_lengths.remove(doc_id);
+        
+        // Remove document from inverted index and update term frequencies
+        let mut terms_to_remove = Vec::new();
+        for (term, doc_terms) in self.inverted_index.iter_mut() {
+            // Find entries for this document and calculate total frequency to subtract
+            let total_freq_to_subtract: usize = doc_terms.iter()
+                .filter(|dt| dt.doc_id == doc_id)
+                .map(|dt| dt.term_frequency)
+                .sum();
+            
+            // Find and remove entries for this document
+            let original_len = doc_terms.len();
+            doc_terms.retain(|dt| dt.doc_id != doc_id);
+            
+            // If we removed entries, update term statistics
+            if doc_terms.len() != original_len {
+                let removed_count = original_len - doc_terms.len();
+                
+                if let Some(stats) = self.term_frequencies.get_mut(term) {
+                    stats.document_frequency = stats.document_frequency.saturating_sub(removed_count);
+                    stats.total_frequency = stats.total_frequency.saturating_sub(total_freq_to_subtract);
+                    
+                    // Mark term for removal if no documents contain it
+                    if stats.document_frequency == 0 {
+                        terms_to_remove.push(term.clone());
+                    }
+                }
+                
+                // Mark empty document term vectors for removal
+                if doc_terms.is_empty() {
+                    terms_to_remove.push(term.clone());
+                }
+            }
+        }
+        
+        // Remove terms that no longer have any documents
+        for term in terms_to_remove {
+            self.inverted_index.remove(&term);
+            self.term_frequencies.remove(&term);
+        }
+        
+        Ok(())
+    }
+    
+    /// Update index statistics after batch operations
+    /// This recalculates average document length and validates consistency
+    pub fn update_statistics(&mut self) -> Result<()> {
+        // Recalculate total documents
+        let actual_doc_count = self.document_lengths.len();
+        if actual_doc_count != self.total_docs {
+            println!("⚠️ Document count mismatch detected: expected {}, found {}. Correcting...", 
+                     self.total_docs, actual_doc_count);
+            self.total_docs = actual_doc_count;
+        }
+        
+        // Recalculate average document length
+        if self.total_docs > 0 {
+            let total_length: usize = self.document_lengths.values().sum();
+            self.avg_doc_length = total_length as f32 / self.total_docs as f32;
+        } else {
+            self.avg_doc_length = 0.0;
+        }
+        
+        // Validate term frequencies consistency
+        let mut inconsistencies = 0;
+        for (term, stats) in self.term_frequencies.iter_mut() {
+            if let Some(doc_terms) = self.inverted_index.get(term) {
+                let actual_doc_freq = doc_terms.len();
+                let actual_total_freq: usize = doc_terms.iter().map(|dt| dt.term_frequency).sum();
+                
+                if actual_doc_freq != stats.document_frequency {
+                    stats.document_frequency = actual_doc_freq;
+                    inconsistencies += 1;
+                }
+                
+                if actual_total_freq != stats.total_frequency {
+                    stats.total_frequency = actual_total_freq;
+                    inconsistencies += 1;
+                }
+            } else {
+                // Term exists in statistics but not in index - remove it
+                stats.document_frequency = 0;
+                stats.total_frequency = 0;
+                inconsistencies += 1;
+            }
+        }
+        
+        if inconsistencies > 0 {
+            println!("⚠️ Fixed {} term frequency inconsistencies during statistics update", inconsistencies);
+        }
+        
+        Ok(())
+    }
+    
     /// Clear the entire index
     pub fn clear(&mut self) {
         self.total_docs = 0;
@@ -319,6 +445,10 @@ pub struct IndexStats {
     pub k1: f32,
     pub b: f32,
 }
+
+// Include incremental update tests
+#[cfg(test)]
+mod incremental_tests;
 
 #[cfg(test)]
 mod tests {

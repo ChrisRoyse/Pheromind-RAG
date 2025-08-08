@@ -569,6 +569,37 @@ impl SymbolDatabase {
         self.symbols_by_kind.clear();
     }
     
+    /// Remove all symbols from a specific file
+    pub fn remove_file_symbols(&mut self, file_path: &str) {
+        // Get symbols that need to be removed from this file
+        let symbols_to_remove = match self.symbols_by_file.remove(file_path) {
+            Some(symbols) => symbols,
+            None => return, // File not indexed, nothing to remove
+        };
+        
+        // Remove symbols from name-based index
+        for symbol in &symbols_to_remove {
+            if let Some(name_symbols) = self.symbols_by_name.get_mut(&symbol.name) {
+                name_symbols.retain(|s| s.file_path != file_path);
+                // Remove the name entry if no symbols left
+                if name_symbols.is_empty() {
+                    self.symbols_by_name.remove(&symbol.name);
+                }
+            }
+        }
+        
+        // Remove symbols from kind-based index
+        for symbol in &symbols_to_remove {
+            if let Some(kind_symbols) = self.symbols_by_kind.get_mut(&symbol.kind) {
+                kind_symbols.retain(|s| s.file_path != file_path);
+                // Remove the kind entry if no symbols left
+                if kind_symbols.is_empty() {
+                    self.symbols_by_kind.remove(&symbol.kind);
+                }
+            }
+        }
+    }
+    
     pub fn find_by_kind(&self, kind: SymbolKind) -> Vec<Symbol> {
         match self.symbols_by_kind.get(&kind) {
             Some(symbols) => symbols.iter().cloned().collect(),

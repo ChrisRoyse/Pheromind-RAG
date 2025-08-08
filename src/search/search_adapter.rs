@@ -33,6 +33,31 @@ pub trait TextSearcher: Send + Sync {
     /// # Returns
     /// * `Result<()>` - Success or error result
     async fn clear_index(&mut self) -> Result<()>;
+    
+    /// Update a document in the index
+    /// This removes the old version and re-indexes the new version
+    /// 
+    /// # Arguments
+    /// * `file_path` - Path to the file to update
+    /// 
+    /// # Returns
+    /// * `Result<()>` - Success or error result
+    async fn update_document(&mut self, file_path: &Path) -> Result<()>;
+    
+    /// Remove a document from the index
+    /// 
+    /// # Arguments
+    /// * `file_path` - Path to the file to remove
+    /// 
+    /// # Returns
+    /// * `Result<()>` - Success or error result
+    async fn remove_document(&mut self, file_path: &Path) -> Result<()>;
+    
+    /// Reload the index reader to reflect recent changes
+    /// 
+    /// # Returns
+    /// * `Result<()>` - Success or error result
+    async fn reload_reader(&self) -> Result<()>;
 }
 
 /// Factory function to create a text searcher based on configuration

@@ -295,6 +295,21 @@ impl InvertedIndex {
         }
     }
     
+    /// Get all document IDs and their metadata
+    pub fn get_all_documents(&self) -> impl Iterator<Item = (&String, &DocumentMetadata)> {
+        self.doc_metadata.iter()
+    }
+    
+    /// Get all document IDs matching a file path pattern
+    pub fn get_documents_by_file_pattern(&self, file_path_pattern: &str) -> Vec<String> {
+        self.doc_metadata.iter()
+            .filter(|(doc_id, metadata)| {
+                doc_id.starts_with(file_path_pattern) || metadata.file_path.contains(file_path_pattern)
+            })
+            .map(|(doc_id, _)| doc_id.clone())
+            .collect()
+    }
+    
     /// Get statistics about the index
     pub fn get_document_metadata(&self, doc_id: &str) -> Option<&DocumentMetadata> {
         self.doc_metadata.get(doc_id)

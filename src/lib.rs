@@ -41,6 +41,9 @@ pub mod git {
     // pub mod mod_git;  // TODO: Create or remove
 }
 
+// File watcher module with real-time monitoring
+pub mod watcher;
+
 // Other modules
 pub mod chunking;
 // pub mod file_cache;    // TODO: Create or remove

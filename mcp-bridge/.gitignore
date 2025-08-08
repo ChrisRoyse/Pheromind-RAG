@@ -1,0 +1,27 @@
+# Rust build artifacts
+/target
+**/*.rs.bk
+Cargo.lock
+
+# Node.js native addon build artifacts
+*.node
+build/
+node_modules/
+
+# IDEs
+.vscode/
+.idea/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Environment files
+.env
+
+# Temporary files
+*.tmp
+*.temp

@@ -595,6 +595,45 @@ impl TantivySearcher {
         Ok(())
     }
     
+    /// Update a document in the Tantivy index
+    /// This removes all existing entries for the file and re-indexes it
+    pub async fn update_document(&mut self, file_path: &Path) -> Result<()> {
+        // Remove existing document entries for this file
+        self.remove_document(file_path).await?;
+        
+        // Re-index the file
+        self.index_file(file_path).await
+    }
+    
+    /// Remove all entries for a document (file) from the Tantivy index
+    pub async fn remove_document(&mut self, file_path: &Path) -> Result<()> {
+        let mut writer: tantivy::IndexWriter<TantivyDocument> = self.index.writer(15_000_000)?;
+        
+        // Create a term to match all documents from this file
+        let file_path_str = file_path.to_string_lossy();
+        let file_term = tantivy::Term::from_field_text(self.file_path_field, &file_path_str);
+        
+        // Delete all documents matching this file path
+        writer.delete_term(file_term);
+        writer.commit()?;
+        
+        // Reload the searcher to reflect the changes
+        self.reload_reader().await?;
+        
+        println!("🗑️  Removed all entries for file: {:?}", file_path);
+        Ok(())
+    }
+    
+    /// Reload the index reader to reflect recent changes
+    /// This is necessary after updates to make changes visible to searches
+    pub async fn reload_reader(&self) -> Result<()> {
+        let reader = self.index.reader()
+            .with_context(|| "Failed to get index reader for reload")?;
+        reader.reload()
+            .with_context(|| "Failed to reload index reader")?;
+        Ok(())
+    }
+    
     pub async fn clear_index(&mut self) -> Result<()> {
         if let Some(index_path) = &self.index_path {
             // For persistent storage, rebuild the index from scratch
@@ -608,7 +647,7 @@ impl TantivySearcher {
             writer.commit()?;
             
             // Reload the searcher to reflect the changes
-            self.index.reader()?.reload()?;
+            self.reload_reader().await?;
         }
         
         Ok(())
@@ -741,5 +780,20 @@ impl crate::search::search_adapter::TextSearcher for TantivySearcher {
     async fn clear_index(&mut self) -> Result<()> {
         // Call the actual TantivySearcher::clear_index method to avoid recursion
         TantivySearcher::clear_index(self).await
+    }
+    
+    async fn update_document(&mut self, file_path: &Path) -> Result<()> {
+        // Call the actual TantivySearcher::update_document method to avoid recursion
+        TantivySearcher::update_document(self, file_path).await
+    }
+    
+    async fn remove_document(&mut self, file_path: &Path) -> Result<()> {
+        // Call the actual TantivySearcher::remove_document method to avoid recursion
+        TantivySearcher::remove_document(self, file_path).await
+    }
+    
+    async fn reload_reader(&self) -> Result<()> {
+        // Call the actual TantivySearcher::reload_reader method to avoid recursion
+        TantivySearcher::reload_reader(self).await
     }
 }
