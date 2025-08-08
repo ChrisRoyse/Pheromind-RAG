@@ -1,4 +1,5 @@
-use std::collections::{BTreeMap, HashMap, HashSet};
+use std::collections::{BTreeMap, HashSet};
+use rustc_hash::FxHashMap;
 use std::path::PathBuf;
 use anyhow::{Result, anyhow};
 use serde::{Serialize, Deserialize};
@@ -12,7 +13,7 @@ pub struct InvertedIndex {
     /// Main storage (file-backed for persistence)
     term_to_docs: BTreeMap<String, PostingList>,
     /// Document metadata
-    doc_metadata: HashMap<String, DocumentMetadata>,
+    doc_metadata: FxHashMap<String, DocumentMetadata>,
     
     /// Performance optimizations
     term_cache: LruCache<String, PostingList>,
@@ -65,7 +66,7 @@ impl InvertedIndex {
         
         Ok(Self {
             term_to_docs: BTreeMap::new(),
-            doc_metadata: HashMap::new(),
+            doc_metadata: FxHashMap::default(),
             term_cache: LruCache::new(cache_size),
             frequent_terms: HashSet::new(),
             index_path,
@@ -152,8 +153,8 @@ impl InvertedIndex {
         self.doc_metadata.insert(doc_id.clone(), metadata);
         
         // Process tokens and build posting lists
-        let mut term_positions: HashMap<String, Vec<usize>> = HashMap::new();
-        let mut term_counts: HashMap<String, usize> = HashMap::new();
+        let mut term_positions: FxHashMap<String, Vec<usize>> = FxHashMap::default();
+        let mut term_counts: FxHashMap<String, usize> = FxHashMap::default();
         
         for (pos, token) in tokens.iter().enumerate() {
             let term = token.text.to_lowercase();

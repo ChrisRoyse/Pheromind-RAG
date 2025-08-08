@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use rustc_hash::FxHashMap;
 use std::path::Path;
 use anyhow::Result;
 use tree_sitter::{Parser, Query, QueryCursor, Node};
@@ -40,14 +40,14 @@ pub enum SymbolKind {
 }
 
 pub struct SymbolIndexer {
-    parsers: HashMap<String, Parser>,
-    queries: HashMap<String, Query>,
+    parsers: FxHashMap<String, Parser>,
+    queries: FxHashMap<String, Query>,
 }
 
 impl SymbolIndexer {
     pub fn new() -> Result<Self> {
-        let mut parsers = HashMap::new();
-        let mut queries = HashMap::new();
+        let mut parsers = FxHashMap::default();
+        let mut queries = FxHashMap::default();
         
         // Initialize each language with error logging
         if let Err(e) = Self::init_rust(&mut parsers, &mut queries) {
@@ -101,7 +101,7 @@ impl SymbolIndexer {
         Ok(Self { parsers, queries })
     }
     
-    fn init_rust(parsers: &mut HashMap<String, Parser>, queries: &mut HashMap<String, Query>) -> Result<()> {
+    fn init_rust(parsers: &mut FxHashMap<String, Parser>, queries: &mut FxHashMap<String, Query>) -> Result<()> {
         let lang = tree_sitter_rust::LANGUAGE.into();
         let mut parser = Parser::new();
         parser.set_language(&lang)?;
@@ -127,7 +127,7 @@ impl SymbolIndexer {
         Ok(())
     }
     
-    fn init_python(parsers: &mut HashMap<String, Parser>, queries: &mut HashMap<String, Query>) -> Result<()> {
+    fn init_python(parsers: &mut FxHashMap<String, Parser>, queries: &mut FxHashMap<String, Query>) -> Result<()> {
         let lang = tree_sitter_python::LANGUAGE.into();
         let mut parser = Parser::new();
         parser.set_language(&lang)?;
@@ -148,7 +148,7 @@ impl SymbolIndexer {
         Ok(())
     }
     
-    fn init_javascript(parsers: &mut HashMap<String, Parser>, queries: &mut HashMap<String, Query>) -> Result<()> {
+    fn init_javascript(parsers: &mut FxHashMap<String, Parser>, queries: &mut FxHashMap<String, Query>) -> Result<()> {
         let lang = tree_sitter_javascript::LANGUAGE.into();
         let mut parser = Parser::new();
         parser.set_language(&lang)?;
@@ -174,7 +174,7 @@ impl SymbolIndexer {
         Ok(())
     }
     
-    fn init_typescript(parsers: &mut HashMap<String, Parser>, queries: &mut HashMap<String, Query>) -> Result<()> {
+    fn init_typescript(parsers: &mut FxHashMap<String, Parser>, queries: &mut FxHashMap<String, Query>) -> Result<()> {
         let lang = tree_sitter_typescript::LANGUAGE_TYPESCRIPT.into();
         let mut parser = Parser::new();
         parser.set_language(&lang)?;
@@ -206,7 +206,7 @@ impl SymbolIndexer {
         Ok(())
     }
     
-    fn init_go(parsers: &mut HashMap<String, Parser>, queries: &mut HashMap<String, Query>) -> Result<()> {
+    fn init_go(parsers: &mut FxHashMap<String, Parser>, queries: &mut FxHashMap<String, Query>) -> Result<()> {
         let lang = tree_sitter_go::LANGUAGE.into();
         let mut parser = Parser::new();
         parser.set_language(&lang)?;
@@ -227,7 +227,7 @@ impl SymbolIndexer {
         Ok(())
     }
     
-    fn init_java(parsers: &mut HashMap<String, Parser>, queries: &mut HashMap<String, Query>) -> Result<()> {
+    fn init_java(parsers: &mut FxHashMap<String, Parser>, queries: &mut FxHashMap<String, Query>) -> Result<()> {
         let lang = tree_sitter_java::LANGUAGE.into();
         let mut parser = Parser::new();
         parser.set_language(&lang)?;
@@ -250,7 +250,7 @@ impl SymbolIndexer {
         Ok(())
     }
     
-    fn init_c(parsers: &mut HashMap<String, Parser>, queries: &mut HashMap<String, Query>) -> Result<()> {
+    fn init_c(parsers: &mut FxHashMap<String, Parser>, queries: &mut FxHashMap<String, Query>) -> Result<()> {
         let lang = tree_sitter_c::LANGUAGE.into();
         let mut parser = Parser::new();
         parser.set_language(&lang)?;
@@ -275,7 +275,7 @@ impl SymbolIndexer {
         Ok(())
     }
     
-    fn init_cpp(parsers: &mut HashMap<String, Parser>, queries: &mut HashMap<String, Query>) -> Result<()> {
+    fn init_cpp(parsers: &mut FxHashMap<String, Parser>, queries: &mut FxHashMap<String, Query>) -> Result<()> {
         let lang = tree_sitter_cpp::LANGUAGE.into();
         let mut parser = Parser::new();
         parser.set_language(&lang)?;
@@ -311,7 +311,7 @@ impl SymbolIndexer {
         Ok(())
     }
     
-    fn init_html(parsers: &mut HashMap<String, Parser>, queries: &mut HashMap<String, Query>) -> Result<()> {
+    fn init_html(parsers: &mut FxHashMap<String, Parser>, queries: &mut FxHashMap<String, Query>) -> Result<()> {
         let lang = tree_sitter_html::LANGUAGE.into();
         let mut parser = Parser::new();
         parser.set_language(&lang)?;
@@ -333,7 +333,7 @@ impl SymbolIndexer {
         Ok(())
     }
     
-    fn init_css(parsers: &mut HashMap<String, Parser>, queries: &mut HashMap<String, Query>) -> Result<()> {
+    fn init_css(parsers: &mut FxHashMap<String, Parser>, queries: &mut FxHashMap<String, Query>) -> Result<()> {
         let lang = tree_sitter_css::LANGUAGE.into();
         let mut parser = Parser::new();
         parser.set_language(&lang)?;
@@ -357,7 +357,7 @@ impl SymbolIndexer {
         Ok(())
     }
     
-    fn init_json(parsers: &mut HashMap<String, Parser>, queries: &mut HashMap<String, Query>) -> Result<()> {
+    fn init_json(parsers: &mut FxHashMap<String, Parser>, queries: &mut FxHashMap<String, Query>) -> Result<()> {
         let lang = tree_sitter_json::LANGUAGE.into();
         let mut parser = Parser::new();
         parser.set_language(&lang)?;
@@ -373,7 +373,7 @@ impl SymbolIndexer {
         Ok(())
     }
     
-    fn init_bash(parsers: &mut HashMap<String, Parser>, queries: &mut HashMap<String, Query>) -> Result<()> {
+    fn init_bash(parsers: &mut FxHashMap<String, Parser>, queries: &mut FxHashMap<String, Query>) -> Result<()> {
         let lang = tree_sitter_bash::LANGUAGE.into();
         let mut parser = Parser::new();
         parser.set_language(&lang)?;
@@ -512,17 +512,17 @@ impl SymbolIndexer {
 
 // Quick symbol database for fast lookups
 pub struct SymbolDatabase {
-    pub symbols_by_name: HashMap<String, Vec<Symbol>>,
-    pub symbols_by_file: HashMap<String, Vec<Symbol>>,
-    pub symbols_by_kind: HashMap<SymbolKind, Vec<Symbol>>,
+    pub symbols_by_name: FxHashMap<String, Vec<Symbol>>,
+    pub symbols_by_file: FxHashMap<String, Vec<Symbol>>,
+    pub symbols_by_kind: FxHashMap<SymbolKind, Vec<Symbol>>,
 }
 
 impl SymbolDatabase {
     pub fn new() -> Self {
         Self {
-            symbols_by_name: HashMap::new(),
-            symbols_by_file: HashMap::new(),
-            symbols_by_kind: HashMap::new(),
+            symbols_by_name: FxHashMap::default(),
+            symbols_by_file: FxHashMap::default(),
+            symbols_by_kind: FxHashMap::default(),
         }
     }
     

@@ -20,7 +20,6 @@ pub struct Config {
     pub storage: StorageConfig,
     pub embedding: EmbeddingConfig,
     pub search: SearchConfig,
-    pub server: ServerConfig,
     pub logging: LoggingConfig,
 }
 
@@ -68,13 +67,6 @@ pub enum IndexType {
     HNSW,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ServerConfig {
-    pub host: String,
-    pub port: u16,
-    pub workers: usize,
-    pub max_request_size: usize,
-}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct LoggingConfig {
@@ -113,12 +105,6 @@ impl Config {
                 top_k_default: 10,
                 similarity_threshold: 0.7,
                 enable_reranking: false,
-            },
-            server: ServerConfig {
-                host: "127.0.0.1".to_string(),
-                port: 8080,
-                workers: 4,
-                max_request_size: 10 * 1024 * 1024,  // 10MB
             },
             logging: LoggingConfig {
                 level: "info".to_string(),
@@ -233,14 +219,6 @@ impl Config {
             });
         }
         
-        // Validate server configuration
-        if self.server.workers == 0 {
-            return Err(EmbedError::Validation {
-                field: "server.workers".to_string(),
-                reason: "Must be greater than 0".to_string(),
-                value: Some("0".to_string()),
-            });
-        }
         
         Ok(())
     }
@@ -400,44 +378,6 @@ impl Config {
                 source: None,
             })?;
             
-        let host = std::env::var("EMBED_SERVER_HOST")
-            .map_err(|_| EmbedError::Configuration {
-                message: "EMBED_SERVER_HOST environment variable is required".to_string(),
-                source: None,
-            })?;
-            
-        let port = std::env::var("EMBED_SERVER_PORT")
-            .map_err(|_| EmbedError::Configuration {
-                message: "EMBED_SERVER_PORT environment variable is required".to_string(),
-                source: None,
-            })?
-            .parse()
-            .map_err(|_| EmbedError::Configuration {
-                message: "EMBED_SERVER_PORT must be a valid port number (1-65535)".to_string(),
-                source: None,
-            })?;
-            
-        let workers = std::env::var("EMBED_SERVER_WORKERS")
-            .map_err(|_| EmbedError::Configuration {
-                message: "EMBED_SERVER_WORKERS environment variable is required".to_string(),
-                source: None,
-            })?
-            .parse()
-            .map_err(|_| EmbedError::Configuration {
-                message: "EMBED_SERVER_WORKERS must be a valid positive integer".to_string(),
-                source: None,
-            })?;
-            
-        let max_request_size = std::env::var("EMBED_MAX_REQUEST_SIZE")
-            .map_err(|_| EmbedError::Configuration {
-                message: "EMBED_MAX_REQUEST_SIZE environment variable is required".to_string(),
-                source: None,
-            })?
-            .parse()
-            .map_err(|_| EmbedError::Configuration {
-                message: "EMBED_MAX_REQUEST_SIZE must be a valid positive integer".to_string(),
-                source: None,
-            })?;
             
         let level = std::env::var("EMBED_LOG_LEVEL")
             .map_err(|_| EmbedError::Configuration {
@@ -489,12 +429,6 @@ impl Config {
                 top_k_default,
                 similarity_threshold,
                 enable_reranking,
-            },
-            server: ServerConfig {
-                host,
-                port,
-                workers,
-                max_request_size,
             },
             logging: LoggingConfig {
                 level,
@@ -594,11 +528,6 @@ top_k_default = 5
 similarity_threshold = 0.8
 enable_reranking = true
 
-[server]
-host = "0.0.0.0"
-port = 9090
-workers = 8
-max_request_size = 5242880
 
 [logging]
 level = "debug"
@@ -609,7 +538,6 @@ output = "stderr"
         file.flush().unwrap();
         
         let config = Config::load_from_file(file.path()).unwrap();
-        assert_eq!(config.server.port, 9090);
         assert_eq!(config.embedding.batch_size, 16);
         assert!(matches!(config.storage.backend, StorageBackend::LanceDB));
     }
@@ -630,7 +558,7 @@ output = "stderr"
         ConfigManager::init(config).unwrap();
         
         let retrieved = ConfigManager::get().unwrap();
-        assert_eq!(retrieved.server.port, 8080);
+        assert!(retrieved.storage.max_connections > 0);
     }
     
     #[test]
@@ -651,16 +579,11 @@ output = "stderr"
         std::env::set_var("EMBED_TOP_K_DEFAULT", "20");
         std::env::set_var("EMBED_SIMILARITY_THRESHOLD", "0.8");
         std::env::set_var("EMBED_ENABLE_RERANKING", "false");
-        std::env::set_var("EMBED_SERVER_HOST", "0.0.0.0");
-        std::env::set_var("EMBED_SERVER_PORT", "3333");
-        std::env::set_var("EMBED_SERVER_WORKERS", "2");
-        std::env::set_var("EMBED_MAX_REQUEST_SIZE", "5242880");
         std::env::set_var("EMBED_LOG_LEVEL", "debug");
         std::env::set_var("EMBED_LOG_FORMAT", "text");
         std::env::set_var("EMBED_LOG_OUTPUT", "stderr");
         
         let config = Config::from_env().unwrap();
-        assert_eq!(config.server.port, 3333);
         assert!(matches!(config.storage.backend, StorageBackend::SQLite));
         assert_eq!(config.embedding.batch_size, 16);
         assert_eq!(config.search.top_k_default, 20);
@@ -681,10 +604,6 @@ output = "stderr"
         std::env::remove_var("EMBED_TOP_K_DEFAULT");
         std::env::remove_var("EMBED_SIMILARITY_THRESHOLD");
         std::env::remove_var("EMBED_ENABLE_RERANKING");
-        std::env::remove_var("EMBED_SERVER_HOST");
-        std::env::remove_var("EMBED_SERVER_PORT");
-        std::env::remove_var("EMBED_SERVER_WORKERS");
-        std::env::remove_var("EMBED_MAX_REQUEST_SIZE");
         std::env::remove_var("EMBED_LOG_LEVEL");
         std::env::remove_var("EMBED_LOG_FORMAT");
         std::env::remove_var("EMBED_LOG_OUTPUT");

@@ -729,14 +729,17 @@ impl std::fmt::Display for IndexStats {
 #[async_trait]
 impl crate::search::search_adapter::TextSearcher for TantivySearcher {
     async fn search(&self, query: &str) -> Result<Vec<ExactMatch>> {
-        self.search(query).await
+        // Call the actual TantivySearcher::search method to avoid recursion
+        TantivySearcher::search(self, query).await
     }
     
     async fn index_file(&mut self, file_path: &Path) -> Result<()> {
-        self.index_file(file_path).await
+        // Call the actual TantivySearcher::index_file method to avoid recursion
+        TantivySearcher::index_file(self, file_path).await
     }
     
     async fn clear_index(&mut self) -> Result<()> {
-        self.clear_index().await
+        // Call the actual TantivySearcher::clear_index method to avoid recursion
+        TantivySearcher::clear_index(self).await
     }
 }

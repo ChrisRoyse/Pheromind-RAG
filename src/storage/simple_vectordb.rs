@@ -11,8 +11,6 @@ use serde::{Deserialize, Serialize};
 #[cfg(feature = "vectordb")]
 use crate::chunking::Chunk;
 #[cfg(feature = "vectordb")]
-
-#[cfg(feature = "vectordb")]
 #[derive(Debug)]
 pub enum StorageError {
     DatabaseError(String),

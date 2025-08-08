@@ -132,7 +132,7 @@ impl Config {
             max_search_results: 20,
             search_backend: SearchBackend::Tantivy,
             #[cfg(feature = "ml")]
-            model_name: "sentence-transformers/all-MiniLM-L6-v2".to_string(),
+            model_name: "nomic-ai/nomic-embed-text-v1.5".to_string(),
             #[cfg(feature = "ml")]
             embedding_dimensions: 768,
             log_level: "info".to_string(),

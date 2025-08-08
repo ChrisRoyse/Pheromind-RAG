@@ -339,7 +339,7 @@ mod tests {
             256,
             std::time::Duration::from_millis(50),
             true,
-            Some(384)
+            Some(768)
         );
 
         log_cache_operation(

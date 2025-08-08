@@ -2,7 +2,8 @@
 // Following TDD red-green-refactor methodology
 
 use anyhow::Result;
-use std::collections::{HashMap, HashSet};
+use std::collections::HashSet;
+use rustc_hash::FxHashMap;
 use std::path::PathBuf;
 
 /// BM25 parameters
@@ -20,11 +21,11 @@ pub struct BM25Match {
 /// Fixed BM25 search engine with correct IDF calculation
 pub struct BM25Engine {
     /// Document collection: doc_id -> (content, token_count)
-    documents: HashMap<String, (String, usize)>,
+    documents: FxHashMap<String, (String, usize)>,
     /// Inverted index: term -> set of doc_ids
-    inverted_index: HashMap<String, HashSet<String>>,
+    inverted_index: FxHashMap<String, HashSet<String>>,
     /// Document frequencies: term -> count of docs containing term
-    doc_frequencies: HashMap<String, usize>,
+    doc_frequencies: FxHashMap<String, usize>,
     /// Total number of documents
     total_docs: usize,
     /// Average document length
@@ -34,9 +35,9 @@ pub struct BM25Engine {
 impl BM25Engine {
     pub fn new() -> Result<Self> {
         Ok(Self {
-            documents: HashMap::new(),
-            inverted_index: HashMap::new(),
-            doc_frequencies: HashMap::new(),
+            documents: FxHashMap::default(),
+            inverted_index: FxHashMap::default(),
+            doc_frequencies: FxHashMap::default(),
             total_docs: 0,
             avg_doc_length: 0.0,
         })
@@ -126,7 +127,7 @@ impl BM25Engine {
         }
         
         let query_terms = self.tokenize(query);
-        let mut scores: HashMap<String, f32> = HashMap::new();
+        let mut scores: FxHashMap<String, f32> = FxHashMap::default();
         
         for term in &query_terms {
             let idf = self.calculate_idf(term);

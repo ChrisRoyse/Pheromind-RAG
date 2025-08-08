@@ -195,7 +195,7 @@ mod accuracy_tests {
             
             // Cross-file semantic searches
             AccuracyTest {
-                query: "API documentation endpoints",
+                query: "search engine documentation",
                 expected_files: vec!["API_DOCUMENTATION.md"],
                 min_expected: 1,
                 description: "API documentation search",

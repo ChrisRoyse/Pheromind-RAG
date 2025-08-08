@@ -141,5 +141,5 @@ src/
 Without MCP, integration options:
 1. **Shell execution**: Call CLI commands from other tools
 2. **Library import**: Use as Rust dependency
-3. **HTTP API**: Could add REST endpoints (not implemented)
+3. **MCP Protocol Only**: System operates exclusively through MCP protocol
 4. **Custom protocol**: Design specific integration

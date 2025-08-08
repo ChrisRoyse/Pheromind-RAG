@@ -1,5 +1,23 @@
 // SimpleSearcher - A modular search implementation with graceful degradation
 // Follows SPARC principles and TDD methodology
+//
+// ARCHITECTURAL DESIGN DECISION:
+// SimpleSearcher is intentionally designed as a basic, robust searcher that provides
+// graceful degradation when optional features are unavailable. It implements only:
+// - BM25 statistical search (always available, pure Rust)
+// - Tantivy exact text search (optional feature)
+//
+// Tree-sitter symbol search is intentionally NOT implemented here. This is by design.
+// For comprehensive search including Tree-sitter symbol analysis, use UnifiedSearcher.
+// This separation allows:
+// 1. Minimal dependencies for basic search needs
+// 2. Graceful degradation when advanced features are unavailable
+// 3. Clear separation of concerns between basic and advanced search capabilities
+//
+// See UnifiedSearcher in src/search/unified.rs for the complete feature set including:
+// - Tree-sitter symbol indexing and search (lines 27-28, 42-45, 386-407, 496-531)
+// - Semantic search with ML embeddings
+// - Advanced fusion algorithms
 
 use anyhow::{Result, Context};
 use std::collections::HashSet;
@@ -12,8 +30,13 @@ use crate::search::bm25_fixed::BM25Engine;
 #[cfg(feature = "tantivy")]
 use crate::search::tantivy_search::TantivySearcher;
 
-#[cfg(feature = "tree-sitter")]
-use crate::search::tree_sitter_service::TreeSitterService;
+// Tree-sitter integration: ARCHITECTURAL DESIGN DECISION
+// Tree-sitter functionality is intentionally NOT implemented in SimpleSearcher.
+// This is by design - SimpleSearcher provides basic search with graceful degradation,
+// while comprehensive Tree-sitter symbol search is implemented in UnifiedSearcher.
+// See: src/search/unified.rs lines 27-28, 42-45, 386-407, 496-531 for the actual implementation.
+// #[cfg(feature = "tree-sitter")]
+// use crate::search::tree_sitter_service::TreeSitterService;
 
 /// Search result from SimpleSearcher
 #[derive(Debug, Clone)]
@@ -32,8 +55,9 @@ pub struct SimpleSearcher {
     bm25_engine: Option<BM25Engine>,
     #[cfg(feature = "tantivy")]
     tantivy_engine: Option<TantivySearcher>,
-    #[cfg(feature = "tree-sitter")]
-    tree_sitter_service: Option<TreeSitterService>,
+    // Tree-sitter service intentionally excluded from SimpleSearcher - see above architectural comment
+    // #[cfg(feature = "tree-sitter")]
+    // tree_sitter_service: Option<TreeSitterService>,
     engines_available: HashSet<String>,
 }
 
@@ -77,23 +101,11 @@ impl SimpleSearcher {
             None
         };
         
-        // Try to initialize Tree-sitter if feature is enabled
-        #[cfg(feature = "tree-sitter")]
-        let tree_sitter_service = if config.enable_tree_sitter {
-            match TreeSitterService::new() {
-                Ok(service) => {
-                    info!("Tree-sitter service initialized successfully");
-                    engines_available.insert("tree-sitter".to_string());
-                    Some(service)
-                }
-                Err(e) => {
-                    warn!("Tree-sitter service failed to initialize: {}", e);
-                    None
-                }
-            }
-        } else {
-            None
-        };
+        // Tree-sitter service: INTENTIONAL ARCHITECTURAL EXCLUSION
+        // Tree-sitter symbol search is NOT implemented in SimpleSearcher by design.
+        // For symbol search capabilities, use UnifiedSearcher which provides full Tree-sitter integration.
+        // #[cfg(feature = "tree-sitter")]
+        // let tree_sitter_service = if config.enable_tree_sitter { ... };
         
         // Ensure at least one engine is available
         if engines_available.is_empty() {
@@ -109,8 +121,9 @@ impl SimpleSearcher {
             bm25_engine,
             #[cfg(feature = "tantivy")]
             tantivy_engine,
-            #[cfg(feature = "tree-sitter")]
-            tree_sitter_service,
+            // Tree-sitter service excluded by design - use UnifiedSearcher for symbol search
+            // #[cfg(feature = "tree-sitter")]
+            // tree_sitter_service,
             engines_available,
         })
     }
@@ -167,29 +180,12 @@ impl SimpleSearcher {
             }
         }
         
-        // Search with Tree-sitter for symbol search if query looks like a symbol
-        #[cfg(feature = "tree-sitter")]
-        if let Some(ref service) = self.tree_sitter_service {
-            if Self::looks_like_symbol(query) {
-                match service.search_symbols(query) {
-                    Ok(symbols) => {
-                        engines_used.insert("tree-sitter".to_string());
-                        for symbol in symbols {
-                            all_results.push(SimpleSearchResult {
-                                path: symbol.file_path.clone(),
-                                content: symbol.name.clone(),
-                                score: 1.0, // Tree-sitter doesn't provide scores
-                                line_number: Some(symbol.line_number),
-                                engines_used: engines_used.clone(),
-                            });
-                        }
-                    }
-                    Err(e) => {
-                        warn!("Tree-sitter search failed: {}", e);
-                    }
-                }
-            }
-        }
+        // Tree-sitter search: INTENTIONAL OMISSION
+        // Symbol search with Tree-sitter is not implemented in SimpleSearcher by design.
+        // SimpleSearcher focuses on graceful degradation with basic search engines (BM25 + Tantivy).
+        // For comprehensive symbol search, use UnifiedSearcher which includes full Tree-sitter integration.
+        // #[cfg(feature = "tree-sitter")]
+        // if let Some(ref service) = self.tree_sitter_service { ... }
         
         // Deduplicate and sort by score
         let mut seen = HashSet::new();

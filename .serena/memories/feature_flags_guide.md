@@ -19,7 +19,7 @@
 
 #### `ml` - Machine Learning
 - **Enables**: Semantic embeddings using Candle and GGUF models
-- **Adds**: all-MiniLM-L6-v2 embedding model support
+- **Adds**: Configurable embedding model support
 - **Key files**: src/embedding/nomic.rs
 - **Dependencies**: Heavy (~500MB models), increases compile time
 - **Required for**: Semantic similarity search

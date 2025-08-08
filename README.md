@@ -9,7 +9,7 @@ A production-ready, high-performance embedding search system for code repositori
 ## Key Features
 
 - **3-Chunk Context**: Always returns code with surrounding context (above + target + below chunks) for 55% better accuracy
-- **Single Embedding Model**: Uses `all-MiniLM-L6-v2` for all semantic search (no complex routing)
+- **Single Embedding Model**: Uses state-of-the-art embedding model for all semantic search (no complex routing)
 - **Simple Fusion**: Basic scoring that combines exact and semantic matches effectively
 - **Git-Based Updates**: Monitors file changes via `git status` for incremental updates
 - **MCP Integration**: Full Model Context Protocol server for LLM integration
@@ -22,7 +22,7 @@ A production-ready, high-performance embedding search system for code repositori
 ├─────────────────────────────────────────────────────────────────┤
 │  Core Search Layer                                             │
 │  ┌─────────────┐ ┌─────────────┐ ┌─────────────┐              │
-│  │  Tantivy    │ │   MiniLM    │ │   Simple    │              │
+│  │  Tantivy    │ │ Embedding   │ │   Simple    │              │
 │  │   Search    │ │  Embedder   │ │   Fusion    │              │
 │  └─────────────┘ └─────────────┘ └─────────────┘              │
 ├─────────────────────────────────────────────────────────────────┤
@@ -95,7 +95,7 @@ Turn git-based file watching on/off.
 
 ### 🚧 Phase 2: In Progress (Tasks 003-010)
 - [ ] Three-chunk context expander
-- [ ] MiniLM embeddings integration
+- [ ] ML embeddings integration
 - [ ] LanceDB vector storage
 - [x] Tantivy full-text search with fuzzy matching
 - [ ] Search fusion and integration
@@ -115,7 +115,7 @@ Current chunker performance with real-world code files:
 
 The system can be built in 3-4 weeks:
 
-1. **Week 1**: ✅ Regex chunking + MiniLM embeddings + 3-chunk context (Chunking DONE)
+1. **Week 1**: ✅ Regex chunking + ML embeddings + 3-chunk context (Chunking DONE)
 2. **Week 2**: Search implementation + simple fusion
 3. **Week 3**: Git file watching + incremental updates
 4. **Week 3-4**: MCP server with all tools
@@ -123,7 +123,7 @@ The system can be built in 3-4 weeks:
 ## Technology Stack
 
 - **Language**: Rust (for performance)
-- **Embeddings**: all-MiniLM-L6-v2 (384 dimensions)
+- **Embeddings**: High-performance model with configurable dimensions
 - **Vector DB**: LanceDB
 - **Text Search**: Tantivy with fuzzy matching
 - **File Watching**: Git status monitoring
@@ -199,7 +199,7 @@ cargo build --features tantivy
 1. Clone the repository
 2. Install Rust and dependencies
 3. Build with ML feature: `cargo build --features ml,vectordb,tantivy`
-4. Download all-MiniLM-L6-v2 model
+4. Download embedding model
 5. Run initial indexing: `reindex_all`
 6. Start MCP server
 7. Begin searching with `search_code`

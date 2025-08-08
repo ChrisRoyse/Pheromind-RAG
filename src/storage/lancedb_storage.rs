@@ -19,7 +19,6 @@ use lancedb::query::{QueryBase, ExecutableQuery};
 // use lancedb::index::Index; // Not used due to API changes
 #[cfg(feature = "vectordb")]
 use crate::chunking::Chunk;
-#[cfg(feature = "vectordb")]
 // use crate::utils::retry::{retry_database_operation, RetryConfig}; // Module doesn't exist
 // use crate::observability::metrics; // Module doesn't exist  
 #[cfg(feature = "vectordb")]
@@ -27,7 +26,6 @@ use tracing::info;
 #[cfg(feature = "vectordb")]
 use std::time::Instant;
 
-#[cfg(feature = "vectordb")]
 #[derive(Debug)]
 pub enum LanceStorageError {
     DatabaseError(String),
@@ -570,6 +568,7 @@ impl LanceDBStorage {
             .map_err(|e| LanceStorageError::DatabaseError(format!("Failed to drop table '{}': {}", self.table_name, e)))?;
         self.init_table().await?;
         
+        #[cfg(debug_assertions)]
         println!("🧹 Cleared all records from LanceDB table");
         Ok(())
     }
@@ -583,6 +582,7 @@ impl LanceDBStorage {
         table.delete(&predicate).await
             .map_err(|e| LanceStorageError::DatabaseError(format!("Delete failed: {}", e)))?;
         
+        #[cfg(debug_assertions)]
         println!("🗑️  Deleted records for file: {}", file_path);
         Ok(())
     }

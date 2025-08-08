@@ -26,7 +26,7 @@ The system uses conditional compilation with Cargo features:
 
 ## 4-Method Search Integration
 1. **Exact Search** (Tantivy) - Perfect string matches with fuzzy support
-2. **Semantic Search** (ML embeddings) - Vector similarity using all-MiniLM-L6-v2
+2. **Semantic Search** (ML embeddings) - Vector similarity using configurable models
 3. **Symbol Search** (Tree-sitter) - Code structure analysis (functions, classes, etc.)
 4. **Statistical Search** (BM25) - TF-IDF statistical relevance scoring
 

@@ -18,7 +18,7 @@ pub mod inverted_index;    // ✅ Depends only on bm25
 pub mod cache;             // ✅ Depends only on basic types
 pub mod fusion;            // ✅ Depends on bm25
 pub mod config;            // ✅ Search configuration
-pub mod simple_searcher;   // ✅ New modular searcher with graceful degradation
+pub mod simple_searcher;   // ✅ Basic searcher (BM25+Tantivy) with graceful degradation - NO Tree-sitter by design
 pub mod bm25_fixed;        // ✅ Fixed BM25 implementation
 pub mod unified;           // ✅ Depends on everything above
 #[cfg(feature = "tree-sitter")]

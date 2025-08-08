@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use rustc_hash::FxHashMap;
 use anyhow::{Result, Context};
 use serde::{Serialize, Deserialize};
 
@@ -15,12 +15,12 @@ pub struct BM25Engine {
     avg_doc_length: f32,
     
     /// Term statistics: term -> (document_frequency, total_frequency)
-    term_frequencies: HashMap<String, TermStats>,
+    term_frequencies: FxHashMap<String, TermStats>,
     /// Document lengths: doc_id -> length
-    document_lengths: HashMap<String, usize>,
+    document_lengths: FxHashMap<String, usize>,
     
     /// Inverted index for fast lookups: term -> documents containing it
-    inverted_index: HashMap<String, Vec<DocumentTerm>>,
+    inverted_index: FxHashMap<String, Vec<DocumentTerm>>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -46,7 +46,7 @@ pub struct BM25Match {
     pub doc_id: String,
     pub score: f32,
     /// Individual term contributions for debugging
-    pub term_scores: HashMap<String, f32>,
+    pub term_scores: FxHashMap<String, f32>,
     pub matched_terms: Vec<String>,
 }
 
@@ -82,9 +82,9 @@ impl BM25Engine {
             b,
             total_docs: 0,
             avg_doc_length: 0.0,
-            term_frequencies: HashMap::new(),
-            document_lengths: HashMap::new(),
-            inverted_index: HashMap::new(),
+            term_frequencies: FxHashMap::default(),
+            document_lengths: FxHashMap::default(),
+            inverted_index: FxHashMap::default(),
         }
     }
     
@@ -96,14 +96,18 @@ impl BM25Engine {
         // Update document count and average length
         let total_length = (self.avg_doc_length * self.total_docs as f32) + doc_length as f32;
         self.total_docs += 1;
-        self.avg_doc_length = total_length / self.total_docs as f32;
+        self.avg_doc_length = if self.total_docs > 0 {
+            total_length / self.total_docs as f32
+        } else {
+            0.0
+        };
         
         // Store document length
         self.document_lengths.insert(doc_id.clone(), doc_length);
         
         // Process tokens and update inverted index
-        let mut term_positions: HashMap<String, Vec<usize>> = HashMap::new();
-        let mut term_counts: HashMap<String, usize> = HashMap::new();
+        let mut term_positions: FxHashMap<String, Vec<usize>> = FxHashMap::default();
+        let mut term_counts: FxHashMap<String, usize> = FxHashMap::default();
         
         for (pos, token) in doc.tokens.iter().enumerate() {
             // Always normalize terms to lowercase for consistency
@@ -160,14 +164,11 @@ impl BM25Engine {
             // Raw IDF can be negative for very common terms (df > N/2)
             // We need to ensure rare terms (lower df) get higher IDF than common terms (higher df)
             let idf = if raw_idf < 0.0 {
-                // For very common terms with negative IDF, map to small positive values
-                // More negative = more common = lower positive IDF
-                let epsilon = 0.001;
-                // FIXED: More negative should give LOWER final IDF (inverted relationship)
-                epsilon + (1.0 / (raw_idf.abs() + 1.0)) * 0.0001  // More negative -> higher abs -> LOWER final value
+                // Map negative IDF to small positive values, preserving order
+                // More negative (more common) should give smaller positive values
+                0.001 * (1.0 / (raw_idf.abs() + 1.0))
             } else {
-                // Zero or positive IDF: add small epsilon to ensure positive
-                raw_idf + 0.01  // Boost to ensure rare terms are clearly higher
+                raw_idf.max(0.001)  // Ensure minimum positive value
             };
             idf
         } else {
@@ -228,7 +229,7 @@ impl BM25Engine {
         }
         
         // Find all documents that contain at least one query term
-        let mut candidate_docs: HashMap<String, Vec<String>> = HashMap::new();
+        let mut candidate_docs: FxHashMap<String, Vec<String>> = FxHashMap::default();
         
         for term in &query_terms {
             if let Some(doc_terms) = self.inverted_index.get(term) {
@@ -243,12 +244,12 @@ impl BM25Engine {
         // Calculate BM25 scores for candidate documents
         let mut matches: Vec<BM25Match> = Vec::new();
         
-        for (doc_id, matched_terms) in candidate_docs {
-            let score = self.calculate_bm25_score(&query_terms, &doc_id)
+        for (doc_id, matched_terms) in &candidate_docs {
+            let score = self.calculate_bm25_score(&query_terms, doc_id)
                 .with_context(|| format!("BM25 calculation failed for document '{}' - mathematical integrity compromised", doc_id))?;
                 
             // Calculate individual term contributions for debugging
-            let mut term_scores = HashMap::new();
+            let mut term_scores = FxHashMap::default();
             for term in &query_terms {
                 let single_term_score = self.calculate_bm25_score(&[term.clone()], &doc_id)
                     .with_context(|| format!("Single term BM25 calculation failed for term '{}' in document '{}' - mathematical integrity compromised", term, doc_id))?;
@@ -261,10 +262,10 @@ impl BM25Engine {
             
             if score != 0.0 && score.is_finite() {
                 matches.push(BM25Match {
-                    doc_id,
+                    doc_id: doc_id.clone(),
                     score,
                     term_scores,
-                    matched_terms,
+                    matched_terms: matched_terms.clone(),
                 });
             }
         }

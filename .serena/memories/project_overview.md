@@ -6,14 +6,14 @@ This is a production-ready, high-performance embedding search system for code re
 ## Key Features
 - **4-Method Search Integration**: Combines Tantivy (exact), Semantic (ML), Symbol (tree-sitter), and BM25 (statistical) search
 - **3-Chunk Context**: Always returns code with surrounding context (above + target + below chunks) for 55% better accuracy
-- **Single Embedding Model**: Uses `all-MiniLM-L6-v2` for all semantic search (no complex routing)
+- **Semantic Embeddings**: Uses configurable embedding models for semantic search
 - **Simple Fusion**: Basic scoring that combines exact and semantic matches effectively
 - **Git-Based Updates**: Monitors file changes via `git status` for incremental updates
 - **MCP Integration**: Full Model Context Protocol server for LLM integration
 
 ## Technology Stack
 - **Language**: Rust (for performance)
-- **Embeddings**: all-MiniLM-L6-v2 (384 dimensions) 
+- **Embeddings**: Configurable embedding models with vector storage 
 - **Vector DB**: LanceDB
 - **Text Search**: Tantivy with fuzzy matching
 - **Symbol Parsing**: Tree-sitter for code analysis
@@ -23,11 +23,11 @@ This is a production-ready, high-performance embedding search system for code re
 
 ## Architecture
 The system uses a layered architecture with:
-1. **Core Search Layer**: Tantivy, MiniLM Embedder, Simple Fusion
+1. **Core Search Layer**: Tantivy, Semantic Embedder, Simple Fusion
 2. **Storage & Chunking Layer**: Regex Chunker, 3-Chunk Expander, LanceDB Storage
 3. **Integration Layer**: Git Watcher, MCP Server
 
 ## Current Status
 - Phase 1: Complete (Regex-based chunker, comprehensive test suite)
-- Phase 2: In Progress (Three-chunk context, MiniLM embeddings, search fusion)
+- Phase 2: In Progress (Three-chunk context, semantic embeddings, search fusion)
 - Target: 85% search accuracy, <500ms search latency, <2GB memory usage

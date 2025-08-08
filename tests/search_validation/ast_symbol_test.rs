@@ -248,30 +248,31 @@ impl DatabaseService {
     }
 }
             "#),
-            ("api.rs", r#"
-use warp::{Filter, Reply};
+            ("search.rs", r#"
+use crate::embedding::Embedder;
+use crate::storage::VectorDB;
 
-pub async fn user_routes() -> impl Filter<Extract = impl Reply, Error = warp::Rejection> + Clone {
-    let get_user = warp::path!("users" / u64)
-        .and(warp::get())
-        .and_then(get_user_handler);
-        
-    let create_user = warp::path("users")
-        .and(warp::post())
-        .and(warp::body::json())
-        .and_then(create_user_handler);
+pub struct SearchEngine {
+    embedder: Embedder,
+    db: VectorDB,
+}
+
+impl SearchEngine {
+    pub async fn new(model_path: &str) -> Self {
+        let embedder = Embedder::load(model_path).await;
+        let db = VectorDB::connect().await;
+        Self { embedder, db }
+    }
     
-    get_user.or(create_user)
-}
-
-async fn get_user_handler(id: u64) -> Result<impl Reply, warp::Rejection> {
-    // Implementation
-    Ok(warp::reply::json(&format!("User {}", id)))
-}
-
-async fn create_user_handler(new_user: NewUser) -> Result<impl Reply, warp::Rejection> {
-    // Implementation
-    Ok(warp::reply::json(&new_user))
+    pub async fn search(&self, query: &str) -> Vec<SearchResult> {
+        let embedding = self.embedder.encode(query).await;
+        self.db.similarity_search(embedding).await
+    }
+    
+    pub async fn index(&mut self, content: &str) {
+        let embedding = self.embedder.encode(content).await;
+        self.db.insert(embedding).await;
+    }
 }
             "#)
         ];

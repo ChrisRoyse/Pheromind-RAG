@@ -64,12 +64,14 @@ pub use cache::bounded_cache::{BoundedCache, EmbeddingCache, SearchCache};
 pub fn validate_phase1_safety() -> Result<()> {
     use error::EmbedError;
     
+    #[cfg(debug_assertions)]
     println!("🔍 Validating Phase 1 Safety Improvements...");
     
     // Test 1: Configuration safety
     let config = Config::load()
         .map_err(|e| anyhow::anyhow!("Failed to load configuration for testing: {}", e))?;
     config.validate()?;
+    #[cfg(debug_assertions)]
     println!("  ✅ Configuration validation passed");
     
     // Test 2: Storage safety (no unsafe impl)
@@ -82,10 +84,12 @@ pub fn validate_phase1_safety() -> Result<()> {
         cache_size: 10_000,
         enable_compression: false,
     })?;
+    #[cfg(debug_assertions)]
     println!("  ✅ Storage created without unsafe code");
     
     // Test 3: Cache safety
     let _cache: BoundedCache<String, String> = BoundedCache::new(100)?;
+    #[cfg(debug_assertions)]
     println!("  ✅ Bounded cache operational");
     
     // Test 4: Error handling (this would panic with unwrap)
@@ -96,9 +100,13 @@ pub fn validate_phase1_safety() -> Result<()> {
     
     match result {
         Ok(_) => {},
-        Err(_) => println!("  ✅ Error handling working correctly"),
+        Err(_) => {
+            #[cfg(debug_assertions)]
+            println!("  ✅ Error handling working correctly");
+        },
     }
     
+    #[cfg(debug_assertions)]
     println!("✅ Phase 1 Safety Validation Complete!");
     Ok(())
 }

@@ -64,7 +64,7 @@ mod vector_tests {
                     "database connection pool management", 
                     "cache invalidation strategy",
                     "error handling best practices",
-                    "API endpoint security validation"
+                    "search index validation"
                 ];
                 
                 let start = Instant::now();
@@ -125,7 +125,7 @@ mod vector_tests {
                             ("auth_service.rs", "User authentication and authorization service implementation"),
                             ("database.rs", "Database connection pooling and query execution"),
                             ("cache.rs", "Memory caching system with LRU eviction policy"),
-                            ("api.rs", "REST API endpoints for user management operations"),
+                            ("search.rs", "Search engine implementation for semantic queries"),
                             ("config.rs", "Application configuration loading and validation"),
                             ("security.rs", "Security utilities including encryption and hashing"),
                             ("logging.rs", "Structured logging with multiple output formats"),
@@ -155,7 +155,7 @@ mod vector_tests {
                             ("user login authentication", "Should find auth_service.rs"),
                             ("database query connection", "Should find database.rs"),
                             ("memory cache storage", "Should find cache.rs"),
-                            ("REST API web service", "Should find api.rs"),
+                            ("semantic search service", "Should find search.rs"),
                             ("application settings", "Should find config.rs")
                         ];
                         

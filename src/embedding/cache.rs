@@ -199,6 +199,7 @@ impl EmbeddingCache {
             let mut file = fs::File::create(&cache_file)?;
             file.write_all(serialized.as_bytes())?;
             
+            #[cfg(debug_assertions)]
             println!("💾 Saved {} cache entries to {:?}", entries.len(), cache_file);
         }
         
@@ -221,6 +222,7 @@ impl EmbeddingCache {
                     cache.put(key, entry);
                 }
                 
+                #[cfg(debug_assertions)]
                 println!("📂 Loaded {} cache entries from {:?}", cache.len(), cache_file);
             }
         }

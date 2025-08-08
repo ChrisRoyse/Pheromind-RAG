@@ -36,7 +36,7 @@ impl SearchCache {
 
     pub fn new(max_size: usize) -> Self {
         Self {
-            cache: Arc::new(Mutex::new(HashMap::new())),
+            cache: Arc::new(Mutex::new(HashMap::default())),
             max_size,
             ttl: Duration::from_secs(300), // 5 minutes TTL
         }
@@ -44,7 +44,7 @@ impl SearchCache {
     
     pub fn with_ttl(max_size: usize, ttl_seconds: u64) -> Self {
         Self {
-            cache: Arc::new(Mutex::new(HashMap::new())),
+            cache: Arc::new(Mutex::new(HashMap::default())),
             max_size,
             ttl: Duration::from_secs(ttl_seconds),
         }

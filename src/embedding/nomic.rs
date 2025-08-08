@@ -141,6 +141,7 @@ impl NomicEmbedder {
             .map_err(|e| anyhow!("Failed to load tokenizer: {}", e))?;
         
         // Load and parse GGUF model with actual tensor data
+        #[cfg(debug_assertions)]
         println!("Loading GGUF model from {:?}...", model_path);
         let tensors = Self::load_gguf_tensors(&model_path, &device)?;
         
@@ -174,12 +175,15 @@ impl NomicEmbedder {
                 .map_err(|e| anyhow!("Failed to initialize embedding cache: {}", e))?
         ));
         
-        println!("✅ Nomic GGUF model loaded successfully");
-        println!("  - {} tensors loaded with actual weights", tensors.len());
-        println!("  - Token embeddings shape: {:?}", token_embeddings.shape());
-        println!("  - {} transformer layers", transformer_layers.len());
-        println!("  - Device: {:?}", device);
-        println!("  - Dimensions: {}", Self::HIDDEN_SIZE);
+        #[cfg(debug_assertions)]
+        {
+            println!("✅ Nomic GGUF model loaded successfully");
+            println!("  - {} tensors loaded with actual weights", tensors.len());
+            println!("  - Token embeddings shape: {:?}", token_embeddings.shape());
+            println!("  - {} transformer layers", transformer_layers.len());
+            println!("  - Device: {:?}", device);
+            println!("  - Dimensions: {}", Self::HIDDEN_SIZE);
+        }
         
         Ok(Self {
             tokenizer,
@@ -278,6 +282,7 @@ impl NomicEmbedder {
         let mut tensors = HashMap::new();
         let mut current_offset = content.tensor_data_offset as usize;
         
+        #[cfg(debug_assertions)]
         println!("Loading {} tensors from GGUF file...", content.tensor_infos.len());
         
         for (name, tensor_info) in content.tensor_infos.iter() {
@@ -286,6 +291,7 @@ impl NomicEmbedder {
             
             // Ensure we don't read past the file
             if current_offset + data_size > mmap.len() {
+                #[cfg(debug_assertions)]
                 println!("Warning: Not enough data for tensor {}", name);
                 break;
             }
@@ -305,6 +311,7 @@ impl NomicEmbedder {
                 std::io::stdout().flush()?;
             }
         }
+        #[cfg(debug_assertions)]
         println!("\r  Loaded {}/{} tensors", tensors.len(), content.tensor_infos.len());
         
         Ok(tensors)
@@ -783,6 +790,7 @@ impl NomicEmbedder {
         
         // Apply proper mean pooling over sequence dimension
         let pooled = current_hidden.mean(0)?;
+        #[cfg(debug_assertions)]
         println!("Applied {} transformer layers, pooled shape: {:?}", self.transformer_layers.len(), pooled.shape());
         
         // Apply pooler if available
@@ -813,10 +821,14 @@ impl NomicEmbedder {
             .map_err(|e| anyhow!("Failed to convert output to vec: {}", e))?;
         
         // Debug: print raw values before normalization
-        println!("Raw output before normalization (first 10): {:?}", &output_vec[..10]);
-        println!("Raw output sum: {}", output_vec.iter().sum::<f32>());
+        #[cfg(debug_assertions)]
+        {
+            println!("Raw output before normalization (first 10): {:?}", &output_vec[..10]);
+            println!("Raw output sum: {}", output_vec.iter().sum::<f32>());
+        }
         
         let norm = output_vec.iter().map(|x| x * x).sum::<f32>().sqrt();
+        #[cfg(debug_assertions)]
         println!("Norm: {}", norm);
         
         let normalized: Vec<f32> = if norm > 1e-9 {
@@ -1067,6 +1079,7 @@ impl NomicEmbedder {
             println!("✅ Model cached successfully at: {:?}", model_path);
         } else {
             println!("✅ Nomic model found in cache: {:?}", model_path);
+            #[cfg(debug_assertions)]
             println!("   File size: {:.1}MB", fs::metadata(&model_path)?.len() as f64 / 1_048_576.0);
         }
         

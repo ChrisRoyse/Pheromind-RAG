@@ -76,6 +76,9 @@ sysinfo = "0.30"
 # Thread-safe data structures
 parking_lot = "0.12"
 
+# High-performance hash maps for search optimization
+rustc-hash = "1.1"
+
 # Observability - metrics and logging
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter", "json", "chrono"] }
@@ -123,13 +126,6 @@ name = "test_unified_project_scope"
 path = "src/bin/test_unified_project_scope.rs"
 required-features = ["tantivy"]
 
-[[bin]]
-name = "verify_unified_fix"
-path = "scripts/verify_unified_searcher_fix.rs"
-
-[[bin]]
-name = "debug_bm25"
-path = "debug_bm25.rs"
 
 [features]
 default = ["core"]

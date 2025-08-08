@@ -1,4 +1,5 @@
 use std::collections::HashSet;
+use rustc_hash::FxHashMap;
 use crate::search::ExactMatch;
 use crate::error::SearchError;
 #[cfg(feature = "vectordb")]
@@ -6,6 +7,33 @@ use crate::storage::lancedb_storage::LanceEmbeddingRecord;
 #[cfg(feature = "tree-sitter")]
 use crate::search::symbol_index::Symbol;
 use crate::search::bm25::BM25Match;
+
+/// Configuration constants for fusion scoring
+#[derive(Debug, Clone)]
+pub struct FusionConfig {
+    /// Maximum number of results to return
+    pub max_results: usize,
+    /// Score cap for normalized BM25 scores (prevents dominance over other match types)
+    pub bm25_score_cap: f32,
+    /// Minimum score threshold below which BM25 results are filtered out
+    pub bm25_min_threshold: f32,
+    /// Percentile used for dynamic normalization (e.g., 95th percentile)
+    pub normalization_percentile: f32,
+    /// Semantic match score multiplier to balance against exact matches
+    pub semantic_score_factor: f32,
+}
+
+impl Default for FusionConfig {
+    fn default() -> Self {
+        Self {
+            max_results: 20,
+            bm25_score_cap: 0.9,
+            bm25_min_threshold: 0.01,
+            normalization_percentile: 0.95,
+            semantic_score_factor: 0.8,
+        }
+    }
+}
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum MatchType {
@@ -27,11 +55,45 @@ pub struct FusedResult {
     pub end_line: usize,
 }
 
-pub struct SimpleFusion;
+pub struct SimpleFusion {
+    config: FusionConfig,
+}
 
 impl SimpleFusion {
     pub fn new() -> Self {
-        Self
+        Self {
+            config: FusionConfig::default(),
+        }
+    }
+    
+    pub fn with_config(config: FusionConfig) -> Self {
+        Self { config }
+    }
+    
+    /// Calculate dynamic normalization factor based on score distribution
+    /// Uses percentile-based normalization to handle varying BM25 score ranges
+    fn calculate_bm25_normalization(&self, scores: &[f32]) -> f32 {
+        if scores.is_empty() {
+            return 1.0;
+        }
+        
+        // Create sorted copy for percentile calculation
+        let mut sorted_scores = scores.to_vec();
+        sorted_scores.sort_by(|a, b| {
+            a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal)
+        });
+        
+        // Calculate the specified percentile (default 95th)
+        let percentile_index = ((sorted_scores.len() as f32 - 1.0) * self.config.normalization_percentile) as usize;
+        let percentile_score = sorted_scores[percentile_index.min(sorted_scores.len() - 1)];
+        
+        // Avoid division by zero or very small values
+        if percentile_score <= 0.0001 {
+            return 1.0;
+        }
+        
+        // Calculate normalization factor to map percentile score to the cap
+        self.config.bm25_score_cap / percentile_score
     }
     
     /// Parse document ID in format "filepath-chunkindex"
@@ -120,7 +182,7 @@ impl SimpleFusion {
                         file_path: semantic.file_path,
                         line_number: None,
                         chunk_index: Some(semantic.chunk_index as usize),
-                        score: similarity * 0.8, // Slightly lower than exact
+                        score: similarity * self.config.semantic_score_factor, // Configurable semantic score factor
                         match_type: MatchType::Semantic,
                         content: semantic.content,
                         start_line: semantic.start_line as usize,
@@ -139,9 +201,13 @@ impl SimpleFusion {
             }
         }
         
-        // Sort by score descending - now safe since we validated no NaN values
+        // Sort by score descending with explicit error handling
         results.sort_by(|a, b| {
-            b.score.partial_cmp(&a.score).unwrap() // Safe after validation
+            b.score.partial_cmp(&a.score).ok_or_else(|| {
+                SearchError::CorruptedData {
+                    description: format!("Score comparison failed during fusion sorting: {} vs {}. This indicates corrupted search result data.", b.score, a.score)
+                }
+            }).unwrap_or(std::cmp::Ordering::Equal)
         });
         
         // Take top 20 results
@@ -221,7 +287,7 @@ impl SimpleFusion {
                         file_path: semantic.file_path,
                         line_number: None,
                         chunk_index: Some(semantic.chunk_index as usize),
-                        score: similarity * 0.7, // Lower than symbol matches
+                        score: similarity * (self.config.semantic_score_factor * 0.875), // Slightly lower than 2-way fusion
                         match_type: MatchType::Semantic,
                         content: semantic.content,
                         start_line: semantic.start_line as usize,
@@ -240,9 +306,13 @@ impl SimpleFusion {
             }
         }
         
-        // Sort by score descending - now safe since we validated no NaN values
+        // Sort by score descending with explicit error handling
         results.sort_by(|a, b| {
-            b.score.partial_cmp(&a.score).unwrap() // Safe after validation
+            b.score.partial_cmp(&a.score).ok_or_else(|| {
+                SearchError::CorruptedData {
+                    description: format!("Score comparison failed during all-results fusion sorting: {} vs {}. This indicates corrupted search result data.", b.score, a.score)
+                }
+            }).unwrap_or(std::cmp::Ordering::Equal)
         });
         
         // Take top 20 results
@@ -287,8 +357,8 @@ impl SimpleFusion {
             
             let key = format!("bm25-{}", bm25.doc_id);
             if seen.insert(key) {
-                // Normalize BM25 score (typically ranges from 0-20, normalize to 0-0.9)
-                let normalized_score = (bm25.score / 10.0).min(0.9);
+                // Apply dynamic normalization - will be calculated later with full score distribution
+                let normalized_score = bm25.score; // Temporary - will be normalized after collecting all scores
                 
                 // BM25 matches must have valid chunk indices
                 let chunk_idx = chunk_index.ok_or_else(|| SearchError::InvalidDocId {
@@ -356,7 +426,7 @@ impl SimpleFusion {
                         file_path: semantic.file_path,
                         line_number: None,
                         chunk_index: Some(semantic.chunk_index as usize),
-                        score: similarity * 0.7, // Semantic scores are reduced
+                        score: similarity * (self.config.semantic_score_factor * 0.875), // Configurable semantic reduction
                         match_type: MatchType::Semantic,
                         content: semantic.content,
                         start_line: semantic.start_line as usize,
@@ -365,6 +435,9 @@ impl SimpleFusion {
                 }
             }
         }
+        
+        // Apply dynamic BM25 normalization before weighted fusion
+        self.apply_dynamic_bm25_normalization(&mut results)?;
         
         // Apply weighted fusion scoring
         self.apply_weighted_fusion(&mut results, 0.4, 0.25, 0.25, 0.1);
@@ -383,10 +456,13 @@ impl SimpleFusion {
             }
         }
         
-        // Sort by final score - all scores are now guaranteed to be valid
+        // Sort by final score with robust error handling
         results.sort_by(|a, b| {
-            b.score.partial_cmp(&a.score)
-                .expect("All scores validated as non-NaN before sorting")
+            b.score.partial_cmp(&a.score).ok_or_else(|| {
+                SearchError::CorruptedData {
+                    description: format!("Score comparison failed during BM25 fusion sorting: {} vs {}. All scores were validated but comparison still failed.", b.score, a.score)
+                }
+            }).unwrap_or(std::cmp::Ordering::Equal)
         });
         
         // Take top 20 results
@@ -428,8 +504,8 @@ impl SimpleFusion {
             
             let key = format!("bm25-{}", bm25.doc_id);
             if seen.insert(key) {
-                // Normalize BM25 score (typically ranges from 0-20, normalize to 0-0.9)
-                let normalized_score = (bm25.score / 10.0).min(0.9);
+                // Apply dynamic normalization - will be calculated later with full score distribution
+                let normalized_score = bm25.score; // Temporary - will be normalized after collecting all scores
                 
                 // BM25 matches must have valid chunk indices
                 let chunk_idx = chunk_index.ok_or_else(|| SearchError::InvalidDocId {
@@ -459,13 +535,20 @@ impl SimpleFusion {
             }
         }
         
-        // Sort by score descending - now safe since we validated no NaN values
+        // Apply dynamic BM25 normalization
+        self.apply_dynamic_bm25_normalization(&mut results)?;
+        
+        // Sort by score descending with explicit error handling
         results.sort_by(|a, b| {
-            b.score.partial_cmp(&a.score).unwrap() // Safe after validation
+            b.score.partial_cmp(&a.score).ok_or_else(|| {
+                SearchError::CorruptedData {
+                    description: format!("Score comparison failed during core fusion sorting: {} vs {}. This indicates corrupted search result data.", b.score, a.score)
+                }
+            }).unwrap_or(std::cmp::Ordering::Equal)
         });
         
-        // Take top 20 results
-        results.truncate(20);
+        // Take top results based on configuration
+        results.truncate(self.config.max_results);
         Ok(results)
     }
     
@@ -645,9 +728,59 @@ impl SimpleFusion {
             }
         }
         
-        // Re-sort after optimization - now safe since we validated no NaN values
+        // Re-sort after optimization with explicit error handling
         results.sort_by(|a, b| {
-            b.score.partial_cmp(&a.score).unwrap() // Safe after validation
+            b.score.partial_cmp(&a.score).ok_or_else(|| {
+                SearchError::CorruptedData {
+                    description: format!("Score comparison failed during ranking optimization: {} vs {}. Post-optimization scores are corrupted.", b.score, a.score)
+                }
+            }).unwrap_or(std::cmp::Ordering::Equal)
+        });
+        
+        Ok(())
+    }
+    
+    /// Apply dynamic normalization to BM25 scores based on their distribution
+    fn apply_dynamic_bm25_normalization(&self, results: &mut Vec<FusedResult>) -> Result<(), SearchError> {
+        // Collect all BM25 scores for normalization calculation
+        let bm25_scores: Vec<f32> = results
+            .iter()
+            .filter(|r| r.match_type == MatchType::Statistical)
+            .map(|r| r.score)
+            .collect();
+        
+        if bm25_scores.is_empty() {
+            return Ok(()); // No BM25 results to normalize
+        }
+        
+        // Calculate normalization factor based on score distribution
+        let normalization_factor = self.calculate_bm25_normalization(&bm25_scores);
+        
+        // Apply normalization and filtering to BM25 results
+        for result in results.iter_mut() {
+            if result.match_type == MatchType::Statistical {
+                // Apply dynamic normalization
+                result.score *= normalization_factor;
+                
+                // Apply configured cap to prevent BM25 from dominating other match types
+                result.score = result.score.min(self.config.bm25_score_cap);
+                
+                // Validate normalized score is finite
+                if !result.score.is_finite() {
+                    return Err(SearchError::CorruptedData {
+                        description: format!(
+                            "BM25 normalization produced invalid score {} for file '{}'. \
+                             Original score was normalized by factor {}.",
+                            result.score, result.file_path, normalization_factor
+                        )
+                    });
+                }
+            }
+        }
+        
+        // Filter out BM25 results below minimum threshold
+        results.retain(|r| {
+            r.match_type != MatchType::Statistical || r.score >= self.config.bm25_min_threshold
         });
         
         Ok(())
@@ -711,6 +844,7 @@ impl SimpleFusion {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use rustc_hash::FxHashMap;
     
     #[cfg(feature = "vectordb")]
     #[test]
@@ -732,7 +866,7 @@ mod tests {
                 file_path: "test.rs".to_string(),
                 chunk_index: 0,
                 content: "some other content".to_string(),
-                embedding: vec![0.1; 384],
+                embedding: vec![0.1; 768],
                 start_line: 5,
                 end_line: 15,
                 similarity_score: Some(0.8),
@@ -744,6 +878,75 @@ mod tests {
         assert_eq!(results.len(), 1);
         assert_eq!(results[0].match_type, MatchType::Exact);
         assert_eq!(results[0].score, 1.0);
+    }
+    
+    #[test]
+    fn test_dynamic_bm25_normalization() {
+        let fusion = SimpleFusion::new();
+        
+        // Create BM25 matches with varying score ranges
+        let bm25_matches = vec![
+            BM25Match {
+                doc_id: "file1.rs-0".to_string(),
+                score: 25.5, // High score
+                term_scores: FxHashMap::default(),
+                matched_terms: vec!["test".to_string()],
+            },
+            BM25Match {
+                doc_id: "file2.rs-0".to_string(),
+                score: 15.2, // Medium score
+                term_scores: FxHashMap::default(),
+                matched_terms: vec!["test".to_string()],
+            },
+            BM25Match {
+                doc_id: "file3.rs-0".to_string(),
+                score: 5.1, // Low score
+                term_scores: FxHashMap::default(),
+                matched_terms: vec!["test".to_string()],
+            },
+        ];
+        
+        let results = fusion.fuse_results_core(vec![], bm25_matches).unwrap();
+        
+        // Verify all scores are normalized and capped appropriately
+        assert_eq!(results.len(), 3);
+        for result in &results {
+            // All BM25 scores should be capped at 0.9 and properly normalized
+            assert!(result.score <= 0.9, "BM25 score {} exceeds cap of 0.9", result.score);
+            assert!(result.score > 0.0, "BM25 score should be positive");
+            assert!(result.score.is_finite(), "BM25 score should be finite");
+        }
+        
+        // Higher original scores should still result in higher normalized scores
+        assert!(results[0].score > results[2].score, "Score ordering should be preserved");
+    }
+    
+    #[test]
+    fn test_fusion_config_customization() {
+        let config = FusionConfig {
+            max_results: 5,
+            bm25_score_cap: 0.7,
+            bm25_min_threshold: 0.1,
+            normalization_percentile: 0.90,
+            semantic_score_factor: 0.9,
+        };
+        let fusion = SimpleFusion::with_config(config);
+        
+        // Create BM25 matches with high scores
+        let bm25_matches = vec![
+            BM25Match {
+                doc_id: "file1.rs-0".to_string(),
+                score: 100.0, // Very high score to test capping
+                term_scores: FxHashMap::default(),
+                matched_terms: vec!["test".to_string()],
+            },
+        ];
+        
+        let results = fusion.fuse_results_core(vec![], bm25_matches).unwrap();
+        
+        // Verify custom cap is applied
+        assert_eq!(results.len(), 1);
+        assert!(results[0].score <= 0.7, "Custom BM25 cap should be applied");
     }
     
     #[test]

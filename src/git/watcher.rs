@@ -34,10 +34,19 @@ impl GitWatcher {
     }
     
     pub fn get_changes(&self) -> Result<Vec<FileChange>> {
-        // Run git status --porcelain
+        // Validate repo_path for security - prevent directory traversal attacks
+        if !self.repo_path.is_dir() {
+            return Err(anyhow!("Invalid repository path: {:?} is not a directory", self.repo_path));
+        }
+        
+        // Canonicalize path to prevent path traversal attacks
+        let canonical_path = self.repo_path.canonicalize()
+            .map_err(|e| anyhow!("Failed to canonicalize repository path {:?}: {}", self.repo_path, e))?;
+            
+        // Run git status --porcelain with validated path
         let output = Command::new("git")
             .args(&["status", "--porcelain"])
-            .current_dir(&self.repo_path)
+            .current_dir(&canonical_path)
             .output();
         
         let output = match output {
@@ -61,7 +70,7 @@ impl GitWatcher {
             }
             
             let status = &line[0..2];
-            let file_path = self.repo_path.join(line[3..].trim());
+            let file_path = canonical_path.join(line[3..].trim());
             
             // Only process code files
             if !self.is_code_file(&file_path) {
@@ -173,6 +182,7 @@ impl VectorUpdater {
                 FileChange::Modified(p) | FileChange::Added(p) | FileChange::Deleted(p) => p,
             };
             
+            #[cfg(debug_assertions)]
             println!("[{}/{}] Processing: {}", i + 1, total, path.display());
             
             self.update_file(path, &change).await
@@ -185,6 +195,7 @@ impl VectorUpdater {
         }
         
         stats.total_time = start_time.elapsed();
+        #[cfg(debug_assertions)]
         println!("✅ Update complete: {}", stats);
         Ok(stats)
     }
@@ -243,8 +254,10 @@ impl WatchCommand {
         let changes = watcher.get_changes()?;
         
         if !changes.is_empty() {
+            #[cfg(debug_assertions)]
             println!("🔄 Detected {} file changes", changes.len());
             let stats = updater.batch_update(changes).await?;
+            #[cfg(debug_assertions)]
             println!("📊 {}", stats);
         }
         
@@ -255,10 +268,12 @@ impl WatchCommand {
         let changes = self.watcher.get_changes()?;
         
         if changes.is_empty() {
+            #[cfg(debug_assertions)]
             println!("No changes detected");
             return Ok(UpdateStats::new());
         }
         
+        #[cfg(debug_assertions)]
         println!("🔄 Detected {} file changes", changes.len());
         self.updater.batch_update_with_progress(changes).await
     }
