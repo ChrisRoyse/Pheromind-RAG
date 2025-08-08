@@ -1,108 +1,92 @@
-# Suggested Commands for Development
+# Suggested Commands for Embed Search System
 
 ## Build Commands
 ```bash
-# Build the project (default features)
-cargo build
+# With embeddings (required for semantic search)
+cargo build --features ml,vectordb,tantivy
 
-# Build with all features
-cargo build --all-features
+# All features enabled (recommended)
+cargo build --features full-system
 
-# Build optimized release version
-cargo build --release
+# Basic build without embeddings (text search only)
+cargo build --features tantivy
 
-# Build specific feature combinations
-cargo build --features "core,tantivy"
-cargo build --features "search-advanced"
-cargo build --features "full-system"
+# Release build for production
+cargo build --release --features full-system
 ```
 
 ## Testing Commands
 ```bash
 # Run all tests
-cargo test
+cargo test --features full-system
 
-# Run tests with all features
-cargo test --all-features
-
-# Run specific test file
-cargo test --test <test_name>
-
-# Run tests with output
-cargo test -- --nocapture
+# Run specific test files
+cargo test --features full-system chunker_integration_tests
+cargo test --features full-system line_tracking_tests
+cargo test --features full-system search_accuracy_test
 
 # Run benchmarks
-cargo bench
+cargo bench line_tracking_bench
+
+# Performance tests
+cargo test --features test-performance --release
 ```
 
-## Linting and Formatting
+## Development Commands
 ```bash
 # Format code
 cargo fmt
 
-# Check formatting without changes
-cargo fmt -- --check
+# Lint code
+cargo clippy --features full-system
 
-# Run clippy linter
-cargo clippy
-
-# Run clippy with all features
-cargo clippy --all-features
-```
-
-## Running the Application
-```bash
-# Run main binary
-cargo run
-
-# Run with specific features
-cargo run --features "full-system"
-
-# Run specific binary
-cargo run --bin tantivy_migrator --features tantivy
-cargo run --bin verify_symbols --features tree-sitter
-```
-
-## Node.js Commands (for SPARC integration)
-```bash
-# SPARC methodology commands
-npx claude-flow sparc modes
-npx claude-flow sparc run <mode> "<task>"
-npx claude-flow sparc tdd "<feature>"
-
-# Build and test JavaScript components
-npm run build
-npm run test
-npm run lint
-npm run typecheck
-```
-
-## Git Commands (Windows)
-```bash
-# Check status
-git status
-
-# Stage changes
-git add .
-
-# Commit changes
-git commit -m "message"
-
-# View recent commits
-git log --oneline -10
-```
-
-## Utility Commands
-```bash
-# Check dependencies
-cargo tree
-
-# Update dependencies
-cargo update
-
-# Clean build artifacts
-cargo clean
+# Check compilation without building
+cargo check --features full-system
 
 # Generate documentation
-cargo doc --open
+cargo doc --features full-system --open
 ```
+
+## Runtime Commands
+```bash
+# Index a directory
+cargo run --features full-system -- index /path/to/code
+
+# Search indexed code
+cargo run --features full-system -- search "your query"
+
+# Watch for file changes
+cargo run --features full-system -- watch
+
+# Clear index
+cargo run --features full-system -- clear
+
+# Show statistics
+cargo run --features full-system -- stats
+
+# Run comprehensive tests
+cargo run --features full-system -- test
+
+# Show configuration
+cargo run --features full-system -- config
+```
+
+## Binary Utilities
+```bash
+# Migrate Tantivy indexes
+cargo run --bin tantivy_migrator --features tantivy
+
+# Verify symbols extraction
+cargo run --bin verify_symbols --features tree-sitter
+
+# Test persistence
+cargo run --bin test_persistence --features tantivy
+```
+
+## System Commands (Windows)
+- `dir` - List directory contents
+- `cd` - Change directory  
+- `type` - Display file contents
+- `findstr` - Search in files
+- `git status` - Check git status
+- `git diff` - Show changes

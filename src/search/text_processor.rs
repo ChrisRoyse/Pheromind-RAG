@@ -263,7 +263,10 @@ impl CodeTextProcessor {
     
     /// Split compound identifiers (camelCase, snake_case, etc.)
     fn split_compound_identifier(&self, identifier: &str) -> Vec<String> {
-        let mut tokens = vec![identifier.to_string()];
+        let mut tokens = Vec::new();
+        
+        // Always add the original identifier
+        tokens.push(identifier.to_string());
         
         // Split on underscores
         if identifier.contains('_') {
@@ -274,12 +277,13 @@ impl CodeTextProcessor {
             tokens.extend(parts);
         }
         
-        // Split camelCase
+        // Split camelCase - ALWAYS try to split
         let camel_parts = self.split_camel_case(identifier);
-        if camel_parts.len() > 1 {
-            tokens.extend(camel_parts);
-        }
+        tokens.extend(camel_parts);
         
+        // Remove duplicates and return
+        tokens.sort();
+        tokens.dedup();
         tokens
     }
     

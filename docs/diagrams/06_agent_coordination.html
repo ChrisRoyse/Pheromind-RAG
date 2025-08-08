@@ -1,0 +1,566 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Agent Coordination & Swarm Intelligence</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/mermaid/10.6.1/mermaid.min.js"></script>
+    <style>
+        body { 
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            margin: 0; padding: 20px; background: #f8fafc;
+        }
+        .container { max-width: 1600px; margin: 0 auto; }
+        .diagram-section { 
+            background: white; margin: 20px 0; padding: 20px; 
+            border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        .diagram-title { 
+            color: #1e293b; font-size: 24px; font-weight: 600; 
+            margin-bottom: 15px; border-bottom: 2px solid #3b82f6;
+            padding-bottom: 10px;
+        }
+        .agent-categories {
+            display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px; margin: 20px 0;
+        }
+        .agent-category {
+            padding: 15px; border-radius: 8px; border-left: 4px solid;
+        }
+        .core { border-color: #2e7d32; background: linear-gradient(135deg, #e8f5e8, #f1f8e9); }
+        .swarm { border-color: #f57c00; background: linear-gradient(135deg, #fff3e0, #fef7ed); }
+        .consensus { border-color: #7b1fa2; background: linear-gradient(135deg, #f3e5f5, #faf4ff); }
+        .performance { border-color: #d32f2f; background: linear-gradient(135deg, #ffebee, #fef2f2); }
+        .github { border-color: #1976d2; background: linear-gradient(135deg, #e3f2fd, #eff6ff); }
+        .specialized { border-color: #795548; background: linear-gradient(135deg, #efebe9, #fafafa); }
+        .category-title { 
+            font-size: 16px; font-weight: 600; margin-bottom: 12px;
+            display: flex; align-items: center;
+        }
+        .category-icon { font-size: 20px; margin-right: 8px; }
+        .agent-list { font-size: 13px; line-height: 1.5; color: #555; }
+        .topology-grid {
+            display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 15px; margin: 20px 0;
+        }
+        .topology-card {
+            padding: 15px; background: #f8fafc; border-radius: 8px;
+            border: 1px solid #e2e8f0; text-align: center;
+        }
+        .topology-title { font-weight: 600; color: #1e293b; margin-bottom: 8px; }
+        .topology-desc { font-size: 12px; color: #64748b; }
+        .protocol-box {
+            background: #f1f5f9; padding: 15px; border-radius: 6px;
+            margin: 15px 0; border-left: 4px solid #3b82f6;
+        }
+        .protocol-title { font-weight: 600; margin-bottom: 8px; color: #1e293b; }
+        pre {
+            background: #1e293b; color: #f1f5f9; padding: 15px;
+            border-radius: 6px; overflow-x: auto; font-size: 11px;
+        }
+        .metrics-grid {
+            display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+            gap: 15px; margin: 20px 0;
+        }
+        .metric-card {
+            text-align: center; padding: 15px; background: #f8fafc;
+            border-radius: 8px; border: 1px solid #e2e8f0;
+        }
+        .metric-value { font-size: 24px; font-weight: bold; color: #3b82f6; }
+        .metric-label { font-size: 12px; color: #64748b; margin-top: 5px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1 style="text-align: center; color: #1e293b; margin-bottom: 40px;">
+            🤖 Agent Coordination & Swarm Intelligence
+        </h1>
+
+        <div class="diagram-section">
+            <div class="diagram-title">🌐 Agent Swarm Architecture</div>
+            <div class="mermaid">
+                graph TB
+                    subgraph "Swarm Coordination Layer"
+                        SWARM_INIT[Swarm Initializer<br/>Topology Setup]
+                        TASK_ORCH[Task Orchestrator<br/>Central Coordination]
+                        SMART_AGENT[Smart Agent<br/>Dynamic Spawning]
+                        MEMORY_COORD[Memory Coordinator<br/>Cross-session State]
+                    end
+
+                    subgraph "Hierarchical Coordination"
+                        HIER_COORD[Hierarchical Coordinator<br/>Queen-Worker Pattern]
+                        ADAPTIVE_COORD[Adaptive Coordinator<br/>Dynamic Topology]
+                        MESH_COORD[Mesh Coordinator<br/>Peer-to-peer]
+                        COLLECTIVE_INT[Collective Intelligence<br/>Shared Decision Making]
+                    end
+
+                    subgraph "Core Development Agents"
+                        RESEARCHER[Researcher<br/>Deep Analysis]
+                        CODER[Coder<br/>Implementation]
+                        REVIEWER[Reviewer<br/>Quality Assurance]
+                        TESTER[Tester<br/>Test Automation]
+                        PLANNER[Planner<br/>Strategic Planning]
+                    end
+
+                    subgraph "Specialized Agents"
+                        BACKEND[Backend Developer<br/>API Systems]
+                        MOBILE[Mobile Developer<br/>React Native]
+                        ML_DEV[ML Developer<br/>Model Training]
+                        SYS_ARCH[System Architect<br/>High-level Design]
+                        CICD[CI/CD Engineer<br/>Pipeline Automation]
+                    end
+
+                    subgraph "GitHub Integration"
+                        GITHUB_MODES[GitHub Modes<br/>Workflow Orchestration]
+                        PR_MANAGER[PR Manager<br/>Review Automation]
+                        ISSUE_TRACKER[Issue Tracker<br/>Project Coordination]
+                        RELEASE_MGR[Release Manager<br/>Deployment Automation]
+                        WORKFLOW_AUTO[Workflow Automation<br/>CI/CD Pipelines]
+                    end
+
+                    subgraph "Consensus & Distribution"
+                        BYZANTINE[Byzantine Coordinator<br/>Fault Tolerance]
+                        RAFT_MGR[Raft Manager<br/>Leader Election]
+                        GOSSIP[Gossip Coordinator<br/>Eventually Consistent]
+                        CRDT_SYNC[CRDT Synchronizer<br/>Conflict Resolution]
+                        QUORUM_MGR[Quorum Manager<br/>Dynamic Membership]
+                    end
+
+                    %% Coordination connections
+                    SWARM_INIT --> TASK_ORCH
+                    TASK_ORCH --> SMART_AGENT
+                    SMART_AGENT --> MEMORY_COORD
+                    
+                    %% Hierarchical coordination
+                    TASK_ORCH --> HIER_COORD
+                    HIER_COORD --> ADAPTIVE_COORD
+                    ADAPTIVE_COORD --> MESH_COORD
+                    MESH_COORD --> COLLECTIVE_INT
+                    
+                    %% Core agent spawning
+                    SMART_AGENT --> RESEARCHER
+                    SMART_AGENT --> CODER
+                    SMART_AGENT --> REVIEWER
+                    SMART_AGENT --> TESTER
+                    SMART_AGENT --> PLANNER
+                    
+                    %% Specialized agent spawning
+                    ADAPTIVE_COORD --> BACKEND
+                    ADAPTIVE_COORD --> MOBILE
+                    ADAPTIVE_COORD --> ML_DEV
+                    ADAPTIVE_COORD --> SYS_ARCH
+                    ADAPTIVE_COORD --> CICD
+                    
+                    %% GitHub integration
+                    COLLECTIVE_INT --> GITHUB_MODES
+                    GITHUB_MODES --> PR_MANAGER
+                    GITHUB_MODES --> ISSUE_TRACKER
+                    GITHUB_MODES --> RELEASE_MGR
+                    GITHUB_MODES --> WORKFLOW_AUTO
+                    
+                    %% Consensus layer
+                    MEMORY_COORD --> BYZANTINE
+                    BYZANTINE --> RAFT_MGR
+                    RAFT_MGR --> GOSSIP
+                    GOSSIP --> CRDT_SYNC
+                    CRDT_SYNC --> QUORUM_MGR
+
+                    classDef coordination fill:#e3f2fd,stroke:#1976d2,stroke-width:2px
+                    classDef hierarchical fill:#f3e5f5,stroke:#7b1fa2,stroke-width:2px
+                    classDef core fill:#e8f5e8,stroke:#2e7d32,stroke-width:2px
+                    classDef specialized fill:#fff3e0,stroke:#f57c00,stroke-width:2px
+                    classDef github fill:#e1f5fe,stroke:#0277bd,stroke-width:2px
+                    classDef consensus fill:#fce4ec,stroke:#c2185b,stroke-width:2px
+
+                    class SWARM_INIT,TASK_ORCH,SMART_AGENT,MEMORY_COORD coordination
+                    class HIER_COORD,ADAPTIVE_COORD,MESH_COORD,COLLECTIVE_INT hierarchical
+                    class RESEARCHER,CODER,REVIEWER,TESTER,PLANNER core
+                    class BACKEND,MOBILE,ML_DEV,SYS_ARCH,CICD specialized
+                    class GITHUB_MODES,PR_MANAGER,ISSUE_TRACKER,RELEASE_MGR,WORKFLOW_AUTO github
+                    class BYZANTINE,RAFT_MGR,GOSSIP,CRDT_SYNC,QUORUM_MGR consensus
+            </div>
+        </div>
+
+        <div class="diagram-section">
+            <div class="diagram-title">🤖 54 Available Agents by Category</div>
+            <div class="agent-categories">
+                <div class="agent-category core">
+                    <div class="category-title">
+                        <div class="category-icon">💻</div>
+                        Core Development (5)
+                    </div>
+                    <div class="agent-list">
+                        • <strong>coder</strong> - Implementation specialist<br/>
+                        • <strong>reviewer</strong> - Code quality assurance<br/>
+                        • <strong>tester</strong> - Comprehensive testing<br/>
+                        • <strong>planner</strong> - Strategic orchestration<br/>
+                        • <strong>researcher</strong> - Deep analysis & information gathering
+                    </div>
+                </div>
+
+                <div class="agent-category swarm">
+                    <div class="category-title">
+                        <div class="category-icon">🕸️</div>
+                        Swarm Coordination (5)
+                    </div>
+                    <div class="agent-list">
+                        • <strong>hierarchical-coordinator</strong> - Queen-worker delegation<br/>
+                        • <strong>mesh-coordinator</strong> - P2P distributed decisions<br/>
+                        • <strong>adaptive-coordinator</strong> - Dynamic optimization<br/>
+                        • <strong>collective-intelligence-coordinator</strong> - Shared intelligence<br/>
+                        • <strong>swarm-memory-manager</strong> - Distributed memory
+                    </div>
+                </div>
+
+                <div class="agent-category consensus">
+                    <div class="category-title">
+                        <div class="category-icon">⚖️</div>
+                        Consensus & Distributed (7)
+                    </div>
+                    <div class="agent-list">
+                        • <strong>byzantine-coordinator</strong> - Byzantine fault tolerance<br/>
+                        • <strong>raft-manager</strong> - Leader election & log replication<br/>
+                        • <strong>gossip-coordinator</strong> - Eventually consistent protocols<br/>
+                        • <strong>consensus-builder</strong> - Voting mechanisms<br/>
+                        • <strong>crdt-synchronizer</strong> - Conflict-free data types<br/>
+                        • <strong>quorum-manager</strong> - Dynamic membership<br/>
+                        • <strong>security-manager</strong> - Security implementations
+                    </div>
+                </div>
+
+                <div class="agent-category performance">
+                    <div class="category-title">
+                        <div class="category-icon">📊</div>
+                        Performance & Optimization (4)
+                    </div>
+                    <div class="agent-list">
+                        • <strong>perf-analyzer</strong> - Bottleneck identification<br/>
+                        • <strong>performance-benchmarker</strong> - Comprehensive benchmarks<br/>
+                        • <strong>task-orchestrator</strong> - Central coordination<br/>
+                        • <strong>memory-coordinator</strong> - Cross-session persistence
+                    </div>
+                </div>
+
+                <div class="agent-category github">
+                    <div class="category-title">
+                        <div class="category-icon">🐙</div>
+                        GitHub & Repository (9)
+                    </div>
+                    <div class="agent-list">
+                        • <strong>github-modes</strong> - Workflow orchestration<br/>
+                        • <strong>pr-manager</strong> - Pull request management<br/>
+                        • <strong>code-review-swarm</strong> - Intelligent reviews<br/>
+                        • <strong>issue-tracker</strong> - Project coordination<br/>
+                        • <strong>release-manager</strong> - Deployment automation<br/>
+                        • <strong>workflow-automation</strong> - CI/CD pipelines<br/>
+                        • <strong>project-board-sync</strong> - Visual task management<br/>
+                        • <strong>repo-architect</strong> - Multi-repo management<br/>
+                        • <strong>multi-repo-swarm</strong> - Organization-wide automation
+                    </div>
+                </div>
+
+                <div class="agent-category specialized">
+                    <div class="category-title">
+                        <div class="category-icon">🔧</div>
+                        Specialized Development (10)
+                    </div>
+                    <div class="agent-list">
+                        • <strong>backend-dev</strong> - API systems<br/>
+                        • <strong>mobile-dev</strong> - React Native development<br/>
+                        • <strong>ml-developer</strong> - Machine learning models<br/>
+                        • <strong>cicd-engineer</strong> - Pipeline optimization<br/>
+                        • <strong>api-docs</strong> - OpenAPI documentation<br/>
+                        • <strong>system-architect</strong> - High-level design<br/>
+                        • <strong>code-analyzer</strong> - Advanced code analysis<br/>
+                        • <strong>tdd-london-swarm</strong> - Mock-driven TDD<br/>
+                        • <strong>production-validator</strong> - Deployment readiness<br/>
+                        • <strong>migration-planner</strong> - System migrations
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="diagram-section">
+            <div class="diagram-title">🌐 Swarm Topologies</div>
+            <div class="topology-grid">
+                <div class="topology-card">
+                    <div class="topology-title">🕸️ Mesh Network</div>
+                    <div class="topology-desc">
+                        Peer-to-peer connections<br/>
+                        Distributed decision making<br/>
+                        High fault tolerance<br/>
+                        Scalable coordination
+                    </div>
+                </div>
+                <div class="topology-card">
+                    <div class="topology-title">👑 Hierarchical</div>
+                    <div class="topology-desc">
+                        Queen-worker delegation<br/>
+                        Specialized task assignment<br/>
+                        Clear command structure<br/>
+                        Efficient for complex tasks
+                    </div>
+                </div>
+                <div class="topology-card">
+                    <div class="topology-title">🔄 Ring</div>
+                    <div class="topology-desc">
+                        Sequential processing<br/>
+                        Pipeline coordination<br/>
+                        Ordered task execution<br/>
+                        Predictable flow
+                    </div>
+                </div>
+                <div class="topology-card">
+                    <div class="topology-title">⭐ Star</div>
+                    <div class="topology-desc">
+                        Central coordinator hub<br/>
+                        Broadcast communication<br/>
+                        Simple coordination<br/>
+                        Fast deployment
+                    </div>
+                </div>
+            </div>
+
+            <div class="mermaid">
+                graph LR
+                    subgraph "Mesh Topology"
+                        M1[Agent 1] --- M2[Agent 2]
+                        M2 --- M3[Agent 3]
+                        M3 --- M4[Agent 4]
+                        M4 --- M1
+                        M1 --- M3
+                        M2 --- M4
+                    end
+
+                    subgraph "Hierarchical Topology"
+                        H_QUEEN[Queen Agent]
+                        H_W1[Worker 1]
+                        H_W2[Worker 2]
+                        H_W3[Worker 3]
+                        H_W4[Worker 4]
+                        H_QUEEN --> H_W1
+                        H_QUEEN --> H_W2
+                        H_QUEEN --> H_W3
+                        H_QUEEN --> H_W4
+                    end
+
+                    subgraph "Ring Topology"
+                        R1[Agent A] --> R2[Agent B]
+                        R2 --> R3[Agent C]
+                        R3 --> R4[Agent D]
+                        R4 --> R1
+                    end
+
+                    subgraph "Star Topology"
+                        S_CENTER[Central Hub]
+                        S_A1[Agent 1]
+                        S_A2[Agent 2]
+                        S_A3[Agent 3]
+                        S_A4[Agent 4]
+                        S_CENTER --- S_A1
+                        S_CENTER --- S_A2
+                        S_CENTER --- S_A3
+                        S_CENTER --- S_A4
+                    end
+
+                    classDef mesh fill:#e8f5e8,stroke:#2e7d32,stroke-width:2px
+                    classDef hierarchical fill:#f3e5f5,stroke:#7b1fa2,stroke-width:2px
+                    classDef ring fill:#fff3e0,stroke:#f57c00,stroke-width:2px
+                    classDef star fill:#e3f2fd,stroke:#1976d2,stroke-width:2px
+
+                    class M1,M2,M3,M4 mesh
+                    class H_QUEEN,H_W1,H_W2,H_W3,H_W4 hierarchical
+                    class R1,R2,R3,R4 ring
+                    class S_CENTER,S_A1,S_A2,S_A3,S_A4 star
+            </div>
+        </div>
+
+        <div class="diagram-section">
+            <div class="diagram-title">🔄 Agent Coordination Protocols</div>
+            
+            <div class="protocol-box">
+                <div class="protocol-title">📋 Task Orchestration Protocol</div>
+                Every agent follows a standardized coordination protocol:
+                <pre>
+🚀 BEFORE Work:
+npx claude-flow@alpha hooks pre-task --description "[task]"
+npx claude-flow@alpha hooks session-restore --session-id "swarm-[id]"
+
+⚡ DURING Work:
+npx claude-flow@alpha hooks post-edit --file "[file]" --memory-key "swarm/[agent]/[step]"
+npx claude-flow@alpha hooks notify --message "[what was done]"
+
+✅ AFTER Work:
+npx claude-flow@alpha hooks post-task --task-id "[task]"
+npx claude-flow@alpha hooks session-end --export-metrics true
+                </pre>
+            </div>
+
+            <div class="mermaid">
+                sequenceDiagram
+                    participant U as User
+                    participant TC as Task Coordinator
+                    participant SA as Smart Agent
+                    participant A1 as Agent 1
+                    participant A2 as Agent 2
+                    participant A3 as Agent 3
+                    participant MC as Memory Coordinator
+
+                    U->>TC: Complex task request
+                    TC->>SA: Analyze & decompose
+                    SA-->>TC: Task breakdown + agent requirements
+                    
+                    par Parallel Agent Spawning
+                        TC->>A1: Spawn researcher
+                        TC->>A2: Spawn coder
+                        TC->>A3: Spawn tester
+                    end
+                    
+                    Note over A1,A3: Agents execute hooks protocol
+                    
+                    par Parallel Execution
+                        A1->>MC: Research findings
+                        A2->>MC: Implementation progress
+                        A3->>MC: Test results
+                    end
+                    
+                    MC->>TC: Consolidated progress
+                    TC->>SA: Coordination decisions
+                    SA->>TC: Dynamic adjustments
+                    
+                    TC->>U: Final results
+                    
+                    rect rgb(240, 248, 255)
+                    Note over TC,MC: 2.8-4.4x speed improvement via parallelization
+                    end
+            </div>
+        </div>
+
+        <div class="diagram-section">
+            <div class="diagram-title">📈 Performance & Intelligence Metrics</div>
+            <div class="metrics-grid">
+                <div class="metric-card">
+                    <div class="metric-value">84.8%</div>
+                    <div class="metric-label">SWE-Bench Solve Rate</div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-value">2.8-4.4x</div>
+                    <div class="metric-label">Speed Improvement</div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-value">32.3%</div>
+                    <div class="metric-label">Token Reduction</div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-value">27+</div>
+                    <div class="metric-label">Neural Models</div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-value">54</div>
+                    <div class="metric-label">Specialized Agents</div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-value">100</div>
+                    <div class="metric-label">Max Agents</div>
+                </div>
+            </div>
+
+            <pre>
+🧠 Collective Intelligence Features:
+
+├── 🚀 Dynamic Agent Spawning
+│   ├── Automatic task complexity analysis
+│   ├── Optimal agent selection and configuration
+│   ├── Real-time scaling based on workload
+│   └── Resource-aware deployment strategies
+│
+├── 🤝 Collaborative Decision Making
+│   ├── Consensus-based planning and execution
+│   ├── Conflict resolution through voting mechanisms
+│   ├── Shared knowledge base and memory
+│   └── Cross-agent learning and adaptation
+│
+├── 📊 Performance Optimization
+│   ├── Bottleneck detection and resolution
+│   ├── Automatic topology switching for efficiency
+│   ├── Load balancing across agent capabilities
+│   └── Predictive scaling based on historical data
+│
+├── 🔄 Self-Healing Workflows
+│   ├── Automatic failure detection and recovery
+│   ├── Redundant agent deployment for critical tasks
+│   ├── Graceful degradation under resource constraints
+│   └── Learning from failures to prevent recurrence
+│
+├── 💾 Cross-Session Memory
+│   ├── Persistent context across interactions
+│   ├── Knowledge accumulation and refinement
+│   ├── Pattern recognition and reuse
+│   └── Historical performance tracking
+│
+└── 🔗 GitHub Integration
+    ├── Intelligent PR review automation
+    ├── Issue triage and assignment
+    ├── Release management and deployment
+    ├── Workflow optimization and monitoring
+    └── Multi-repository coordination
+
+⚡ Agent Coordination Patterns:
+
+├── 🎯 Task Decomposition
+│   ├── Automatic breaking down of complex tasks
+│   ├── Dependency analysis and ordering
+│   ├── Resource requirement estimation
+│   └── Timeline and milestone planning
+│
+├── 🔄 Parallel Execution
+│   ├── Independent task execution where possible
+│   ├── Synchronized coordination points
+│   ├── Result aggregation and synthesis
+│   └── Error isolation and handling
+│
+├── 🧠 Adaptive Learning
+│   ├── Performance pattern recognition
+│   ├── Success strategy replication
+│   ├── Failure analysis and improvement
+│   └── Continuous optimization
+│
+└── 📈 Metrics & Monitoring
+    ├── Real-time performance tracking
+    ├── Resource utilization monitoring
+    ├── Quality metrics and SLA compliance
+    └── Predictive analytics for optimization
+            </pre>
+        </div>
+    </div>
+
+    <script>
+        mermaid.initialize({ 
+            startOnLoad: true,
+            theme: 'base',
+            themeVariables: {
+                primaryColor: '#3b82f6',
+                primaryTextColor: '#1e293b',
+                primaryBorderColor: '#2563eb',
+                lineColor: '#64748b',
+                secondaryColor: '#f8fafc',
+                tertiaryColor: '#e2e8f0'
+            },
+            flowchart: {
+                curve: 'basis',
+                nodeSpacing: 50,
+                rankSpacing: 70
+            },
+            sequence: {
+                actorMargin: 50,
+                width: 130,
+                height: 60,
+                boxMargin: 10,
+                boxTextMargin: 5,
+                noteMargin: 10,
+                messageMargin: 35
+            }
+        });
+    </script>
+</body>
+</html>

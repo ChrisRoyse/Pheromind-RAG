@@ -19,7 +19,7 @@ pub struct SymbolEnhancedSearcher {
 
 impl SymbolEnhancedSearcher {
     pub async fn new(project_path: PathBuf, db_path: PathBuf) -> Result<Self> {
-        Config::init_test()?;
+        let _ = Config::load();
         let base_searcher = UnifiedSearcher::new(project_path, db_path).await?;
         let symbol_indexer = Arc::new(RwLock::new(SymbolIndexer::new()?));
         let symbol_db = Arc::new(RwLock::new(SymbolDatabase::new()));

@@ -17,6 +17,9 @@ pub mod text_processor;    // ✅ No dependencies
 pub mod inverted_index;    // ✅ Depends only on bm25
 pub mod cache;             // ✅ Depends only on basic types
 pub mod fusion;            // ✅ Depends on bm25
+pub mod config;            // ✅ Search configuration
+pub mod simple_searcher;   // ✅ New modular searcher with graceful degradation
+pub mod bm25_fixed;        // ✅ Fixed BM25 implementation
 pub mod unified;           // ✅ Depends on everything above
 #[cfg(feature = "tree-sitter")]
 pub mod symbol_index;
@@ -35,6 +38,9 @@ pub use text_processor::{CodeTextProcessor, ProcessedToken, TokenType};
 pub use inverted_index::{InvertedIndex, DocumentMetadata};
 pub use fusion::{SimpleFusion, FusedResult, MatchType};
 pub use unified::UnifiedSearcher;
+pub use config::SearchConfig;
+pub use simple_searcher::{SimpleSearcher, SimpleSearchResult};
+pub use bm25_fixed::BM25Engine as BM25EngineFixed;
 pub use cache::SearchResult;
 // DO NOT re-export cache::SearchCache - causes circular deps
 #[cfg(feature = "tree-sitter")]

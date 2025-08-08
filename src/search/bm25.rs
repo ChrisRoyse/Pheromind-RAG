@@ -156,12 +156,19 @@ impl BM25Engine {
             // BM25 IDF formula: log((N - df + 0.5) / (df + 0.5))
             let raw_idf = ((n - df + 0.5) / (df + 0.5)).ln();
             
-            // FIX: Handle negative IDF (when df > N/2) which causes reverse ranking
-            // - Negative IDF causes higher TF to score lower (inverted ranking)
-            // - Use max(epsilon, raw_idf) to floor negative values while preserving positive IDF ordering
-            // - This ensures rare terms (positive IDF) still rank higher than common terms (floored at epsilon)
-            let epsilon = 0.001f32; // Small positive value for very common terms
-            let idf = epsilon.max(raw_idf);
+            // FIXED: Proper IDF handling - preserve relative ordering
+            // Raw IDF can be negative for very common terms (df > N/2)
+            // We need to ensure rare terms (lower df) get higher IDF than common terms (higher df)
+            let idf = if raw_idf < 0.0 {
+                // For very common terms with negative IDF, map to small positive values
+                // More negative = more common = lower positive IDF
+                let epsilon = 0.001;
+                // FIXED: More negative should give LOWER final IDF (inverted relationship)
+                epsilon + (1.0 / (raw_idf.abs() + 1.0)) * 0.0001  // More negative -> higher abs -> LOWER final value
+            } else {
+                // Zero or positive IDF: add small epsilon to ensure positive
+                raw_idf + 0.01  // Boost to ensure rare terms are clearly higher
+            };
             idf
         } else {
             // Term not in any document, return high IDF

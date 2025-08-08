@@ -1,75 +1,55 @@
 # Task Completion Checklist
 
-## After Making Code Changes
+When completing any task in this codebase, ensure the following:
 
-### 1. Format Code
-```bash
-cargo fmt
-```
+## Code Quality
+- [ ] All new code follows the established patterns and conventions
+- [ ] No functions exceed 50 lines, no files exceed 500 lines
+- [ ] Proper error handling with `Result<T, E>` instead of panics
+- [ ] Feature flags used correctly with proper conditional compilation
+- [ ] Documentation added for all public APIs
 
-### 2. Run Linter
-```bash
-cargo clippy --all-features
-```
+## Testing
+- [ ] Unit tests written for new functionality
+- [ ] Integration tests updated if needed
+- [ ] All tests pass: `cargo test --features full-system`
+- [ ] Benchmarks run if performance-critical: `cargo bench`
+- [ ] Edge cases and error conditions tested
 
-### 3. Run Tests
-```bash
-# Run all tests to ensure nothing is broken
-cargo test
+## Build and Lint
+- [ ] Code compiles without warnings: `cargo build --features full-system`
+- [ ] Code formatted: `cargo fmt`
+- [ ] Lints pass: `cargo clippy --features full-system`
+- [ ] All feature combinations compile successfully
+- [ ] Documentation builds: `cargo doc --features full-system`
 
-# If working with specific features, test those
-cargo test --features "full-system"
-```
+## Feature Completeness
+- [ ] Code works with core features only
+- [ ] Code works with all feature combinations
+- [ ] Appropriate error messages for missing features
+- [ ] No silent failures or degraded functionality
 
-### 4. Check Type Safety
-```bash
-# For Rust
-cargo check --all-features
+## Integration Testing
+- [ ] MCP integration tested if applicable
+- [ ] Search functionality tested across all 4 methods
+- [ ] File watching and git integration verified
+- [ ] Configuration changes validated
 
-# For TypeScript components
-npm run typecheck
-```
+## Performance and Safety
+- [ ] No memory leaks or excessive allocations
+- [ ] Concurrent access patterns are thread-safe
+- [ ] No blocking operations in async contexts
+- [ ] Bounded collections used for caches
+- [ ] Error paths don't cause system instability
 
-### 5. Update Documentation
-- Update inline documentation if APIs changed
-- Update README.md if features were added/modified
-- Update CLAUDE.md if development workflow changed
+## Documentation Updates
+- [ ] README updated if user-facing changes
+- [ ] Configuration documentation updated if needed
+- [ ] API documentation reflects changes
+- [ ] Comments explain complex logic
 
-### 6. Verify Build
-```bash
-cargo build --all-features
-```
-
-### 7. Run Integration Tests (if applicable)
-```bash
-cargo test --test "*integration*"
-```
-
-### 8. Check for Security Issues
-```bash
-cargo audit
-```
-
-## Before Committing
-
-1. Review all changes with `git diff`
-2. Ensure no sensitive data or keys are included
-3. Check that all new files are in appropriate directories (not root)
-4. Verify feature flags are correctly configured
-5. Ensure error handling is proper (using Result types)
-
-## For SPARC Development
-
-When using SPARC methodology:
-1. Complete all phases: Specification → Pseudocode → Architecture → Refinement → Completion
-2. Ensure tests are written before implementation (TDD)
-3. Validate against original requirements
-4. Document design decisions
-
-## Performance Considerations
-
-If changes might affect performance:
-1. Run benchmarks: `cargo bench`
-2. Check memory usage stays under 2GB
-3. Verify search latency remains <500ms
-4. Test with large codebases for scalability
+## Final Verification
+- [ ] System integration test passes: `cargo run --features full-system -- test`
+- [ ] All search methods work in combination
+- [ ] No regressions in existing functionality
+- [ ] Performance targets met (accuracy, latency, memory)
