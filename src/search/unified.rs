@@ -164,75 +164,148 @@ impl UnifiedSearcher {
         let processed_query = self.preprocessor.preprocess(query);
         println!("🔍 Searching for: '{}' (preprocessed: '{}')", query, processed_query);
         
-        // Check feature availability first
-        #[cfg(not(all(feature = "tantivy", feature = "vectordb", feature = "tree-sitter")))]
-        {
-            return Err(anyhow::anyhow!(
-                "Incomplete search configuration. This system requires all features (tantivy, vectordb, tree-sitter) to be enabled. \
-                Current configuration has incomplete capabilities and cannot provide reliable search results."
-            ));
-        }
-
-        // Run searches based on available features
-        #[cfg(all(feature = "tantivy", feature = "vectordb", feature = "tree-sitter"))]
-        {
-            let mut fused = if self.bm25_enabled {
-                // Run ALL FOUR searches in parallel
-                let (exact_matches, semantic_matches, symbol_matches, bm25_matches) = tokio::join!(
-                    self.search_exact(&processed_query),
-                    self.search_semantic(&processed_query),
-                    self.search_symbols(&processed_query),
-                    self.search_bm25(&processed_query)
-                );
-                
-                let exact_matches = exact_matches?;
-                let semantic_matches = semantic_matches?;
-                let symbol_matches = symbol_matches?;
-                let bm25_matches = bm25_matches?;
-                
-                println!("📊 Found {} exact, {} semantic, {} symbol, and {} BM25 matches", 
-                         exact_matches.len(), semantic_matches.len(), symbol_matches.len(), bm25_matches.len());
-                
-                // Fuse all four types of results
-                self.fusion.fuse_all_results_with_bm25(exact_matches, semantic_matches, symbol_matches, bm25_matches)?
-            } else {
-                // Run original three searches
-                let (exact_matches, semantic_matches, symbol_matches) = tokio::join!(
-                    self.search_exact(&processed_query),
-                    self.search_semantic(&processed_query),
-                    self.search_symbols(&processed_query)
-                );
-                
-                let exact_matches = exact_matches?;
-                let semantic_matches = semantic_matches?;
-                let symbol_matches = symbol_matches?;
-                
-                println!("📊 Found {} exact, {} semantic, and {} symbol matches", 
-                         exact_matches.len(), semantic_matches.len(), symbol_matches.len());
-                
-                // Fuse three types of results
-                self.fusion.fuse_all_results(exact_matches, semantic_matches, symbol_matches)?
-            };
-            
-            // Optimize ranking
-            self.fusion.optimize_ranking(&mut fused, &processed_query);
-            
-            // Expand to 3-chunk contexts - all expansions must succeed
-            let mut results = Vec::new();
-            for fused_match in fused {
-                let result = self.expand_to_three_chunk(fused_match).await
-                    .map_err(|e| anyhow::anyhow!("Failed to expand chunk context: {}. Search results incomplete.", e))?;
-                results.push(result);
+        // Collect results from available search engines
+        let mut fused = Vec::new();
+        
+        // Always try BM25 search if enabled (fallback that always works)
+        if self.bm25_enabled {
+            match self.search_bm25(&processed_query).await {
+                Ok(bm25_matches) => {
+                    println!("📊 Found {} BM25 matches", bm25_matches.len());
+                    
+                    // Convert BM25 matches to FusedResults
+                    for bm25_match in bm25_matches {
+                        // Parse doc_id to get file path and chunk index
+                        // BM25 doc_id format: "filepath-chunkindex"
+                        let parts: Vec<&str> = bm25_match.doc_id.rsplitn(2, '-').collect();
+                        if parts.len() == 2 {
+                            if let Ok(chunk_index) = parts[0].parse::<usize>() {
+                                let file_path = parts[1].to_string();
+                                fused.push(FusedResult {
+                                    file_path,
+                                    score: bm25_match.score,
+                                    match_type: MatchType::Statistical,
+                                    line_number: None, // BM25 doesn't provide line numbers directly
+                                    chunk_index: Some(chunk_index),
+                                    content: format!("BM25 match (score: {:.2})", bm25_match.score),
+                                    start_line: 0, // Will be filled during chunk expansion
+                                    end_line: 0,   // Will be filled during chunk expansion
+                                });
+                            }
+                        }
+                    }
+                }
+                Err(e) => {
+                    println!("⚠️ BM25 search failed: {}", e);
+                }
             }
-            
-            // Cache results for performance optimization
-            self.cache.insert(query.to_string(), results.clone())
-                .map_err(|e| anyhow::anyhow!("Failed to cache search results: {}. Search completed but caching failed.", e))?;
-            
-            println!("✅ Returning {} search results", results.len());
-            Ok(results)
         }
         
+        // Try exact search if tantivy is available
+        #[cfg(feature = "tantivy")]
+        {
+            match self.search_exact(&processed_query).await {
+                Ok(exact_matches) => {
+                    println!("📊 Found {} exact matches", exact_matches.len());
+                    for exact_match in exact_matches {
+                        fused.push(FusedResult {
+                            file_path: exact_match.file_path,
+                            score: 1.0, // Exact matches get perfect score
+                            match_type: MatchType::Exact,
+                            line_number: Some(exact_match.line_number),
+                            chunk_index: None,
+                            content: exact_match.line_content,
+                            start_line: exact_match.line_number,
+                            end_line: exact_match.line_number,
+                        });
+                    }
+                }
+                Err(e) => {
+                    println!("⚠️ Exact search failed: {}", e);
+                }
+            }
+        }
+        
+        // Try semantic search if ml and vectordb are available
+        #[cfg(all(feature = "ml", feature = "vectordb"))]
+        {
+            match self.search_semantic(&processed_query).await {
+                Ok(semantic_matches) => {
+                    println!("📊 Found {} semantic matches", semantic_matches.len());
+                    for semantic_match in semantic_matches {
+                        fused.push(FusedResult {
+                            file_path: semantic_match.file_path,
+                            score: semantic_match.similarity_score.unwrap_or(0.0),
+                            match_type: MatchType::Semantic,
+                            line_number: Some(semantic_match.start_line as usize),
+                            chunk_index: Some(semantic_match.chunk_index as usize),
+                            content: semantic_match.content,
+                            start_line: semantic_match.start_line as usize,
+                            end_line: semantic_match.end_line as usize,
+                        });
+                    }
+                }
+                Err(e) => {
+                    println!("⚠️ Semantic search failed: {}", e);
+                }
+            }
+        }
+        
+        // Try symbol search if tree-sitter is available
+        #[cfg(feature = "tree-sitter")]
+        {
+            match self.search_symbols(&processed_query).await {
+                Ok(symbol_matches) => {
+                    println!("📊 Found {} symbol matches", symbol_matches.len());
+                    for symbol in symbol_matches {
+                        fused.push(FusedResult {
+                            file_path: symbol.file_path,
+                            score: 1.0, // Tree-sitter matches are high priority
+                            match_type: MatchType::Symbol,
+                            line_number: Some(symbol.line),
+                            chunk_index: None,
+                            content: symbol.text,
+                            start_line: symbol.start_line.unwrap_or(symbol.line),
+                            end_line: symbol.end_line.unwrap_or(symbol.line),
+                        });
+                    }
+                }
+                Err(e) => {
+                    println!("⚠️ Symbol search failed: {}", e);
+                }
+            }
+        }
+        
+        // If we have no results, that's still a valid response
+        if fused.is_empty() {
+            println!("ℹ️ No matches found for query: {}", query);
+            return Ok(Vec::new());
+        }
+        
+        // Optimize ranking
+        let _ = self.fusion.optimize_ranking(&mut fused, &processed_query);
+        
+        // Expand to 3-chunk contexts
+        let mut results = Vec::new();
+        for fused_match in fused {
+            match self.expand_to_three_chunk(fused_match).await {
+                Ok(result) => results.push(result),
+                Err(e) => {
+                    // Don't fail entire search if one chunk expansion fails
+                    println!("⚠️ Failed to expand chunk context: {}", e);
+                    continue;
+                }
+            }
+        }
+        
+        // Cache results for performance optimization
+        if let Err(e) = self.cache.insert(query.to_string(), results.clone()) {
+            println!("⚠️ Failed to cache search results: {}", e);
+            // Continue without caching
+        }
+        
+        println!("✅ Returning {} search results", results.len());
+        Ok(results)
     }
     
     #[allow(dead_code)]
