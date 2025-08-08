@@ -5,7 +5,7 @@
 
 use embed_search::search::unified::{UnifiedSearcher};
 use embed_search::search::bm25::{BM25Engine, BM25Document, Token as BM25Token};
-use embed_search::search::fusion::SimpleFusion;
+// use embed_search::search::fusion::SimpleFusion; // Unused
 use embed_search::config::Config;
 use tempfile::TempDir;
 use std::path::{Path, PathBuf};
@@ -169,7 +169,7 @@ mod security_validation_tests {
                 Ok(results) => {
                     // Results should be safe and not contain injection payloads
                     for result in &results {
-                        let content = &result.three_chunk_context.center.content;
+                        let content = &result.three_chunk_context.target.content;
                         
                         // Should not contain unescaped injection payloads
                         assert!(
@@ -286,11 +286,12 @@ mod security_validation_tests {
         let num_concurrent = 50;
         let concurrent_start = std::time::Instant::now();
         
-        let concurrent_futures: Vec<_> = (0..num_concurrent)
-            .map(|i| {
-                let query = format!("test_query_{}", i);
-                searcher.search(&query)
-            })
+        let queries: Vec<String> = (0..num_concurrent)
+            .map(|i| format!("test_query_{}", i))
+            .collect();
+            
+        let concurrent_futures: Vec<_> = queries.iter()
+            .map(|query| searcher.search(query))
             .collect();
 
         let concurrent_timeout = tokio::time::timeout(
@@ -582,7 +583,7 @@ mod security_validation_tests {
                 .expect("Search should complete safely");
 
             for result in &search_results {
-                let content = &result.three_chunk_context.center.content;
+                let content = &result.three_chunk_context.target.content;
                 
                 // Content should be safe to display (not executed)
                 assert!(

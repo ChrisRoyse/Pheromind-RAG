@@ -346,10 +346,10 @@ impl SymbolIndexer {
         
         let query_str = r#"
             (rule_set (selectors) @selector)
-            (class_selector (class_name) @class.selector)
-            (id_selector (id_name) @id.selector)
+            (class_selector) @class.selector
+            (id_selector) @id.selector
             (media_statement) @media
-            (keyframes_statement name: (keyframes_name) @keyframes.name)
+            (keyframes_statement (keyframes_name) @keyframes.name)
             "#;
         
         queries.insert("css".to_string(), Query::new(&lang, query_str)?);
@@ -467,11 +467,12 @@ impl SymbolIndexer {
             s if s.contains("parameter") => SymbolKind::Parameter,
             s if s.contains("tag") => SymbolKind::Tag,
             s if s.contains("selector") => SymbolKind::Selector,
-            s if s.contains("key") => SymbolKind::Key,
+            // More specific matches must come before more general ones
+            s if s.contains("keyframes") => SymbolKind::Function,
             s if s.contains("generator") => SymbolKind::Function,
             s if s.contains("arrow") => SymbolKind::Function,
             s if s.contains("macro") => SymbolKind::Function,
-            s if s.contains("keyframes") => SymbolKind::Function,
+            s if s.contains("key") => SymbolKind::Key,  // Must come after keyframes
             _ => return None,
         };
         

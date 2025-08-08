@@ -3,9 +3,9 @@
 
 #[cfg(test)]
 mod tree_sitter_verification {
-    use std::fs;
-    use std::path::Path;
-    use tempfile::TempDir;
+    // use std::fs; // Unused
+    // use std::path::Path; // Unused 
+    // use tempfile::TempDir; // Unused
     
     #[cfg(feature = "tree-sitter")]
     use embed_search::search::{SymbolIndexer, SymbolDatabase, Symbol, SymbolKind};

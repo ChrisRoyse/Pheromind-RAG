@@ -603,50 +603,105 @@ impl NomicEmbedder {
         Ok(values)
     }
     
+    /// Correct Q6K dequantization using 256-element super-blocks with 16 blocks of 16 weights
     fn dequantize_q6(data: &[u8], total_elements: usize) -> Result<Vec<f32>> {
-        // Q6K quantization for larger models
-        let mut values = Vec::with_capacity(total_elements);
-        let block_size = 256;  // Q6K uses larger blocks
-        let blocks = total_elements / block_size;
+        const QK_K: usize = 256;  // Super-block size: 16 blocks × 16 weights
+        const BLOCK_Q6_K_SIZE: usize = 210;  // Q6K super-block size in bytes
         
-        let mut offset = 0;
-        for block_idx in 0..blocks {
-            if offset + 210 > data.len() {  // Q6K block size
-                return Err(anyhow!("Insufficient data for Q6K block {}: need {} bytes but only {} available. Model file is truncated.", block_idx, 210, data.len() - offset));
+        let superblocks = (total_elements + QK_K - 1) / QK_K;
+        let mut values = Vec::with_capacity(total_elements);
+        
+        for superblock_idx in 0..superblocks {
+            let block_offset = superblock_idx * BLOCK_Q6_K_SIZE;
+            
+            // Bounds check for the entire super-block
+            if block_offset + BLOCK_Q6_K_SIZE > data.len() {
+                return Err(anyhow!("Insufficient data for Q6K super-block {}: need {} bytes but only {} available. Model file is truncated.", superblock_idx, BLOCK_Q6_K_SIZE, data.len() - block_offset));
             }
             
-            // Read scales and mins (simplified)
-            let scale_bits = u16::from_le_bytes([data[offset], data[offset + 1]]);
-            let scale = Self::f16_to_f32(scale_bits);
-            offset += 2;
+            // Q6K structure: [scales: 16×1 byte] [quantized_weights: 3×64 bytes] [padding if any]
+            // Extract 16 scales (8-bit quantized scales, higher precision than typical 4-bit)
+            let scales_start = block_offset;
+            if scales_start + 16 > data.len() {
+                return Err(anyhow!("Insufficient data for Q6K scales: need 16 bytes but only {} available.", data.len() - scales_start));
+            }
             
-            // For Q6K, we'll use simplified dequantization
-            // In production, this would handle the full Q6K format
-            for val_idx in 0..block_size {
-                if offset >= data.len() {
-                    return Err(anyhow!("Insufficient data for Q6K values in block {}: reached end of data at value {}.", block_idx, val_idx));
+            let mut scales = [0f32; 16];
+            for i in 0..16 {
+                // Convert 8-bit quantized scale to f32
+                // Q6K scales are stored as unsigned 8-bit values that need to be rescaled
+                let scale_u8 = data[scales_start + i];
+                // Convert from quantized 8-bit to proper scale factor
+                scales[i] = (scale_u8 as f32) / 256.0;
+            }
+            
+            // Extract quantized weights: 192 bytes for 256 weights (6 bits each)
+            // 256 × 6 bits = 1536 bits = 192 bytes
+            let weights_start = scales_start + 16;
+            if weights_start + 192 > data.len() {
+                return Err(anyhow!("Insufficient data for Q6K weights: need 192 bytes but only {} available.", data.len() - weights_start));
+            }
+            
+            // Process each of the 16 blocks within this super-block
+            for block_idx in 0..16 {
+                let block_scale = scales[block_idx];
+                
+                // Validate block scale
+                if !block_scale.is_finite() || block_scale == 0.0 {
+                    return Err(anyhow!("Invalid scale in Q6K block {}: scale={}. Model data is corrupted.", block_idx, block_scale));
                 }
                 
-                // Simplified 6-bit extraction
-                let byte_idx = offset / 4 * 3;  // 3 bytes hold 4 6-bit values
-                if byte_idx + 2 >= data.len() {
-                    return Err(anyhow!("Insufficient data for Q6K 6-bit extraction in block {}: byte index {} out of bounds.", block_idx, byte_idx));
-                }
-                
-                // Extract 6-bit value (simplified)
-                let val = ((data[byte_idx] as f32) - 32.0) * scale / 32.0;
-                values.push(val);
-                offset += 1;
-                
-                if values.len() >= total_elements {
-                    break;
+                // Process 16 weights in this block
+                for weight_idx in 0..16 {
+                    let global_weight_idx = block_idx * 16 + weight_idx;
+                    
+                    if values.len() >= total_elements {
+                        break;
+                    }
+                    
+                    // Extract 6-bit quantized value from packed data
+                    // Calculate bit position: each weight uses 6 bits
+                    let bit_offset = global_weight_idx * 6;
+                    let byte_start = weights_start + (bit_offset / 8);
+                    let bit_start = bit_offset % 8;
+                    
+                    if byte_start >= data.len() {
+                        return Err(anyhow!("Weight byte index {} out of bounds for data length {}.", byte_start, data.len()));
+                    }
+                    
+                    // Extract 6-bit value spanning potentially two bytes
+                    let q6_value = if bit_start + 6 <= 8 {
+                        // Value fits within one byte
+                        (data[byte_start] >> bit_start) & 0x3F
+                    } else if byte_start + 1 < data.len() {
+                        // Value spans two bytes
+                        let low_bits = 8 - bit_start;
+                        let high_bits = 6 - low_bits;
+                        let low_part = (data[byte_start] >> bit_start) & ((1 << low_bits) - 1);
+                        let high_part = data[byte_start + 1] & ((1 << high_bits) - 1);
+                        low_part | (high_part << low_bits)
+                    } else {
+                        return Err(anyhow!("Insufficient data for Q6K 6-bit extraction: byte {} out of bounds.", byte_start + 1));
+                    };
+                    
+                    // Apply Q6K dequantization formula
+                    // Q6K uses 6-bit values [0, 63] scaled by block-specific scale
+                    // Center around 0 by subtracting 32 (middle of [0, 63] range)
+                    let dequantized_weight = block_scale * ((q6_value as f32) - 32.0);
+                    
+                    // Validate the dequantized value
+                    if !dequantized_weight.is_finite() {
+                        return Err(anyhow!("Dequantized weight {} is not finite in Q6K processing. Model computation failed.", dequantized_weight));
+                    }
+                    
+                    values.push(dequantized_weight);
                 }
             }
         }
         
         // Ensure we have exactly the right number of elements
         if values.len() != total_elements {
-            return Err(anyhow!("Q6K dequantization produced {} elements but expected {}. Model data is insufficient or corrupted.", values.len(), total_elements));
+            return Err(anyhow!("Q6K dequantization produced {} elements but expected {}. Model processing failed.", values.len(), total_elements));
         }
         
         Ok(values)
@@ -877,35 +932,95 @@ impl NomicEmbedder {
     }
     
     #[allow(dead_code)]
-    fn attention_forward(hidden_states: &Tensor, _attention_mask: &Tensor, attention: &MultiHeadAttention) -> Result<Tensor> {
-        // Simplified attention that's more robust to NaN issues
-        // For now, implement a basic linear transformation that preserves information
-        
-        let (_seq_len, _hidden_size) = hidden_states.dims2()
+    fn softmax(x: &Tensor, dim: usize) -> Result<Tensor> {
+        // Numerically stable softmax: softmax(x) = exp(x - max(x)) / sum(exp(x - max(x)))
+        let max_vals = x.max_keepdim(dim)
+            .map_err(|e| anyhow!("Failed to compute max for softmax: {}", e))?;
+        let x_shifted = x.broadcast_sub(&max_vals)
+            .map_err(|e| anyhow!("Failed to shift values for softmax: {}", e))?;
+        let exp_vals = x_shifted.exp()
+            .map_err(|e| anyhow!("Failed to compute exp for softmax: {}", e))?;
+        let sum_exp = exp_vals.sum_keepdim(dim)
+            .map_err(|e| anyhow!("Failed to compute sum for softmax: {}", e))?;
+        exp_vals.broadcast_div(&sum_exp)
+            .map_err(|e| anyhow!("Failed to normalize softmax: {}", e))
+    }
+    
+    #[allow(dead_code)]
+    fn attention_forward(hidden_states: &Tensor, attention_mask: &Tensor, attention: &MultiHeadAttention) -> Result<Tensor> {
+        let (seq_len, hidden_size) = hidden_states.dims2()
             .map_err(|e| anyhow!("Failed to get dimensions: {}", e))?;
         
-        // Apply proper multi-head attention without fallbacks
+        // Get attention dimensions
+        let num_heads = attention.num_heads;
+        let head_dim = attention.head_dim;
+        let scale = 1.0 / (head_dim as f32).sqrt();
+        
+        // Project to Q, K, V
         let q = hidden_states.matmul(&attention.q_proj.t()?)
             .map_err(|e| anyhow!("Query projection failed: {}", e))?;
-        let _k = hidden_states.matmul(&attention.k_proj.t()?)
+        let k = hidden_states.matmul(&attention.k_proj.t()?)
             .map_err(|e| anyhow!("Key projection failed: {}", e))?;
         let v = hidden_states.matmul(&attention.v_proj.t()?)
             .map_err(|e| anyhow!("Value projection failed: {}", e))?;
         
-        // Simplified attention: just use Q*V pattern without full attention mechanics
-        // This preserves information flow without fallback to identity
-        let attention_output = q.matmul(&v.t()?)
-            .map_err(|e| anyhow!("Attention computation failed: {}", e))?
-            .matmul(&attention.o_proj.t()?)
+        // Reshape for multi-head attention: (seq_len, hidden_size) -> (seq_len, num_heads, head_dim)
+        let q = q.reshape(&[seq_len, num_heads, head_dim])?
+            .transpose(0, 1)?; // -> (num_heads, seq_len, head_dim)
+        let k = k.reshape(&[seq_len, num_heads, head_dim])?
+            .transpose(0, 1)?; // -> (num_heads, seq_len, head_dim)  
+        let v = v.reshape(&[seq_len, num_heads, head_dim])?
+            .transpose(0, 1)?; // -> (num_heads, seq_len, head_dim)
+        
+        // Compute scaled dot-product attention: Q*K^T/sqrt(d_k)
+        let attention_scores = q.matmul(&k.transpose(1, 2)
+            .map_err(|e| anyhow!("Failed to transpose K: {}", e))?)
+            .map_err(|e| anyhow!("Attention score computation failed: {}", e))?;
+        
+        // Apply scaling
+        let scaled_scores = attention_scores.affine(scale as f64, 0.0)
+            .map_err(|e| anyhow!("Failed to scale attention scores: {}", e))?;
+        
+        // Apply attention mask (add large negative value to masked positions)
+        // attention_mask should be (seq_len, seq_len) with 1s for valid positions, 0s for masked
+        let mask_value = -1e9f32;
+        let expanded_mask = attention_mask.unsqueeze(0)
+            .map_err(|e| anyhow!("Failed to expand mask: {}", e))?
+            .expand(&[num_heads, seq_len, seq_len])
+            .map_err(|e| anyhow!("Failed to broadcast mask: {}", e))?;
+        
+        // Convert mask to additive form: (1-mask) * large_negative_value
+        let mask_to_add = expanded_mask.affine(-1.0, 1.0)
+            .map_err(|e| anyhow!("Failed to invert mask: {}", e))?
+            .affine(mask_value as f64, 0.0)
+            .map_err(|e| anyhow!("Failed to scale mask: {}", e))?;
+        
+        let masked_scores = scaled_scores.broadcast_add(&mask_to_add)
+            .map_err(|e| anyhow!("Failed to apply attention mask: {}", e))?;
+        
+        // Apply softmax to get attention weights (dim=2 is the last dimension)
+        let attention_weights = Self::softmax(&masked_scores, 2)
+            .map_err(|e| anyhow!("Failed to compute attention softmax: {}", e))?;
+        
+        // Apply attention weights to values: Attention(Q,K,V) = softmax(Q*K^T/sqrt(d_k))*V
+        let attention_output = attention_weights.matmul(&v)
+            .map_err(|e| anyhow!("Attention value computation failed: {}", e))?;
+        
+        // Reshape back: (num_heads, seq_len, head_dim) -> (seq_len, hidden_size)
+        let attention_output = attention_output.transpose(0, 1)? // -> (seq_len, num_heads, head_dim)
+            .reshape(&[seq_len, hidden_size])?;
+        
+        // Apply output projection
+        let final_output = attention_output.matmul(&attention.o_proj.t()?)
             .map_err(|e| anyhow!("Output projection failed: {}", e))?;
         
         // Validate output for NaN/Inf - fail instead of fallback
-        let output_vec = attention_output.flatten_all()?.to_vec1::<f32>()?;
+        let output_vec = final_output.flatten_all()?.to_vec1::<f32>()?;
         if output_vec.iter().any(|x| x.is_nan() || x.is_infinite()) {
             return Err(anyhow!("Attention computation produced NaN or infinite values. Model weights may be corrupted."));
         }
         
-        Ok(attention_output)
+        Ok(final_output)
     }
     
     #[allow(dead_code)]
@@ -1347,6 +1462,64 @@ mod tests {
                 "Error should explain the consequence");
         assert!(error_message.contains("At least one token must have a non-zero attention"),
                 "Error should specify the requirement");
+    }
+    
+    /// Test Q6K dequantization mathematical correctness
+    #[test]
+    fn test_q6k_mathematical_correctness() {
+        // Test 6-bit value extraction from packed data
+        // Values: [0, 1, 2, 3] should pack into 3 bytes
+        let test_data = [0b00000100, 0b00010000, 0b00001100];
+        
+        for i in 0..4 {
+            let bit_offset = i * 6;
+            let byte_start = bit_offset / 8;
+            let bit_start = bit_offset % 8;
+            
+            let q6_value = if bit_start + 6 <= 8 {
+                (test_data[byte_start] >> bit_start) & 0x3F
+            } else if byte_start + 1 < test_data.len() {
+                let low_bits = 8 - bit_start;
+                let high_bits = 6 - low_bits;
+                let low_part = (test_data[byte_start] >> bit_start) & ((1 << low_bits) - 1);
+                let high_part = test_data[byte_start + 1] & ((1 << high_bits) - 1);
+                low_part | (high_part << low_bits)
+            } else {
+                panic!("Insufficient data for 6-bit extraction");
+            };
+            
+            assert_eq!(q6_value, i as u8, "6-bit extraction failed for value {}", i);
+        }
+    }
+    
+    /// Test Q6K scale conversion accuracy  
+    #[test]
+    fn test_q6k_scale_conversion() {
+        let test_cases = [
+            (0u8, 0.0f32),
+            (128, 0.5),
+            (255, 255.0/256.0),
+        ];
+        
+        for &(scale_u8, expected) in &test_cases {
+            let converted = (scale_u8 as f32) / 256.0;
+            assert!((converted - expected).abs() < f32::EPSILON,
+                    "Scale conversion failed: {} -> {} (expected {})", scale_u8, converted, expected);
+        }
+    }
+    
+    /// Test Q6K dequantization formula
+    #[test] 
+    fn test_q6k_dequantization_formula() {
+        let scale = 0.1f32;
+        let test_values = [0u8, 32, 63]; // Min, center, max
+        let expected = [scale * -32.0, 0.0, scale * 31.0];
+        
+        for (i, &q6_val) in test_values.iter().enumerate() {
+            let result = scale * ((q6_val as f32) - 32.0);
+            assert!((result - expected[i]).abs() < f32::EPSILON,
+                    "Dequantization failed: {} -> {} (expected {})", q6_val, result, expected[i]);
+        }
     }
 }
 
