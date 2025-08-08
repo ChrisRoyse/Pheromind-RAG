@@ -9,7 +9,7 @@ use anyhow::{Result, anyhow};
 #[cfg(feature = "ml")]
 use std::fs;
 #[cfg(feature = "ml")]
-use std::io::Write;
+use std::io::{Write, Read, Seek};
 #[cfg(feature = "ml")]
 use candle_core::{Device, Tensor, DType};
 #[cfg(feature = "ml")]
@@ -17,7 +17,7 @@ use candle_core::quantized::{gguf_file, GgmlDType};
 #[cfg(feature = "ml")]
 use tokenizers::Tokenizer;
 #[cfg(feature = "ml")]
-use memmap2::Mmap;
+// Removed memmap2::Mmap to prevent V8 heap issues in Node.js
 #[cfg(feature = "ml")]
 use std::collections::HashMap;
 #[cfg(feature = "ml")]
@@ -276,41 +276,72 @@ impl NomicEmbedder {
         // Read GGUF header to get metadata
         let content = gguf_file::Content::read(&mut file)?;
         
-        // Memory map the file for efficient reading
-        let mmap = unsafe { Mmap::map(&file)? };
-        
+        // Use streaming reads instead of memory mapping to prevent V8 heap issues
+        // Memory mapping can cause fatal V8 errors in Node.js environments
         let mut tensors = HashMap::new();
         let mut current_offset = content.tensor_data_offset as usize;
         
         #[cfg(debug_assertions)]
-        println!("Loading {} tensors from GGUF file...", content.tensor_infos.len());
+        println!("Loading {} tensors from GGUF file (streaming mode)...", content.tensor_infos.len());
         
         for (name, tensor_info) in content.tensor_infos.iter() {
             // Calculate tensor data size
             let data_size = Self::calculate_tensor_size(tensor_info)?;
             
-            // Ensure we don't read past the file
-            if current_offset + data_size > mmap.len() {
-                #[cfg(debug_assertions)]
-                println!("Warning: Not enough data for tensor {}", name);
-                break;
+            // Seek to tensor position
+            file.seek(std::io::SeekFrom::Start(current_offset as u64))?;
+            
+            // Read tensor data in chunks to prevent memory pressure
+            let mut tensor_data = vec![0u8; data_size];
+            const CHUNK_SIZE: usize = 1024 * 1024; // 1MB chunks
+            
+            let mut bytes_read = 0;
+            while bytes_read < data_size {
+                let chunk_size = std::cmp::min(CHUNK_SIZE, data_size - bytes_read);
+                let chunk = &mut tensor_data[bytes_read..bytes_read + chunk_size];
+                
+                match file.read_exact(chunk) {
+                    Ok(_) => bytes_read += chunk_size,
+                    Err(e) if e.kind() == std::io::ErrorKind::UnexpectedEof => {
+                        #[cfg(debug_assertions)]
+                        println!("Warning: Incomplete data for tensor {} (read {} of {} bytes)", name, bytes_read, data_size);
+                        break;
+                    },
+                    Err(e) => return Err(anyhow::Error::from(e)),
+                }
+                
+                // Yield CPU periodically to prevent blocking in single-threaded environments
+                if bytes_read % (CHUNK_SIZE * 4) == 0 {
+                    std::thread::yield_now();
+                }
             }
             
-            // Extract tensor data from memory map
-            let tensor_data = &mmap[current_offset..current_offset + data_size];
+            if bytes_read < data_size {
+                #[cfg(debug_assertions)]
+                println!("Warning: Not enough data for tensor {} (got {} bytes, expected {})", name, bytes_read, data_size);
+                continue;
+            }
             
             // Dequantize and create tensor
-            let tensor = Self::dequantize_tensor(tensor_data, tensor_info, device)?;
+            let tensor = Self::dequantize_tensor(&tensor_data, tensor_info, device)?;
             tensors.insert(name.clone(), tensor);
             
             current_offset += data_size;
             
-            // Log progress for large models
-            if tensors.len() % 10 == 0 {
+            // Log progress and yield CPU to prevent blocking
+            if tensors.len() % 5 == 0 {
                 print!("\r  Loaded {}/{} tensors", tensors.len(), content.tensor_infos.len());
                 std::io::stdout().flush()?;
+                std::thread::yield_now();
+            }
+            
+            // Force garbage collection hint for large tensors
+            if data_size > 10 * 1024 * 1024 { // > 10MB
+                drop(tensor_data);
+                std::thread::yield_now();
             }
         }
+        
         #[cfg(debug_assertions)]
         println!("\r  Loaded {}/{} tensors", tensors.len(), content.tensor_infos.len());
         

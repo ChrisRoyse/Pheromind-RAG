@@ -4,7 +4,7 @@ use crate::chunking::Chunk;
 pub struct ThreeChunkExpander;
 
 /// Context result containing target chunk with optional surrounding chunks
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct ChunkContext {
     /// Previous chunk (None if target is first chunk)
     pub above: Option<Chunk>,

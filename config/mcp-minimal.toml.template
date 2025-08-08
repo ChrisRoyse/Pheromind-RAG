@@ -1,0 +1,48 @@
+# Minimal MCP Configuration Template
+# This provides the minimum required settings to run an MCP server
+# Copy this file to .embed/mcp-config.toml and customize as needed
+
+# Required server identity
+server_name = "minimal-mcp"
+server_version = "1.0.0"  
+server_description = "Minimal MCP server configuration"
+
+# Required transport configuration
+[transport]
+type = "Stdio"
+buffer_size = 8192
+line_buffering = true
+
+# Required tool configuration  
+[tools]
+enable_search = true
+enable_index = true
+enable_status = true
+enable_clear = false
+enable_orchestrated_search = false
+max_results_per_call = 50
+default_search_timeout_ms = 10000
+max_concurrent_operations = 5
+
+# Required performance configuration
+[performance]
+max_concurrent_requests = 25
+request_timeout_ms = 30000
+max_request_size_bytes = 524288    # 512KB
+max_response_size_bytes = 2097152  # 2MB
+enable_metrics = false
+metrics_interval_secs = 300
+
+# Required security configuration
+[security]
+enable_request_validation = true
+max_query_length = 500
+allowed_file_extensions = ["rs", "py", "js", "ts", "json", "md", "txt"]
+blocked_file_patterns = ["\.git/.*", ".*\.log$", ".*\.tmp$"]
+enable_path_protection = true
+max_indexing_depth = 10
+
+# Required logging configuration
+mcp_log_level = "info"
+enable_request_logging = false
+enable_performance_logging = false

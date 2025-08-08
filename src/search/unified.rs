@@ -7,9 +7,7 @@ use parking_lot;
 
 use crate::chunking::{SimpleRegexChunker, Chunk, ThreeChunkExpander};
 #[cfg(feature = "ml")]
-use crate::embedding::nomic::NomicEmbedder;
-#[cfg(feature = "ml")]
-use crate::embedding::{CacheStats};
+use crate::embedding::{LazyEmbedder, CacheStats};
 #[cfg(feature = "vectordb")]
 use crate::storage::lancedb_storage::LanceDBStorage;
 use crate::search::fusion::{SimpleFusion, FusedResult, MatchType};
@@ -36,7 +34,7 @@ pub struct UnifiedSearcher {
     #[cfg(feature = "tantivy")]
     text_searcher: Arc<RwLock<Box<dyn TextSearcher>>>,
     #[cfg(feature = "ml")]
-    embedder: Arc<NomicEmbedder>,
+    embedder: LazyEmbedder,
     #[cfg(feature = "vectordb")]
     storage: Arc<RwLock<LanceDBStorage>>,
     #[cfg(feature = "tree-sitter")]
@@ -77,10 +75,10 @@ impl UnifiedSearcher {
     pub async fn new_with_backend_and_config(project_path: PathBuf, db_path: PathBuf, backend: SearchBackend, include_test_files: bool) -> Result<Self> {
         println!("🔄 Initializing Unified Searcher (backend: {:?}, include_test_files: {})...", backend, include_test_files);
         
-        // Initialize Nomic embedder with permanent model caching
+        // Use lazy-loaded embedder to prevent memory issues in Node.js environments
+        // The model will only be loaded when actually needed for embedding
         #[cfg(feature = "ml")]
-        let embedder = NomicEmbedder::get_global().await
-            .map_err(|e| anyhow::anyhow!("Failed to initialize Nomic embedder: {}", e))?;
+        let embedder = LazyEmbedder::new();
         
         #[cfg(feature = "vectordb")]
         let storage = Arc::new(RwLock::new(LanceDBStorage::new(db_path.clone()).await?));
@@ -120,7 +118,7 @@ impl UnifiedSearcher {
         let bm25_enabled = config.bm25_enabled;
         
         #[cfg(feature = "ml")]
-        println!("✅ Nomic embedder initialized with 768-dimensional embeddings");
+        println!("✅ Lazy embedder configured (will load on first use)");
         #[cfg(feature = "tree-sitter")]
         println!("✅ Symbol indexer initialized with tree-sitter parsers");
         println!("✅ BM25 engine initialized with TF-IDF scoring");
@@ -368,7 +366,7 @@ impl UnifiedSearcher {
     #[cfg(all(feature = "ml", feature = "vectordb"))]
     async fn search_semantic(&self, query: &str) -> Result<Vec<crate::storage::lancedb_storage::LanceEmbeddingRecord>> {
         // Generate query embedding using cached embedder
-        let query_embedding = self.embedder.embed(query)
+        let query_embedding = self.embedder.embed(query).await
             .map_err(|e| anyhow::anyhow!("Failed to generate query embedding: {}", e))?;
         
         // Search in vector database
@@ -536,7 +534,9 @@ impl UnifiedSearcher {
             let chunk_contents: Vec<&str> = chunks.iter().map(|c| c.content.as_str()).collect();
             
             // Generate embeddings using Nomic embedder
-            let embeddings = self.embedder.embed_batch(&chunk_contents)
+            // Convert &str to String for embed_batch
+            let chunk_strings: Vec<String> = chunk_contents.iter().map(|s| s.to_string()).collect();
+            let embeddings = self.embedder.embed_batch(&chunk_strings).await
                 .map_err(|e| anyhow::anyhow!("Failed to generate embeddings for file {:?}: {}", file_path, e))?;
             
             // Create records with embeddings

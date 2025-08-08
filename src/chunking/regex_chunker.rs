@@ -116,7 +116,7 @@ impl SimpleRegexChunker {
     }
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct Chunk {
     pub content: String,
     pub start_line: usize,

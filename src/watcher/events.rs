@@ -1,7 +1,7 @@
 use std::path::PathBuf;
 use std::time::SystemTime;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy)]
 pub enum EventType {
     Created,
     Modified,

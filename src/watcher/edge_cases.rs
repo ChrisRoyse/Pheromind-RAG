@@ -1,7 +1,7 @@
 use std::path::{Path, PathBuf};
 use std::fs;
 use std::io::{self, Read};
-use anyhow::{Result, Context, bail};
+use anyhow::{Result, bail};
 use std::time::{Duration, SystemTime};
 
 /// Maximum file size we'll attempt to index (100MB)
@@ -298,13 +298,13 @@ impl EdgeCaseHandler {
 
     /// Try to read a file with retries for locked files
     pub fn read_file_with_retry(path: &Path) -> Result<String> {
-        let mut last_error = None;
+        let mut _last_error = None;
         
         for attempt in 0..FILE_LOCK_RETRIES {
             match fs::read_to_string(path) {
                 Ok(content) => return Ok(content),
                 Err(e) if e.kind() == io::ErrorKind::PermissionDenied => {
-                    last_error = Some(e);
+                    _last_error = Some(e);
                     if attempt < FILE_LOCK_RETRIES - 1 {
                         std::thread::sleep(FILE_LOCK_RETRY_DELAY);
                         continue;
@@ -322,7 +322,7 @@ impl EdgeCaseHandler {
 
     /// Try to find which process has a file locked (Windows only)
     #[cfg(target_os = "windows")]
-    fn find_locking_process(path: &Path) -> Option<String> {
+    fn find_locking_process(_path: &Path) -> Option<String> {
         // This would require Windows API calls to enumerate handles
         // For now, return a generic message
         Some("another process".to_string())
@@ -362,12 +362,10 @@ impl EdgeCaseHandler {
         #[cfg(target_os = "windows")]
         {
             use winapi::um::fileapi::GetDiskFreeSpaceExW;
-            use winapi::shared::minwindef::DWORD;
-            use std::ptr;
             use std::ffi::OsStr;
             use std::os::windows::ffi::OsStrExt;
             
-            let path_str: Vec<u16> = OsStr::new(&path.to_string_lossy())
+            let path_str: Vec<u16> = OsStr::new(path.to_str().unwrap_or("."))
                 .encode_wide()
                 .chain(Some(0))
                 .collect();

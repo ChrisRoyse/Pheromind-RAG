@@ -83,7 +83,7 @@ sysinfo = "0.30"
 
 # Windows API for memory measurement in stress tests
 [target.'cfg(windows)'.dependencies]
-winapi = { version = "0.3", features = ["processthreadsapi", "psapi"] }
+winapi = { version = "0.3", features = ["processthreadsapi", "psapi", "sysinfoapi"] }
 
 # Thread-safe data structures
 parking_lot = "0.12"
@@ -138,6 +138,17 @@ name = "test_unified_project_scope"
 path = "src/bin/test_unified_project_scope.rs"
 required-features = ["tantivy"]
 
+[[bin]]
+name = "mcp_server"
+path = "src/bin/mcp_server.rs"
+required-features = ["mcp"]
+
+[[bin]]
+name = "verify_mcp_config"
+path = "src/bin/verify_mcp_config.rs"
+required-features = ["mcp"]
+
+
 
 
 [features]
@@ -169,10 +180,18 @@ vectordb = ["dep:lancedb", "dep:arrow", "dep:arrow-array", "dep:arrow-schema", "
 # - Supports complex query syntax and ranking
 tantivy = ["dep:tantivy", "dep:tantivy-jieba"]
 
+# mcp: Model Context Protocol server support
+# - JSON-RPC 2.0 server implementation over stdin/stdout
+# - Integrates with existing search backends (BM25, Tantivy, ML)
+# - Uses only standard dependencies already in project
+mcp = []
+
 # Convenience feature combinations:
 search-basic = ["core", "tantivy"]                    # Text search only
 search-advanced = ["core", "tree-sitter", "tantivy"]  # Text + symbol search
 full-system = ["tree-sitter", "ml", "vectordb", "tantivy"]  # All capabilities
+mcp-server = ["mcp", "search-basic"]                   # MCP with basic search
+mcp-full = ["mcp", "full-system"]                      # MCP with all features
 
 # Testing-specific features:
 test-integration = ["full-system"]  # Full system tests
@@ -248,3 +267,13 @@ required-features = ["core"]
 name = "nomic3_missing_stress_tests"
 path = "tests/nomic3_missing_stress_tests.rs"
 required-features = ["full-system"]
+
+[[test]]
+name = "mcp_protocol_tests"
+path = "tests/mcp_protocol_tests.rs"
+required-features = ["mcp"]
+
+[[test]]
+name = "mcp_integration_tests" 
+path = "tests/mcp_integration_tests.rs"
+required-features = ["mcp-server"]

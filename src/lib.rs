@@ -50,6 +50,9 @@ pub mod chunking;
 // pub mod symbol;        // TODO: Create or remove  
 // pub mod treesitter;    // TODO: Create or remove
 
+// MCP server protocol handler
+pub mod mcp;
+
 // Existing modules that were missing from lib.rs  
 pub mod observability;
 pub mod utils;

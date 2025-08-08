@@ -219,6 +219,8 @@ mod bm25_stress_tests {
                 if duration > Duration::from_secs(5) {
                     println!("WARNING: Search took {:?} which may indicate performance issues with large vocabularies", duration);
                 }
+                
+                return Ok(());
             }
             Err(e) => {
                 println!("🚨 LARGE VOCABULARY SEARCH FAILURE: Cannot search with vocabulary of {} terms: {}", 

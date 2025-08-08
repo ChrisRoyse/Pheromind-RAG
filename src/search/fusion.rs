@@ -1,4 +1,5 @@
 use std::collections::HashSet;
+use serde::{Serialize, Deserialize};
 use crate::search::ExactMatch;
 use crate::error::SearchError;
 #[cfg(feature = "vectordb")]
@@ -34,7 +35,7 @@ impl Default for FusionConfig {
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum MatchType {
     Exact,
     Semantic,

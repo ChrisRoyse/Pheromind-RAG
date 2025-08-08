@@ -1,13 +1,14 @@
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
+use serde::{Serialize, Deserialize};
 use crate::config::Config;
 use crate::chunking::{ChunkContext};
 // Use MatchType from fusion module
 use crate::search::fusion::MatchType;
 
 // Define SearchResult locally to avoid circular dependency
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SearchResult {
     pub file: String,
     pub three_chunk_context: ChunkContext,

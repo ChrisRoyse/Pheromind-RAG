@@ -1,0 +1,64 @@
+# Production MCP Configuration Template
+# Optimized for production use with security and performance focus
+# Copy this file to .embed/mcp-config.toml and customize for your environment
+
+# Production server identity
+server_name = "production-embed-mcp"
+server_version = "1.0.0"
+server_description = "Production MCP server for code search"
+
+# Production transport configuration
+[transport]
+type = "Stdio"
+buffer_size = 16384        # Larger buffer for better performance
+line_buffering = false     # Disable line buffering for performance
+
+# Production tool configuration - conservative settings
+[tools]
+enable_search = true
+enable_index = false       # Disable indexing in production for safety
+enable_status = true       # Keep status for monitoring
+enable_clear = false       # Disable clear operations for safety
+enable_orchestrated_search = false  # Disable complex operations
+max_results_per_call = 50  # Limit results to prevent large responses
+default_search_timeout_ms = 8000    # Quick timeout
+max_concurrent_operations = 3       # Conservative concurrency
+
+# Production performance configuration
+[performance]
+max_concurrent_requests = 30        # Balanced concurrency
+request_timeout_ms = 15000          # Quick timeout for responsiveness
+max_request_size_bytes = 262144     # 256KB - limit request size
+max_response_size_bytes = 1048576   # 1MB - limit response size
+enable_metrics = true               # Enable for monitoring
+metrics_interval_secs = 120         # Less frequent metrics collection
+
+# Production embedding configuration (if ML features enabled)
+[embedding]
+enable_lazy_loading = true          # Essential for production memory management
+init_timeout_ms = 30000            # Conservative timeout
+max_memory_mb = 512                # Conservative memory limit
+enable_health_checks = true       # Important for production monitoring
+health_check_interval_secs = 600   # Check every 10 minutes
+
+# Production security configuration - strict settings
+[security]
+enable_request_validation = true    # Always validate in production
+max_query_length = 200             # Short queries only
+allowed_file_extensions = [        # Minimal safe set
+    "rs", "py", "js", "ts", "json", "md"
+]
+blocked_file_patterns = [          # Comprehensive block list
+    "\.git/.*", "\.svn/.*", "\.hg/.*",
+    "\.env.*", ".*\.key$", ".*\.pem$", ".*\.crt$",
+    ".*\.log$", ".*\.tmp$", ".*\.lock$", ".*\.cache$", ".*\.bak$",
+    "node_modules/.*", "target/.*", "build/.*", "dist/.*",
+    "\.ssh/.*", "\.aws/.*", "\.docker/.*", "\.kube/.*"
+]
+enable_path_protection = true      # Critical for production
+max_indexing_depth = 5             # Shallow indexing for security
+
+# Production logging - minimal for performance
+mcp_log_level = "warn"             # Only warnings and errors
+enable_request_logging = false     # Disable for performance
+enable_performance_logging = true  # Enable for monitoring

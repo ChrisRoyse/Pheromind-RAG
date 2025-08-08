@@ -31,8 +31,11 @@ pub mod fixtures {
     
     // Load test configuration
     pub fn load_test_config() -> embed_search::config::Config {
-        embed_search::config::Config::load()
-            .unwrap_or_else(|_| embed_search::config::Config::new_test_config())
+        // Initialize config if needed
+        if let Err(_) = embed_search::config::Config::init() {
+            // Config already initialized, that's ok
+        }
+        embed_search::config::Config::get().expect("Failed to get test configuration")
     }
 }
 
