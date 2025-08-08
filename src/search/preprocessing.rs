@@ -25,34 +25,27 @@ impl QueryPreprocessor {
         processed = words.join(" ");
         
         // Expand common programming abbreviations
-        processed = processed
-            .replace(" fn ", " function ")
-            .replace(" fn", " function")
-            .replace("fn ", "function ")
-            .replace(" impl ", " implementation ")
-            .replace(" impl", " implementation")
-            .replace("impl ", "implementation ")
-            .replace(" struct ", " structure ")
-            .replace(" struct", " structure")
-            .replace("struct ", "structure ")
-            .replace(" auth ", " authentication ")
-            .replace(" auth", " authentication")
-            .replace("auth ", "authentication ")
-            .replace(" config ", " configuration ")
-            .replace(" config", " configuration")
-            .replace("config ", "configuration ")
-            .replace(" db ", " database ")
-            .replace(" db", " database")
-            .replace("db ", "database ")
-            .replace(" api ", " application programming interface ")
-            .replace(" api", " application programming interface")
-            .replace("api ", "application programming interface ")
-            .replace(" ui ", " user interface ")
-            .replace(" ui", " user interface")
-            .replace("ui ", "user interface ")
-            .replace(" ux ", " user experience ")
-            .replace(" ux", " user experience")
-            .replace("ux ", "user experience ");
+        // Use word boundary approach to prevent double replacement
+        let words: Vec<String> = processed
+            .split_whitespace()
+            .map(|word| {
+                match word {
+                    "fn" => "function",
+                    "impl" => "implementation", 
+                    "struct" => "structure",
+                    "auth" => "authentication",
+                    "config" => "configuration",
+                    "db" => "database",
+                    "api" => "application programming interface",
+                    "ui" => "user interface",
+                    "ux" => "user experience",
+                    _ => word,
+                }
+            })
+            .map(|s| s.to_string())
+            .collect();
+        
+        processed = words.join(" ");
         
         // Remove excessive whitespace
         processed = processed.split_whitespace().collect::<Vec<_>>().join(" ");

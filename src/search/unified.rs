@@ -547,6 +547,7 @@ impl UnifiedSearcher {
                     file_path: file_path.to_string_lossy().to_string(),
                     chunk_index: idx as u64,
                     content: chunk.content.clone(),
+                    checksum: None, // Will be computed during storage
                     embedding,
                     start_line: chunk.start_line as u64,
                     end_line: chunk.end_line as u64,

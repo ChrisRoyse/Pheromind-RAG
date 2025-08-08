@@ -73,6 +73,10 @@ backoff = "0.4"
 # Memory management and system monitoring
 sysinfo = "0.30"
 
+# Windows API for memory measurement in stress tests
+[target.'cfg(windows)'.dependencies]
+winapi = { version = "0.3", features = ["processthreadsapi", "psapi"] }
+
 # Thread-safe data structures
 parking_lot = "0.12"
 
@@ -172,6 +176,10 @@ opt-level = 2  # Optimize tests for speed
 [dev-dependencies]
 criterion = "0.5"
 tempfile = "3.12"
+# Stress testing framework dependencies
+rand = "0.8"
+chrono = { version = "0.4", features = ["serde"] }
+colored = "2.0"
 
 [[bench]]
 name = "line_tracking_bench"
@@ -208,3 +216,27 @@ path = "tests/search_accuracy_test.rs"
 [[test]]
 name = "compile_time_feature_tests"
 path = "tests/compile_time_feature_tests.rs"
+
+[[test]]
+name = "comprehensive_stress_validation"
+path = "tests/integration/comprehensive_stress_validation.rs"
+
+[[test]]
+name = "ast_parser_stress_tests"
+path = "tests/ast_parser_stress_tests.rs"
+required-features = ["tree-sitter"]
+
+[[test]]
+name = "ast_stress_validation"
+path = "tests/ast_stress_validation.rs"
+required-features = ["tree-sitter"]
+
+[[test]]
+name = "bm25_stress_tests"
+path = "tests/bm25_stress_tests.rs"
+required-features = ["core"]
+
+[[test]]
+name = "nomic3_missing_stress_tests"
+path = "tests/nomic3_missing_stress_tests.rs"
+required-features = ["full-system"]

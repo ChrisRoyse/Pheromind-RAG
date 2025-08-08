@@ -17,7 +17,7 @@ use lancedb::Connection;
 #[cfg(feature = "vectordb")]
 use lancedb::query::{QueryBase, ExecutableQuery};
 #[cfg(feature = "vectordb")]
-use lancedb::index::{Index, vector::{IvfPqIndexBuilder, VectorIndexParams}};
+use lancedb::index::{Index, vector::IvfPqIndexBuilder};
 #[cfg(feature = "vectordb")]
 use crate::chunking::Chunk;
 #[cfg(feature = "vectordb")]
@@ -379,17 +379,15 @@ impl LanceDBStorage {
         info!("Index configuration: {} partitions, {} sub-vectors", num_partitions, num_sub_vectors);
         
         // Create IVF-PQ index with optimized parameters
+        let index_builder = IvfPqIndexBuilder::default()
+            .num_partitions(num_partitions.try_into().unwrap())
+            .num_sub_vectors(num_sub_vectors.try_into().unwrap())
+            .max_iterations(50)  // Training iterations
+            .sample_rate(256);   // Sampling rate for training
+            
         match table.create_index(
             &["embedding"],  // Column to index
-            Index::IvfPq(IvfPqIndexBuilder::default()
-                .num_partitions(num_partitions)
-                .num_sub_vectors(num_sub_vectors)
-                .max_iterations(50)  // Training iterations
-                .sample_rate(256)    // Sampling rate for training
-                .build()
-                .map_err(|e| LanceStorageError::IndexCreationFailed(
-                    format!("Failed to build IVF-PQ index configuration: {}", e)
-                ))?)
+            Index::IvfPq(index_builder)
         ).execute().await {
             Ok(_) => {
                 let duration = start.elapsed();
@@ -450,7 +448,7 @@ impl LanceDBStorage {
         
         // Scan through all records to validate embeddings
         let query = table.query()
-            .limit(None) // Get all records
+            .limit(10000) // Reasonable limit for retrieval
             .execute().await
             .map_err(|e| LanceStorageError::IntegrityCheckFailed(
                 format!("Failed to query table for integrity check: {}", e)

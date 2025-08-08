@@ -46,6 +46,33 @@ pub enum TokenType {
 // CodeTextProcessor must be explicitly created with new() - no default fallback allowed
 // This ensures intentional configuration of text processing
 
+impl std::fmt::Debug for CodeTextProcessor {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("CodeTextProcessor")
+            .field("stop_words", &self.stop_words)
+            .field("enable_stemming", &self.enable_stemming)
+            .field("enable_ngrams", &self.enable_ngrams)
+            .field("max_ngram_size", &self.max_ngram_size)
+            .field("min_term_length", &self.min_term_length)
+            .field("max_term_length", &self.max_term_length)
+            .finish()
+    }
+}
+
+impl Clone for CodeTextProcessor {
+    fn clone(&self) -> Self {
+        Self {
+            stop_words: self.stop_words.clone(),
+            stemmer: Stemmer::create(Algorithm::English), // Recreate stemmer since it may not be Clone
+            enable_stemming: self.enable_stemming,
+            enable_ngrams: self.enable_ngrams,
+            max_ngram_size: self.max_ngram_size,
+            min_term_length: self.min_term_length,
+            max_term_length: self.max_term_length,
+        }
+    }
+}
+
 impl CodeTextProcessor {
     pub fn new() -> Self {
         let stop_words = Self::default_stop_words();

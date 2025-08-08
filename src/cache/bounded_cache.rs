@@ -378,7 +378,7 @@ mod tests {
         assert_eq!(stats.misses, 1);
         assert_eq!(stats.insertions, 2);
         assert_eq!(stats.current_size, 2);
-        assert_eq!(stats.hit_rate().unwrap(), 66.66666666666667);
+        assert!((stats.hit_rate().unwrap() - 66.66666666666667).abs() < 0.001);
     }
     
     #[test]

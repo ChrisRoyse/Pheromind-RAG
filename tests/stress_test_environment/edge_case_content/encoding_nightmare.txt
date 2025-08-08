@@ -1,0 +1,216 @@
+# Encoding Nightmare Test File 💀
+
+This file contains mixed encodings, mojibake, and encoding edge cases designed to break text processing systems.
+
+## Section 1: UTF-8 with Embedded Latin-1
+
+This text mixes UTF-8 with Latin-1 sequences:
+UTF-8 text: Hello 世界 🌍
+Embedded Latin-1 bytes that should be invalid UTF-8: àáâãäåæçèéêëìíîï
+Mixed: UTF-8 中文 followed by Latin-1 ñáéíóú
+
+## Section 2: BOM (Byte Order Mark) Chaos
+
+UTF-8 BOM in wrong places:
+﻿This line starts with UTF-8 BOM
+Text with BOM in middle: Hello﻿World
+Multiple BOMs: ﻿﻿﻿Text with multiple UTF-8 BOMs
+
+UTF-16/UTF-32 BOMs in UTF-8 file:
+��Text with UTF-16 BE BOM
+��Text with UTF-16 LE BOM  
+Text with UTF-32 BE BOM
+Text with UTF-32 LE BOM
+
+## Section 3: Mojibake Examples (Common Encoding Mistakes)
+
+### Japanese text encoded as Latin-1 then decoded as UTF-8:
+ã"ã‚"ã«ã¡ã¯ (should be こんにちは)
+æ—¥æœ¬èªž (should be 日本語)
+
+### Chinese text mangled through Windows-1252:
+ä¸­æ–‡ (should be 中文)
+ä½ å¥½ (should be 你好)
+
+### Cyrillic through Latin-1:
+ÐŸÑ€Ð¸Ð²ÐµÑ‚ (should be Привет)
+Ð ÑƒÑÑÐºÐ¸Ð¹ (should be Русский)
+
+### Arabic through wrong encoding:
+Ø§Ù„Ø¹Ø±Ø¨ÙŠØ© (should be العربية)
+Ø£Ù‡Ù„Ø§Ù‹ (should be أهلاً)
+
+## Section 4: Control Characters and Special Bytes
+
+Null bytes embedded in text: Text with null  byte
+Control characters: 
+Form feed: Text with form feed character
+Vertical tab: Text with vertical tab
+File separator: Text with file separator
+Delete character: Text with delete character (0x7F)
+
+## Section 5: Invalid UTF-8 Sequences
+
+Overlong UTF-8 encodings (security vulnerability):
+��/��etc��/passwd (overlong encoding of /etc/passwd)
+��<script��> (overlong encoding of <script>)
+
+Invalid start bytes: ����Invalid start
+Orphaned continuation bytes: �bytes without start
+Incomplete sequences: Text with incomplete UTF-8�
+Invalid code points: Text with ����reserved UTF-8 points
+
+## Section 6: Windows-1252 Specific Characters
+
+Smart quotes that break: "curly quotes" and 'apostrophes'
+Em dash — and en dash –
+Ellipsis … character
+Trademark™ and copyright© symbols
+Euro sign € (originally added to Windows-1252)
+Special chars: ‚„†‡ˆ‰Š‹ŒŽ''""•–—˜™š›œžŸ
+
+## Section 7: Mixed Encoding Soup
+
+This paragraph contains multiple encodings mixed together:
+English text with UTF-8 emoji 🔥 
+Latin-1 accented characters: café résumé naïve
+Windows-1252 smart quotes: "Hello" and 'World'
+Double-encoded UTF-8: Ã¡Ã©Ã­Ã³Ãº
+Broken encoding chain: ÃƒÂ¡ÃƒÂ©ÃƒÂ­ÃƒÂ³ÃƒÂº
+
+## Section 8: Charset Detection Confusion
+
+Content that will confuse charset detection:
+Mixed script with ASCII-compatible encoding
+Lots of high-bit characters: àáâãäåæçèéêëìíîïðñòóôõöøùúûüýþÿ
+Pure ASCII that could be anything: Hello World 123
+Ambiguous byte sequences that could be multiple encodings
+
+## Section 9: XML/HTML Encoding Issues
+
+HTML entities mixed with raw bytes:
+&amp;amp; &lt;script&gt; &#65; &#x41;
+Broken XML: <?xml version="1.0" encoding="UTF-8"?><root>àáâã</root>
+Double-encoded HTML: &amp;#65; &amp;lt;test&amp;gt;
+
+## Section 10: JSON Encoding Problems
+
+JSON with mixed encoding issues:
+{"text": "UTF-8 text with àáâã characters"}
+{"mojibake": "ã"ã‚"ã«ã¡ã¯"}
+{"broken": "Text with \u0000 null and \uFFFF invalid"}
+{"mixed": "Text with €200 and ™ chars"}
+
+## Section 11: URL Encoding Chaos
+
+URLs with encoding issues:
+http://example.com/path?q=caf%E9 (Latin-1 é)
+http://example.com/path?q=caf%C3%A9 (UTF-8 é)
+http://example.com/path?q=café (raw UTF-8)
+http://example.com/path?q=caf%E9%CC%81 (é + combining acute)
+Double encoded: http://example.com/path?q=caf%25C3%25A9
+
+## Section 12: Email Header Encoding Problems
+
+Subject: =?UTF-8?Q?Test_with_=C3=A9_character?=
+Subject: =?ISO-8859-1?Q?Test_with_=E9_character?=
+From: =?UTF-8?B?VGVzdCBVc2VyIDxlbUFpbC1VwRERUkVzcz4=?=
+Mixed: Subject: Test with café =?UTF-8?Q?and_=C3=A9_char?=
+
+## Section 13: Database Encoding Issues
+
+SQL with encoding problems:
+INSERT INTO users (name) VALUES ('José'); -- Latin-1
+INSERT INTO users (name) VALUES ('José'); -- UTF-8
+INSERT INTO users (name) VALUES ('JosÃ©'); -- Mojibake
+UPDATE users SET name = 'ã‚¸ãƒ§ãƒ³' WHERE id = 1; -- Broken Japanese
+
+## Section 14: CSV with Mixed Encodings
+
+name,email,city
+José,jose@example.com,São Paulo
+José,jose2@example.com,São Paulo
+JosÃ©,jose3@example.com,SÃ£o Paulo
+ã‚¸ãƒ§ãƒ³,john@example.com,æ±äº¬
+
+## Section 15: Normalization Confusion
+
+Same character, different encodings:
+é (U+00E9) - precomposed
+é (U+0065 U+0301) - decomposed
+é (U+0065 U+0301 U+0301) - double combining
+e̊̈ (multiple combiners)
+ñ vs ñ̰ (different ways to make similar chars)
+
+## Section 16: Encoding Attack Vectors
+
+Directory traversal with encoding:
+../../etc/passwd
+%2e%2e%2f%2e%2e%2fetc%2fpasswd
+..%2f..%2fetc%2fpasswd
+%2e%2e/%2e%2e/etc/passwd
+%c0%ae%c0%ae%c0%af%c0%ae%c0%ae%c0%afetc%c0%afpasswd
+
+Script injection with encoding:
+<script>alert('XSS')</script>
+%3Cscript%3Ealert('XSS')%3C/script%3E
+&lt;script&gt;alert('XSS')&lt;/script&gt;
+\u003cscript\u003ealert('XSS')\u003c/script\u003e
+
+## Section 17: Legacy Encoding Issues
+
+### IBM CP437 (DOS) characters in UTF-8:
+░▒▓█▄▌▐▀αßΓπΣσµτΦΘΩδ∞φε∩≡±≥≤⌠⌡÷≈°∙·√ⁿ²■
+
+### Mac Roman characters:
+´¯Ÿ⁄€‹›ﬁﬂ‡°·‚„‰ÂÊÁËÈÍÎÏÌÓÔÒÚÛÙıˆ˜¯˘˙˚¸˝˛ˇ
+
+### EBCDIC-like confusion (conceptual):
+Text that might be confused between ASCII and EBCDIC mappings
+
+## Section 18: Zero Bytes and Binary Data
+
+Text with embedded nulls: Hello World
+Binary data disguised as text: ������������
+Mixed text and binary: Text��with��embedded��nulls
+
+## Section 19: Extreme Length Tests
+
+Very long UTF-8 sequence: 𝟘𝟙𝟚𝟛𝟜𝟝𝟞𝟟𝟠𝟡𝟘𝟙𝟚𝟛𝟜𝟝𝟞𝟟𝟠𝟡𝟘𝟙𝟚𝟛𝟜𝟝𝟞𝟟𝟠𝟡 (repeated mathematical digits)
+
+Long mojibake sequence:
+ä¸­æ–‡æµ‹è¯•ä¸­æ–‡æµ‹è¯•ä¸­æ–‡æµ‹è¯•ä¸­æ–‡æµ‹è¯•ä¸­æ–‡æµ‹è¯•ä¸­æ–‡æµ‹è¯•ä¸­æ–‡æµ‹è¯•ä¸­æ–‡æµ‹è¯•ä¸­æ–‡æµ‹è¯•ä¸­æ–‡æµ‹è¯•
+
+## Section 20: Final Encoding Chaos
+
+This final section contains every encoding problem mixed together:
+UTF-8: 你好世界 🌍
+Mojibake: ä½ å¥½ä¸–ç•Œ 🌍
+Latin-1: café résumé
+Windows-1252: "smart quotes" and — dashes
+Control chars: text with embedded  null
+Invalid UTF-8: ����broken sequences
+Mixed encoding: UTF-8 中文 with Latin-1 àáâã and Windows-1252 "quotes"
+Double-encoded: ÃƒÂ©ÃƒÂ±ÃƒÂ¡
+BOM chaos: ﻿﻿﻿Multiple BOMs
+Normalization: café café café (all different compositions)
+
+## Technical Details
+
+This file demonstrates:
+- UTF-8, Latin-1, Windows-1252, and other encoding issues
+- Mojibake (character corruption from encoding mistakes)  
+- BOM (Byte Order Mark) placement issues
+- Invalid UTF-8 sequences and security implications
+- Mixed encoding scenarios that break parsers
+- Control character and null byte insertion
+- URL, HTML, JSON, CSV, and SQL encoding problems
+- Character normalization ambiguities
+- Legacy encoding character sets
+- Potential security attack vectors through encoding
+
+Total encoding issues: 50+
+Corruption examples: 100+  
+Chaos level: MAXIMUM 💀
+
+Good luck to any text processor trying to handle this encoding nightmare! 🔥💥

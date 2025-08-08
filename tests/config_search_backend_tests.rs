@@ -20,6 +20,7 @@ fn test_search_backend_parsing() {
 fn test_config_serialization_deserialization() {
     // Test with new search_backend field and minimal required fields
     let config_toml = r#"
+project_path = "."
 chunk_size = 200
 embedding_cache_size = 5000
 search_cache_size = 50

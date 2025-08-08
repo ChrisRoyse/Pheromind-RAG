@@ -627,10 +627,13 @@ mod tests {
     fn test_metrics_collector() {
         let collector = MetricsCollector::new();
         
+        // Initialize cache metrics first
+        collector.update_cache_size("test_cache", 10, 100).expect("Should be able to initialize cache");
+        
         collector.record_search(Duration::from_millis(100), 5, true);
         #[cfg(feature = "ml")]
         collector.record_embedding(Duration::from_millis(50), false);
-        collector.record_cache_hit("test_cache");
+        collector.record_cache_hit("test_cache").expect("Should be able to record cache hit");
         
         let search_metrics = collector.get_search_metrics()
             .expect("Should be able to get search metrics");
