@@ -24,7 +24,7 @@ tests/
 ├── search_accuracy_test.rs         # Search accuracy metrics
 ├── symbol_indexing_tests.rs        # Symbol extraction
 ├── test-better-sqlite.js           # JavaScript SQLite tests
-├── test-claude-flow-memory.js      # Claude Flow memory tests
+
 └── tree_sitter_feature_tests.rs    # Tree-sitter features
 ```
 

@@ -102,7 +102,7 @@ tests/
 ├── search_accuracy_test.rs
 ├── symbol_indexing_tests.rs
 ├── test-better-sqlite.js
-├── test-claude-flow-memory.js
+
 └── tree_sitter_feature_tests.rs
 ```
 

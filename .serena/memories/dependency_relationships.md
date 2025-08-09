@@ -108,13 +108,7 @@ tree-sitter-bash = "0.23"         # Bash parser
 
 ## Node.js Dependencies (package.json)
 ```json
-{
-  "dependencies": {
-    "better-sqlite3": "^11.6.0",
-    "claude-flow": "alpha",
-    "sqlite3": "^5.1.7"
-  }
-}
+{}
 ```
 
 ## Module Dependencies Within Project
