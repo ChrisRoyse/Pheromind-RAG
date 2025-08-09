@@ -263,6 +263,13 @@ impl JsonRpcResponse {
             }),
         }
     }
+
+    /// Convert response to JSON string
+    pub fn to_json(&self) -> McpResult<String> {
+        serde_json::to_string(self).map_err(|e| McpError::InternalError {
+            message: format!("Failed to serialize response to JSON: {}", e),
+        })
+    }
 }
 
 /// Protocol handler for parsing and validating JSON-RPC messages

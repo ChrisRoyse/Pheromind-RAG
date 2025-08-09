@@ -159,12 +159,12 @@ impl SymbolEnhancedSearcher {
             target_index: start_idx, // Use line number as pseudo-index
         };
         
-        Ok(SearchResult {
-            file: symbol.file_path.clone(),
-            three_chunk_context: context,
-            score: 2.0, // Symbol matches get highest score
-            match_type: MatchType::Exact, // Treat as exact match
-        })
+        Ok(SearchResult::new(
+            symbol.file_path.clone(),
+            context,
+            2.0, // Symbol matches get highest score
+            MatchType::Exact, // Treat as exact match
+        ))
     }
     
     /// Index a file's symbols

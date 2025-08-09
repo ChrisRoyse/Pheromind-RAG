@@ -382,7 +382,7 @@ impl UnifiedSearcher {
     }
     
     #[cfg(feature = "tree-sitter")]
-    async fn search_symbols(&self, query: &str) -> Result<Vec<Symbol>> {
+    pub async fn search_symbols(&self, query: &str) -> Result<Vec<Symbol>> {
         // Search in symbol database
         let db = self.symbol_db.read().await;
         
@@ -462,12 +462,12 @@ impl UnifiedSearcher {
         // Expand to 3-chunk context
         let three_chunk = ThreeChunkExpander::expand(&chunks, chunk_idx)?;
         
-        Ok(SearchResult {
-            file: fused_match.file_path,
-            three_chunk_context: three_chunk,
-            score: fused_match.score,
-            match_type: fused_match.match_type,
-        })
+        Ok(SearchResult::new(
+            fused_match.file_path,
+            three_chunk,
+            fused_match.score,
+            fused_match.match_type,
+        ))
     }
     
     fn find_chunk_for_line(&self, chunks: &[Chunk], line_number: usize) -> Result<usize> {

@@ -71,7 +71,7 @@ fn validate_memory_monitoring() {
     let mut sys = System::new_all();
     sys.refresh_all();
     
-    let initial_memory = if let Some(process) = sys.process(std::process::id().into()) {
+    let initial_memory = if let Some(process) = sys.process((std::process::id() as usize).into()) {
         process.memory() / 1024 / 1024 // MB
     } else {
         panic!("VALIDATION FAILURE: Cannot get process memory for monitoring");
@@ -81,7 +81,7 @@ fn validate_memory_monitoring() {
     let _large_vec: Vec<u8> = vec![0; 10_000_000]; // 10MB
     
     sys.refresh_all();
-    let after_memory = if let Some(process) = sys.process(std::process::id().into()) {
+    let after_memory = if let Some(process) = sys.process((std::process::id() as usize).into()) {
         process.memory() / 1024 / 1024
     } else {
         panic!("VALIDATION FAILURE: Cannot get process memory after allocation");

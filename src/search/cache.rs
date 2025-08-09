@@ -14,6 +14,37 @@ pub struct SearchResult {
     pub three_chunk_context: ChunkContext,
     pub score: f32,
     pub match_type: MatchType,
+    // Backward compatibility fields for tests
+    #[serde(skip)]
+    pub file_path: String,
+    #[serde(skip)]
+    pub content: String,
+}
+
+impl SearchResult {
+    /// Create a new SearchResult with backward compatibility fields populated
+    pub fn new(file: String, three_chunk_context: ChunkContext, score: f32, match_type: MatchType) -> Self {
+        let file_path = file.clone();
+        let content = three_chunk_context.target.content.clone();
+        
+        Self {
+            file,
+            three_chunk_context,
+            score,
+            match_type,
+            file_path,
+            content,
+        }
+    }
+    
+    // Backward compatibility methods for tests
+    pub fn file_path(&self) -> &str {
+        &self.file
+    }
+    
+    pub fn content(&self) -> &str {
+        &self.three_chunk_context.target.content
+    }
 }
 
 struct CacheEntry {
@@ -160,9 +191,9 @@ mod tests {
     use crate::chunking::{Chunk, ChunkContext};
     
     fn create_test_result() -> SearchResult {
-        SearchResult {
-            file: "test.rs".to_string(),
-            three_chunk_context: ChunkContext {
+        SearchResult::new(
+            "test.rs".to_string(),
+            ChunkContext {
                 above: None,
                 target: Chunk {
                     content: "test content".to_string(),
@@ -172,9 +203,9 @@ mod tests {
                 below: None,
                 target_index: 0,
             },
-            score: 1.0,
-            match_type: crate::search::fusion::MatchType::Exact,
-        }
+            1.0,
+            crate::search::fusion::MatchType::Exact,
+        )
     }
     
     #[test]
