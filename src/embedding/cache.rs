@@ -6,8 +6,7 @@ use lru::LruCache;
 use sha2::{Sha256, Digest};
 use serde::{Serialize, Deserialize};
 use anyhow::Result;
-#[cfg(feature = "ml")]
-use crate::config::Config;
+// ML config imports removed
 
 /// Cache entry containing embedding vector and metadata
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -22,15 +21,14 @@ pub struct EmbeddingCache {
     cache: Arc<Mutex<LruCache<String, CacheEntry>>>,
     max_size: usize,
     cache_dir: Option<std::path::PathBuf>,
+    hits: Arc<Mutex<u64>>,
+    misses: Arc<Mutex<u64>>,
 }
 
 impl EmbeddingCache {
-    /// Create a new embedding cache using configuration values
-    /// Returns an error if configuration is not properly initialized
-    #[cfg(feature = "ml")]
+    /// Create a new embedding cache with default configuration
     pub fn from_config() -> Result<Self, crate::error::EmbedError> {
-        let config = Config::get()?;
-        Self::new_with_persistence(config.embedding_cache_size, &config.cache_dir)
+        Self::new(1000) // Default to 1000 entries
     }
 
     /// Create a new embedding cache with specified maximum size
@@ -45,6 +43,8 @@ impl EmbeddingCache {
             cache: Arc::new(Mutex::new(LruCache::new(capacity))),
             max_size,
             cache_dir: None,
+            hits: Arc::new(Mutex::new(0)),
+            misses: Arc::new(Mutex::new(0)),
         })
     }
 
@@ -62,6 +62,8 @@ impl EmbeddingCache {
             cache: Arc::new(Mutex::new(LruCache::new(capacity))),
             max_size,
             cache_dir: Some(cache_dir),
+            hits: Arc::new(Mutex::new(0)),
+            misses: Arc::new(Mutex::new(0)),
         };
         
         // Load existing cache if it exists - corruption or read failures are fatal
@@ -100,8 +102,16 @@ impl EmbeddingCache {
         })?;
         
         if let Some(entry) = cache.get(&hash) {
+            // Increment hits counter
+            if let Ok(mut hits) = self.hits.lock() {
+                *hits += 1;
+            }
             Ok(Some(entry.embedding.clone()))
         } else {
+            // Increment misses counter
+            if let Ok(mut misses) = self.misses.lock() {
+                *misses += 1;
+            }
             Ok(None)
         }
     }
@@ -176,6 +186,29 @@ impl EmbeddingCache {
     /// Check if cache is empty
     pub fn is_empty(&self) -> Result<bool, crate::error::EmbedError> {
         Ok(self.len()? == 0)
+    }
+
+    /// Get cache capacity
+    pub fn capacity(&self) -> usize {
+        self.max_size
+    }
+
+    /// Get hit rate
+    pub fn hit_rate(&self) -> f64 {
+        let hits = self.hits.lock().map(|h| *h).unwrap_or(0);
+        let misses = self.misses.lock().map(|m| *m).unwrap_or(0);
+        let total = hits + misses;
+        if total == 0 { 0.0 } else { hits as f64 / total as f64 }
+    }
+
+    /// Get hits count
+    pub fn hits(&self) -> u64 {
+        self.hits.lock().map(|h| *h).unwrap_or(0)
+    }
+
+    /// Get misses count
+    pub fn misses(&self) -> u64 {
+        self.misses.lock().map(|m| *m).unwrap_or(0)
     }
 
     /// Save cache to disk (if persistence is enabled)

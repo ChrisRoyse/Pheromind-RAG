@@ -16,6 +16,10 @@ pub mod clear;
 pub mod orchestrated_search;
 pub mod watcher;
 
+
+// Minimal hash-based embedding tool (always available)
+pub mod minimal_embedding;
+
 /// Tool registry for MCP server
 /// Provides centralized access to all tool implementations
 pub struct ToolRegistry {

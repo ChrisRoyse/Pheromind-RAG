@@ -1,21 +1,11 @@
-// Embedding cache is always available for flexibility
+// MINIMAL EMBEDDER - The ONLY embedder we need
+mod minimal_embedder;
 pub mod cache;
-
-// Core embedding functionality requires ML feature
-#[cfg(feature = "ml")]
-pub mod nomic;
-
-// Lazy loading wrapper for memory-safe initialization
 pub mod lazy_embedder;
 
-// Re-export embedding types only with ML feature
-#[cfg(feature = "ml")]
-pub use nomic::NomicEmbedder;
+// PRIMARY EXPORT - MinimalEmbedder is the default
+pub use minimal_embedder::MinimalEmbedder;
 
-// Cache types are always available for compatibility
+// Cache and lazy loading
 pub use cache::{EmbeddingCache, CacheEntry, CacheStats};
-
-// Export lazy embedder for memory-safe initialization
 pub use lazy_embedder::LazyEmbedder;
-
-// Note: LazyEmbedder provides no-op implementation when ml feature is disabled

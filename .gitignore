@@ -60,6 +60,7 @@ coordination/orchestration/*
 src/embedding/nomic-ai_nomic-embed-code-Q4_K_M.gguf
 
 
+
 # Claude Flow generated files
 .claude/settings.local.json
 .mcp.json

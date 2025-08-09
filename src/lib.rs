@@ -21,16 +21,8 @@ pub mod cache {
     pub mod bounded_cache;
 }
 
-// Embedding system - requires ML feature for full functionality
-#[cfg(feature = "ml")]
+// Embedding system - Always available now with MinimalEmbedder
 pub mod embedding;
-
-// Provide embedding cache even without ML feature
-#[cfg(not(feature = "ml"))]
-pub mod embedding {
-    pub mod cache;
-    pub use cache::{EmbeddingCache, CacheEntry, CacheStats};
-}
 
 // Search system (to be optimized in Phase 3)
 pub mod search;

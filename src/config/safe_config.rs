@@ -93,7 +93,7 @@ impl Config {
                 cache_size: 10000,
             },
             embedding: EmbeddingConfig {
-                model_path: PathBuf::from("./test_models/nomic-embed-text-v1.5.gguf"),
+                model_path: PathBuf::from("./model/nomic-embed-code.Q4_K_M.gguf"),
                 model_type: "nomic".to_string(),
                 dimension: 768,
                 batch_size: 32,

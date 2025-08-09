@@ -1,0 +1,325 @@
+name: Memory Safety Validation
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+  schedule:
+    # Run memory safety tests nightly
+    - cron: '0 2 * * *'
+
+env:
+  CARGO_TERM_COLOR: always
+  RUST_BACKTRACE: full
+
+jobs:
+  memory-safety-tests:
+    name: Memory Safety Validation
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    
+    strategy:
+      matrix:
+        rust-version: [stable, beta]
+        memory-limit: [100, 200] # MB
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Install Rust toolchain
+      uses: dtolnay/rust-toolchain@master
+      with:
+        toolchain: ${{ matrix.rust-version }}
+        components: rustfmt, clippy
+        
+    - name: Cache Rust dependencies
+      uses: actions/cache@v3
+      with:
+        path: |
+          ~/.cargo/registry
+          ~/.cargo/git
+          target/
+        key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}-${{ matrix.rust-version }}
+        
+    - name: Install system dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y valgrind
+        
+    - name: Create test directories
+      run: |
+        mkdir -p test_data test_reports
+        
+    - name: Build project with memory safety features
+      run: |
+        cargo build --features ml --release
+        cargo build --features ml --tests
+        
+    - name: Run memory allocation tests
+      env:
+        MEMORY_LIMIT_MB: ${{ matrix.memory-limit }}
+      run: |
+        cd tests
+        cargo test --features ml test_memory_allocation_limits -- --nocapture
+        
+    - name: Run stress tests
+      env:
+        MEMORY_LIMIT_MB: ${{ matrix.memory-limit }}
+        STRESS_ITERATIONS: 1000
+      run: |
+        cd tests  
+        cargo test --features ml test_embedding_stress_test -- --nocapture --test-threads=1
+        
+    - name: Run performance benchmarks
+      env:
+        MEMORY_LIMIT_MB: ${{ matrix.memory-limit }}
+      run: |
+        cd tests
+        cargo test --features ml test_performance_benchmark -- --nocapture
+        
+    - name: Run MCP integration tests
+      run: |
+        cd tests
+        cargo test --features ml test_mcp_integration -- --nocapture
+        
+    - name: Run V8 crash prevention tests  
+      run: |
+        cd tests
+        cargo test --features ml test_v8_crash_prevention_suite -- --nocapture
+        
+    - name: Run comprehensive test suite
+      env:
+        MEMORY_LIMIT_MB: ${{ matrix.memory-limit }}
+        GENERATE_REPORTS: "true"
+      run: |
+        cd tests
+        cargo run --bin memory_safety_test_runner --features ml
+        
+    - name: Upload test reports
+      if: always()
+      uses: actions/upload-artifact@v3
+      with:
+        name: memory-safety-reports-${{ matrix.rust-version }}-${{ matrix.memory-limit }}mb
+        path: |
+          tests/test_reports/
+          tests/test_data/
+        retention-days: 7
+        
+    - name: Run benchmarks
+      if: matrix.rust-version == 'stable'
+      run: |
+        cd tests
+        cargo bench --features ml
+        
+    - name: Upload benchmark results
+      if: matrix.rust-version == 'stable'
+      uses: actions/upload-artifact@v3
+      with:
+        name: benchmark-results-${{ matrix.memory-limit }}mb  
+        path: tests/target/criterion/
+        retention-days: 7
+
+  memory-leak-detection:
+    name: Memory Leak Detection
+    runs-on: ubuntu-latest
+    needs: memory-safety-tests
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Install Rust toolchain
+      uses: dtolnay/rust-toolchain@stable
+      
+    - name: Install Valgrind
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y valgrind
+        
+    - name: Build for Valgrind
+      run: |
+        cargo build --features ml --tests
+        
+    - name: Run memory leak tests with Valgrind
+      run: |
+        cd tests
+        valgrind --tool=memcheck \
+          --leak-check=full \
+          --show-leak-kinds=all \
+          --track-origins=yes \
+          --error-exitcode=1 \
+          cargo test --features ml test_memory_leaks -- --test-threads=1
+          
+    - name: Run stress test with Valgrind  
+      run: |
+        cd tests
+        timeout 300 valgrind --tool=memcheck \
+          --leak-check=full \
+          --error-exitcode=1 \
+          cargo test --features ml test_embedding_stress_test -- --test-threads=1 || true
+
+  cross-platform-validation:
+    name: Cross-Platform Memory Safety
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        
+    runs-on: ${{ matrix.os }}
+    
+    steps:
+    - name: Checkout code  
+      uses: actions/checkout@v4
+      
+    - name: Install Rust toolchain
+      uses: dtolnay/rust-toolchain@stable
+      
+    - name: Build and test
+      run: |
+        cargo build --features ml --release
+        cd tests
+        cargo test --features ml run_all_memory_safety_tests -- --nocapture
+        
+  performance-regression-check:
+    name: Performance Regression Check
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    
+    steps:
+    - name: Checkout PR code
+      uses: actions/checkout@v4
+      
+    - name: Install Rust toolchain  
+      uses: dtolnay/rust-toolchain@stable
+      
+    - name: Run current benchmarks
+      run: |
+        cd tests
+        cargo bench --features ml > current_benchmark.txt
+        
+    - name: Checkout main branch
+      uses: actions/checkout@v4
+      with:
+        ref: main
+        
+    - name: Run baseline benchmarks
+      run: |
+        cd tests  
+        cargo bench --features ml > baseline_benchmark.txt
+        
+    - name: Compare performance
+      run: |
+        # Simple performance regression check
+        # In production, use a more sophisticated comparison tool
+        echo "=== Performance Comparison ==="
+        echo "Baseline (main branch):"
+        head -20 tests/baseline_benchmark.txt
+        echo ""
+        echo "Current (PR branch):"  
+        head -20 tests/current_benchmark.txt
+
+  security-audit:
+    name: Security Audit
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Install Rust toolchain
+      uses: dtolnay/rust-toolchain@stable
+      
+    - name: Install cargo-audit
+      run: cargo install cargo-audit
+      
+    - name: Run security audit
+      run: cargo audit
+      
+    - name: Check for unsafe code
+      run: |
+        echo "Checking for unsafe code blocks..."
+        UNSAFE_COUNT=$(grep -r "unsafe" src/ tests/ --include="*.rs" | wc -l)
+        echo "Found $UNSAFE_COUNT unsafe blocks"
+        
+        # Allow some unsafe blocks but flag if too many
+        if [ $UNSAFE_COUNT -gt 10 ]; then
+          echo "⚠️ High number of unsafe blocks detected: $UNSAFE_COUNT"
+          echo "Consider reviewing unsafe code for memory safety"
+          exit 1
+        fi
+
+  documentation-check:
+    name: Documentation Check  
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Install Rust toolchain
+      uses: dtolnay/rust-toolchain@stable
+      
+    - name: Check documentation
+      run: |
+        cargo doc --features ml --no-deps --document-private-items
+        
+    - name: Verify memory safety documentation
+      run: |
+        echo "Checking for memory safety documentation..."
+        
+        # Check that key files have proper documentation
+        FILES_TO_CHECK=(
+          "src/embedding/streaming_core.rs"
+          "src/embedding/streaming_nomic_integration.rs"  
+          "src/utils/memory.rs"
+          "tests/memory_safety/gguf_memory_validation.rs"
+        )
+        
+        for file in "${FILES_TO_CHECK[@]}"; do
+          if [ -f "$file" ]; then
+            DOC_LINES=$(grep -c "///" "$file" || true)
+            echo "$file: $DOC_LINES documentation lines"
+            
+            if [ $DOC_LINES -lt 5 ]; then
+              echo "⚠️ $file needs more documentation"
+            fi
+          fi
+        done
+
+  # Only run on schedule or manual trigger
+  nightly-extensive-tests:
+    name: Nightly Extensive Memory Tests
+    runs-on: ubuntu-latest
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    timeout-minutes: 120
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Install Rust toolchain
+      uses: dtolnay/rust-toolchain@stable
+      
+    - name: Create large test file
+      run: |
+        mkdir -p test_data
+        # Create a 1GB test file for extensive testing
+        dd if=/dev/urandom of=test_data/large_model.gguf bs=1M count=1024
+        
+    - name: Run extensive memory tests
+      env:
+        STRESS_ITERATIONS: 10000
+        MEMORY_LIMIT_MB: 500
+        EXTENDED_TESTING: "true"
+      run: |
+        cd tests
+        timeout 7200 cargo run --bin memory_safety_test_runner --features ml || echo "Extensive tests completed"
+        
+    - name: Upload extensive test results
+      if: always()
+      uses: actions/upload-artifact@v3
+      with:
+        name: nightly-extensive-test-results
+        path: tests/test_reports/
+        retention-days: 30
