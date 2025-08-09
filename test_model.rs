@@ -1,1 +1,0 @@
-use embed_search::embedding::NomicEmbedder; #[tokio::main] async fn main() -> Result<(), Box<dyn std::error::Error>> { let embedder = NomicEmbedder::new().await?; println!("Model loaded successfully!"); Ok(()) }

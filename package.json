@@ -1,7 +1,6 @@
 {
   "dependencies": {
-    "better-sqlite3": "^11.10.0",
-    "claude-flow": "^2.0.0-alpha.88",
+    "better-sqlite3": "^12.2.0",
     "sqlite3": "^5.1.7"
   }
 }

@@ -344,7 +344,7 @@ impl LanceDBStorage {
             }
         }
         
-        let table = self.connection.open_table(&self.table_name).execute().await
+        let _table = self.connection.open_table(&self.table_name).execute().await
             .map_err(|e| LanceStorageError::DatabaseError(format!("Failed to open table: {}", e)))?;
 
         // Check if we have enough data to create an index
@@ -432,7 +432,7 @@ impl LanceDBStorage {
     
     /// Validate data integrity of all stored embeddings
     pub async fn validate_data_integrity(&self) -> Result<(), LanceStorageError> {
-        let table = self.connection.open_table(&self.table_name).execute().await
+        let _table = self.connection.open_table(&self.table_name).execute().await
             .map_err(|e| LanceStorageError::DatabaseError(format!("Failed to open table for integrity check: {}", e)))?;
         
         let count = table.count_rows(None).await
@@ -604,7 +604,7 @@ impl LanceDBStorage {
     pub async fn recover_from_corruption(&self) -> Result<usize, LanceStorageError> {
         info!("🔧 Starting corruption recovery process");
         
-        let table = self.connection.open_table(&self.table_name).execute().await
+        let _table = self.connection.open_table(&self.table_name).execute().await
             .map_err(|e| LanceStorageError::DatabaseError(format!("Failed to open table for recovery: {}", e)))?;
         
         // This is a simplified recovery - in production, you'd want more sophisticated recovery
@@ -744,7 +744,7 @@ impl LanceDBStorage {
         ).map_err(|e| LanceStorageError::InsertError(format!("RecordBatch creation failed: {}", e)))?;
         
         // Get table and insert
-        let table = self.connection.open_table(&self.table_name).execute().await
+        let _table = self.connection.open_table(&self.table_name).execute().await
             .map_err(|e| LanceStorageError::InsertError(format!("Failed to open table: {}", e)))?;
         
         let start = Instant::now();
@@ -780,7 +780,7 @@ impl LanceDBStorage {
         let start = Instant::now();
         
         // Get table
-        let table = self.connection.open_table(&self.table_name).execute().await
+        let _table = self.connection.open_table(&self.table_name).execute().await
             .map_err(|e| LanceStorageError::SearchError(format!("Failed to open table: {}", e)))?;
         
         // Build search query with pagination and filtering
@@ -906,7 +906,7 @@ impl LanceDBStorage {
     
     /// Count total records in the table
     pub async fn count(&self) -> Result<usize, LanceStorageError> {
-        let table = self.connection.open_table(&self.table_name).execute().await
+        let _table = self.connection.open_table(&self.table_name).execute().await
             .map_err(|e| LanceStorageError::DatabaseError(format!("Failed to open table: {}", e)))?;
         
         let count = table.count_rows(None).await
@@ -929,7 +929,7 @@ impl LanceDBStorage {
     
     /// Delete records by file path
     pub async fn delete_by_file(&self, file_path: &str) -> Result<(), LanceStorageError> {
-        let table = self.connection.open_table(&self.table_name).execute().await
+        let _table = self.connection.open_table(&self.table_name).execute().await
             .map_err(|e| LanceStorageError::DatabaseError(format!("Failed to open table: {}", e)))?;
         
         let predicate = format!("file_path = '{}'", file_path);
