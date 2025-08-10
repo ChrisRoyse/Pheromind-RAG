@@ -61,8 +61,14 @@ tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 tempfile = "3.8"
 
 [features]
-default = []
+default = ["vectordb", "tree-sitter"]
+vectordb = []
+tree-sitter = []
 
 [[bin]]
 name = "embed-search"
 path = "src/main.rs"
+
+[[bin]]
+name = "embed-search-mcp"
+path = "src/bin/mcp_server.rs"

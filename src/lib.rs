@@ -16,6 +16,7 @@ pub mod embedding_cache;
 pub mod simple_embedder;
 pub mod simple_storage;
 pub mod simple_search;
+pub mod advanced_search;
 
 // Re-export key types
 pub use error::{SearchError, Result};
@@ -29,3 +30,4 @@ pub use symbol_extractor::{SymbolExtractor, Symbol, SymbolKind};
 
 // Main hybrid search interface
 pub use simple_search::HybridSearch;
+pub use advanced_search::{AdvancedHybridSearch, AdvancedSearchResult};

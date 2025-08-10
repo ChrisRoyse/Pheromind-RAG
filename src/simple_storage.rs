@@ -117,10 +117,19 @@ impl VectorStorage {
                         .and_then(|arr| arr.value(row_idx).parse().ok())
                         .unwrap_or_default();
 
+                    // Extract distance/score from LanceDB result
+                    let distance = batch.column_by_name("_distance")
+                        .and_then(|col| col.as_any().downcast_ref::<Float32Array>())
+                        .and_then(|arr| arr.value(row_idx).into())
+                        .unwrap_or(1.0);
+                    
+                    // Convert distance to similarity score (lower distance = higher similarity)
+                    let score = 1.0 / (1.0 + distance);
+                    
                     search_results.push(SearchResult {
                         content,
                         file_path,
-                        score: 0.0, // LanceDB provides distance, convert if needed
+                        score,
                     });
                 }
             }

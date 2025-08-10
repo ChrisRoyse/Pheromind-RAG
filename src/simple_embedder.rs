@@ -21,17 +21,17 @@ impl NomicEmbedder {
         Ok(embeddings)
     }
 
-    /// Single document embedding with correct Nomic prefix
+    /// Single document embedding with correct Nomic v1.5 prefix
     pub fn embed(&mut self, text: &str) -> Result<Vec<f32>> {
-        // Using correct prefix for documents
-        let embeddings = self.embed_batch(vec![format!("search_document: {}", text)])?;
+        // Using correct Nomic v1.5 prefix for passages/documents
+        let embeddings = self.embed_batch(vec![format!("passage: {}", text)])?;
         Ok(embeddings.into_iter().next().unwrap_or_default())
     }
 
-    /// Query embedding with correct Nomic prefix
+    /// Query embedding with correct Nomic v1.5 prefix
     pub fn embed_query(&mut self, query: &str) -> Result<Vec<f32>> {
-        // Using correct prefix for queries
-        let embeddings = self.embed_batch(vec![format!("search_query: {}", query)])?;
+        // Using correct Nomic v1.5 prefix for queries
+        let embeddings = self.embed_batch(vec![format!("query: {}", query)])?;
         Ok(embeddings.into_iter().next().unwrap_or_default())
     }
 }

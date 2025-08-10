@@ -41,7 +41,14 @@ impl HybridSearch {
         let path_field = schema_builder.add_text_field("path", TEXT | STORED);
         let schema = schema_builder.build();
         
-        let text_index = Index::create_in_ram(schema);
+        // Open existing index or create new persistent disk-based index
+        let index_path = format!("{}/tantivy_index", db_path);
+        std::fs::create_dir_all(&index_path)?;
+        let text_index = if std::path::Path::new(&format!("{}/meta.json", index_path)).exists() {
+            Index::open_in_dir(&index_path)?
+        } else {
+            Index::create_in_dir(&index_path, schema)?
+        };
         let text_writer = text_index.writer(50_000_000)?; // 50MB heap
         
         // Initialize embedder
