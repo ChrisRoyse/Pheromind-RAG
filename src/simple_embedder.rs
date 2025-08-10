@@ -2,9 +2,13 @@ use anyhow::Result;
 use fastembed::TextEmbedding;
 
 /// Real Nomic Embed v1 integration using correct fastembed API
+/// Produces 768-dimensional embeddings with proper prefixes
 pub struct NomicEmbedder {
     model: TextEmbedding,
 }
+
+/// The embedding dimension for Nomic v1 model
+pub const EMBEDDING_DIM: usize = 768;
 
 impl NomicEmbedder {
     pub fn new() -> Result<Self> {

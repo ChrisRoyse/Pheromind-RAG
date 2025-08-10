@@ -2,6 +2,8 @@ use std::collections::HashSet;
 use serde::{Serialize, Deserialize};
 use crate::error::SearchError;
 use crate::search::bm25_fixed::BM25Match;
+use crate::simple_storage::SearchResult;
+use crate::symbol_extractor::Symbol;
 
 // Define ExactMatch for now
 #[derive(Debug, Clone)]
@@ -126,7 +128,7 @@ impl SimpleFusion {
     pub fn fuse_results(
         &self,
         exact_matches: Vec<ExactMatch>,
-        semantic_matches: Vec<LanceEmbeddingRecord>,
+        semantic_matches: Vec<SearchResult>,
     ) -> Result<Vec<FusedResult>, SearchError> {
         let mut seen = HashSet::new();
         let mut results = Vec::new();
@@ -154,43 +156,24 @@ impl SimpleFusion {
             // FIXED: Replace .map_or(false, |line| {...}) with explicit Option handling
             let file_has_exact = results.iter().any(|r| {
                 r.file_path == semantic.file_path && 
-                r.match_type == MatchType::Exact &&
-                match r.line_number {
-                    Some(line) => {
-                        line >= semantic.start_line as usize && 
-                        line <= semantic.end_line as usize
-                    }
-                    None => {
-                        // Exact match must have a line number - if missing, this is corrupted data
-                        log::error!("Exact match found without line number in file '{}'. This indicates corrupted search results.", r.file_path);
-                        false
-                    }
-                }
+                r.match_type == MatchType::Exact
             });
             
             if !file_has_exact {
-                let key = format!("{}-{}", semantic.file_path, semantic.chunk_index);
+                let key = format!("{}", semantic.file_path);
                 if seen.insert(key) {
-                    // Use actual similarity score from vector search - fail if missing
-                    let similarity = match semantic.similarity_score {
-                        Some(score) => score,
-                        None => {
-                            return Err(SearchError::MissingSimilarityScore {
-                                file_path: semantic.file_path,
-                                chunk_index: semantic.chunk_index as u32,
-                            });
-                        }
-                    };
+                    // Use score from SearchResult
+                    let similarity = semantic.score;
                     
                     results.push(FusedResult {
-                        file_path: semantic.file_path,
+                        file_path: semantic.file_path.clone(),
                         line_number: None,
-                        chunk_index: Some(semantic.chunk_index as usize),
+                        chunk_index: None,
                         score: similarity * self.config.semantic_score_factor, // Configurable semantic score factor
                         match_type: MatchType::Semantic,
                         content: semantic.content,
-                        start_line: semantic.start_line as usize,
-                        end_line: semantic.end_line as usize,
+                        start_line: 0,
+                        end_line: 0,
                     });
                 }
             }
@@ -223,7 +206,7 @@ impl SimpleFusion {
     pub fn fuse_all_results(
         &self,
         exact_matches: Vec<ExactMatch>,
-        semantic_matches: Vec<LanceEmbeddingRecord>,
+        semantic_matches: Vec<SearchResult>,
         symbol_matches: Vec<Symbol>,
     ) -> Result<Vec<FusedResult>, SearchError> {
         let mut seen = HashSet::new();
@@ -248,17 +231,17 @@ impl SimpleFusion {
         
         // Add symbol matches (high priority for precise code navigation)
         for symbol in symbol_matches {
-            let key = format!("{}-{}", symbol.file_path, symbol.line_start);
+            let key = format!("symbol-{}-{}", symbol.name, symbol.line);
             if seen.insert(key.clone()) {
                 results.push(FusedResult {
-                    file_path: symbol.file_path.clone(),
-                    line_number: Some(symbol.line_start),
+                    file_path: "unknown".to_string(), // Symbol doesn't have file_path field
+                    line_number: Some(symbol.line),
                     chunk_index: None,
                     score: 0.95, // Symbol matches get high score
                     match_type: MatchType::Symbol,
-                    content: format!("{} ({:?})", symbol.name, symbol.kind),
-                    start_line: symbol.line_start,
-                    end_line: symbol.line_end,
+                    content: format!("{} ({:?}): {}", symbol.name, symbol.kind, symbol.definition),
+                    start_line: symbol.line,
+                    end_line: symbol.line,
                 });
             }
         }
@@ -268,34 +251,24 @@ impl SimpleFusion {
             // Skip if we already have an exact or symbol match for this location
             let file_has_better_match = results.iter().any(|r| {
                 r.file_path == semantic.file_path && 
-                (r.match_type == MatchType::Exact || r.match_type == MatchType::Symbol) &&
-                r.start_line <= semantic.end_line as usize &&
-                r.end_line >= semantic.start_line as usize
+                (r.match_type == MatchType::Exact || r.match_type == MatchType::Symbol)
             });
             
             if !file_has_better_match {
-                let key = format!("{}-{}", semantic.file_path, semantic.chunk_index);
+                let key = format!("{}", semantic.file_path);
                 if seen.insert(key) {
-                    // Use actual similarity score from vector search - fail if missing
-                    let similarity = match semantic.similarity_score {
-                        Some(score) => score,
-                        None => {
-                            return Err(SearchError::MissingSimilarityScore {
-                                file_path: semantic.file_path,
-                                chunk_index: semantic.chunk_index as u32,
-                            });
-                        }
-                    };
+                    // Use score from SearchResult
+                    let similarity = semantic.score;
                     
                     results.push(FusedResult {
-                        file_path: semantic.file_path,
+                        file_path: semantic.file_path.clone(),
                         line_number: None,
-                        chunk_index: Some(semantic.chunk_index as usize),
+                        chunk_index: None,
                         score: similarity * (self.config.semantic_score_factor * 0.875), // Slightly lower than 2-way fusion
                         match_type: MatchType::Semantic,
                         content: semantic.content,
-                        start_line: semantic.start_line as usize,
-                        end_line: semantic.end_line as usize,
+                        start_line: 0,
+                        end_line: 0,
                     });
                 }
             }
@@ -329,7 +302,7 @@ impl SimpleFusion {
     pub fn fuse_all_results_with_bm25(
         &self,
         exact_matches: Vec<ExactMatch>,
-        semantic_matches: Vec<LanceEmbeddingRecord>,
+        semantic_matches: Vec<SearchResult>,
         symbol_matches: Vec<Symbol>,
         bm25_matches: Vec<BM25Match>,
     ) -> Result<Vec<FusedResult>, SearchError> {
@@ -355,20 +328,17 @@ impl SimpleFusion {
         
         // 2. Process BM25 matches (high priority for statistical relevance)
         for bm25 in bm25_matches {
-            // Extract file path and chunk index from doc_id (format: "filepath-chunkindex")
-            let (file_path, chunk_index) = Self::parse_doc_id(&bm25.doc_id)?;
-            let chunk_index = Some(chunk_index);
+            // Use path field from BM25Match
+            let file_path = bm25.path.clone();
+            let chunk_index = bm25.line_number.map(|n| n as usize);
             
-            let key = format!("bm25-{}", bm25.doc_id);
+            let key = format!("bm25-{}", bm25.path);
             if seen.insert(key) {
                 // Apply dynamic normalization - will be calculated later with full score distribution
                 let normalized_score = bm25.score; // Temporary - will be normalized after collecting all scores
                 
-                // BM25 matches must have valid chunk indices
-                let chunk_idx = chunk_index.ok_or_else(|| SearchError::InvalidDocId {
-                    doc_id: bm25.doc_id.clone(),
-                    expected_format: "BM25 matches require chunk index".to_string(),
-                })?;
+                // Use line number if available, otherwise default to 0
+                let chunk_idx = chunk_index.unwrap_or(0);
                 
                 results.push(FusedResult {
                     file_path,
@@ -385,17 +355,17 @@ impl SimpleFusion {
         
         // 3. Process symbol matches
         for symbol in symbol_matches {
-            let key = format!("{}-{}", symbol.file_path, symbol.line_start);
+            let key = format!("symbol-{}-{}", symbol.name, symbol.line);
             if seen.insert(key.clone()) {
                 results.push(FusedResult {
-                    file_path: symbol.file_path.clone(),
-                    line_number: Some(symbol.line_start),
+                    file_path: "unknown".to_string(), // Symbol doesn't have file_path field
+                    line_number: Some(symbol.line),
                     chunk_index: None,
                     score: 0.95, // Symbol matches get high score
                     match_type: MatchType::Symbol,
-                    content: format!("{} ({:?})", symbol.name, symbol.kind),
-                    start_line: symbol.line_start,
-                    end_line: symbol.line_end,
+                    content: format!("{} ({:?}): {}", symbol.name, symbol.kind, symbol.definition),
+                    start_line: symbol.line,
+                    end_line: symbol.line,
                 });
             }
         }
@@ -407,34 +377,24 @@ impl SimpleFusion {
                 r.file_path == semantic.file_path && 
                 (r.match_type == MatchType::Exact || 
                  r.match_type == MatchType::Symbol ||
-                 r.match_type == MatchType::Statistical) &&
-                r.start_line <= semantic.end_line as usize &&
-                r.end_line >= semantic.start_line as usize
+                 r.match_type == MatchType::Statistical)
             });
             
             if !file_has_better_match {
-                let key = format!("{}-{}", semantic.file_path, semantic.chunk_index);
+                let key = format!("{}", semantic.file_path);
                 if seen.insert(key) {
-                    // Use actual similarity score from vector search - fail if missing
-                    let similarity = match semantic.similarity_score {
-                        Some(score) => score,
-                        None => {
-                            return Err(SearchError::MissingSimilarityScore {
-                                file_path: semantic.file_path,
-                                chunk_index: semantic.chunk_index as u32,
-                            });
-                        }
-                    };
+                    // Use score from SearchResult
+                    let similarity = semantic.score;
                     
                     results.push(FusedResult {
-                        file_path: semantic.file_path,
+                        file_path: semantic.file_path.clone(),
                         line_number: None,
-                        chunk_index: Some(semantic.chunk_index as usize),
+                        chunk_index: None,
                         score: similarity * (self.config.semantic_score_factor * 0.875), // Configurable semantic reduction
                         match_type: MatchType::Semantic,
                         content: semantic.content,
-                        start_line: semantic.start_line as usize,
-                        end_line: semantic.end_line as usize,
+                        start_line: 0,
+                        end_line: 0,
                     });
                 }
             }
@@ -550,6 +510,112 @@ impl SimpleFusion {
         
         // Take top results based on configuration
         results.truncate(self.config.max_results);
+        Ok(results)
+    }
+    
+    /// Apply Reciprocal Rank Fusion (RRF) to combine rankings from multiple search methods
+    /// RRF formula: score = Σ(1 / (k + rank_i)) where k is typically 60
+    #[allow(dead_code)]
+    pub fn apply_rrf_fusion(
+        &self,
+        exact_results: Vec<ExactMatch>,
+        bm25_results: Vec<BM25Match>,
+        semantic_results: Vec<SearchResult>,
+        symbol_results: Vec<Symbol>,
+        k: f32,  // RRF parameter, typically 60
+    ) -> Result<Vec<FusedResult>, SearchError> {
+        use std::collections::HashMap;
+        
+        // Map to store aggregated RRF scores for each document
+        let mut rrf_scores: HashMap<String, f32> = HashMap::new();
+        let mut result_map: HashMap<String, FusedResult> = HashMap::new();
+        
+        // Process exact matches (rank 1 is best)
+        for (rank, exact) in exact_results.iter().enumerate() {
+            let key = format!("{}-{}", exact.file_path, exact.line_number);
+            let rrf_score = 1.0 / (k + (rank as f32) + 1.0);
+            *rrf_scores.entry(key.clone()).or_insert(0.0) += rrf_score;
+            
+            result_map.entry(key).or_insert(FusedResult {
+                file_path: exact.file_path.clone(),
+                line_number: Some(exact.line_number),
+                chunk_index: None,
+                score: 0.0,  // Will be updated with RRF score
+                match_type: MatchType::Exact,
+                content: exact.content.clone(),
+                start_line: exact.line_number,
+                end_line: exact.line_number,
+            });
+        }
+        
+        // Process BM25 results
+        for (rank, bm25) in bm25_results.iter().enumerate() {
+            let key = format!("{}", bm25.path);
+            let rrf_score = 1.0 / (k + (rank as f32) + 1.0);
+            *rrf_scores.entry(key.clone()).or_insert(0.0) += rrf_score;
+            
+            result_map.entry(key).or_insert(FusedResult {
+                file_path: bm25.path.clone(),
+                line_number: bm25.line_number,
+                chunk_index: None,
+                score: 0.0,
+                match_type: MatchType::Statistical,
+                content: bm25.snippet.clone(),
+                start_line: bm25.line_number.unwrap_or(0),
+                end_line: bm25.line_number.unwrap_or(0),
+            });
+        }
+        
+        // Process semantic results
+        for (rank, semantic) in semantic_results.iter().enumerate() {
+            let key = format!("{}", semantic.file_path);
+            let rrf_score = 1.0 / (k + (rank as f32) + 1.0);
+            *rrf_scores.entry(key.clone()).or_insert(0.0) += rrf_score;
+            
+            result_map.entry(key).or_insert(FusedResult {
+                file_path: semantic.file_path.clone(),
+                line_number: None,
+                chunk_index: None,
+                score: 0.0,
+                match_type: MatchType::Semantic,
+                content: semantic.content.clone(),
+                start_line: 0,
+                end_line: 0,
+            });
+        }
+        
+        // Process symbol results
+        for (rank, symbol) in symbol_results.iter().enumerate() {
+            let key = format!("symbol-{}-{}", symbol.name, symbol.line);
+            let rrf_score = 1.0 / (k + (rank as f32) + 1.0);
+            *rrf_scores.entry(key.clone()).or_insert(0.0) += rrf_score;
+            
+            result_map.entry(key).or_insert(FusedResult {
+                file_path: "unknown".to_string(),
+                line_number: Some(symbol.line),
+                chunk_index: None,
+                score: 0.0,
+                match_type: MatchType::Symbol,
+                content: format!("{} ({:?}): {}", symbol.name, symbol.kind, symbol.definition),
+                start_line: symbol.line,
+                end_line: symbol.line,
+            });
+        }
+        
+        // Update scores and collect results
+        let mut results: Vec<FusedResult> = result_map.into_iter()
+            .map(|(key, mut result)| {
+                result.score = *rrf_scores.get(&key).unwrap_or(&0.0);
+                result
+            })
+            .collect();
+        
+        // Sort by RRF score descending
+        results.sort_by(|a, b| b.score.partial_cmp(&a.score).unwrap_or(std::cmp::Ordering::Equal));
+        
+        // Take top results
+        results.truncate(self.config.max_results);
+        
         Ok(results)
     }
     

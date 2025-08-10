@@ -182,4 +182,24 @@ impl SymbolExtractor {
         
         Ok(index)
     }
+    
+    /// Extract symbols from Rust code
+    pub fn extract_rust(&mut self, code: &str) -> Result<Vec<Symbol>> {
+        self.extract(code, "rs")
+    }
+    
+    /// Extract symbols from Python code
+    pub fn extract_python(&mut self, code: &str) -> Result<Vec<Symbol>> {
+        self.extract(code, "py")
+    }
+    
+    /// Extract symbols from JavaScript code
+    pub fn extract_javascript(&mut self, code: &str) -> Result<Vec<Symbol>> {
+        self.extract(code, "js")
+    }
+    
+    /// Extract symbols from TypeScript code
+    pub fn extract_typescript(&mut self, code: &str) -> Result<Vec<Symbol>> {
+        self.extract(code, "ts")
+    }
 }
