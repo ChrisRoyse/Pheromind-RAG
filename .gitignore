@@ -85,3 +85,38 @@ claude-flow
 claude-flow.bat
 claude-flow.ps1
 hive-mind-prompt-*.txt
+
+# Build artifacts and executables
+*.exe
+*.pdb
+minimal_test
+performance_test
+test_minimal.pdb
+build_output.txt
+
+# Temporary test directories
+test-claude-flow-init/
+test-run/
+test-install/
+test-npx-verification/
+test/
+
+# Downloaded dependencies
+node-v20.19.0-win-x64.zip
+node-v20.19.0-win-x64/
+better-sqlite3/
+
+# Model files
+model/
+*.gguf
+
+# Claude Flow runtime files
+.claude-flow/
+.roomodes
+
+# Setup scripts (environment specific)
+setup-npx-interceptor.bat
+
+# Memory and coordination runtime data
+memory/
+coordination/
