@@ -1,0 +1,46 @@
+# Minimal Working MCP Configuration
+# Based on template analysis and simplification requirements
+
+server_name = "embed-search-mcp"
+server_version = "0.1.0"
+server_description = "Minimal functional MCP server for embed-search"
+
+# Transport configuration
+[transport]
+type = "Stdio"
+buffer_size = 8192
+line_buffering = true
+
+# Core tool configuration
+[tools]
+enable_search = true
+enable_index = true
+enable_status = true
+enable_clear = true
+enable_orchestrated_search = false
+max_results_per_call = 50
+default_search_timeout_ms = 10000
+max_concurrent_operations = 5
+
+# Performance settings
+[performance]
+max_concurrent_requests = 25
+request_timeout_ms = 30000
+max_request_size_bytes = 524288    # 512KB
+max_response_size_bytes = 2097152  # 2MB
+enable_metrics = false
+metrics_interval_secs = 300
+
+# Security configuration
+[security]
+enable_request_validation = true
+max_query_length = 500
+allowed_file_extensions = ["rs", "py", "js", "ts", "json", "toml", "yaml", "yml", "md", "txt", "csv", "sql"]
+blocked_file_patterns = ["\.git/.*", ".*\.log$", ".*\.tmp$", ".*\.lock$"]
+enable_path_protection = true
+max_indexing_depth = 10
+
+# Logging
+mcp_log_level = "info"
+enable_request_logging = true
+enable_performance_logging = false
