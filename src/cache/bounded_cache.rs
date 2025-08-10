@@ -304,7 +304,7 @@ impl SearchCache {
     /// Create a new search cache with TTL
     pub fn new(capacity: usize, ttl_seconds: u64) -> Result<Self> {
         Ok(Self {
-            cache: BoundedCache::with_ttl(capacity, Duration::from_secs(ttl_seconds))?,
+            cache: BoundedCache::<SearchKey, Vec<SearchResult>>::with_ttl(capacity, Duration::from_secs(ttl_seconds))?,
         })
     }
     

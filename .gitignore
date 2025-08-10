@@ -120,3 +120,6 @@ setup-npx-interceptor.bat
 # Memory and coordination runtime data
 memory/
 coordination/
+
+# FastEmbed cache (models are large)
+.fastembed_cache/

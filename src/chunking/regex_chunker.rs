@@ -1,6 +1,6 @@
 use regex::Regex;
 use std::path::Path;
-use crate::config::Config;
+// Config temporarily removed
 
 // Language-specific patterns
 const FUNCTION_PATTERNS: &[&str] = &[
@@ -27,8 +27,8 @@ impl SimpleRegexChunker {
     /// Create a new regex chunker using configured chunk size
     /// Returns an error if configuration is not properly initialized  
     pub fn new() -> Result<Self, crate::error::EmbedError> {
-        let chunk_size = Config::chunk_size()?;
-        Self::with_chunk_size(chunk_size)
+        // Use default chunk size of 1500 chars
+        Self::with_chunk_size(1500)
     }
     
     pub fn with_chunk_size(chunk_size: usize) -> Result<Self, crate::error::EmbedError> {

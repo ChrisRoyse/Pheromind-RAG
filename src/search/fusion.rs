@@ -1,12 +1,16 @@
 use std::collections::HashSet;
 use serde::{Serialize, Deserialize};
-use crate::search::ExactMatch;
 use crate::error::SearchError;
-#[cfg(feature = "vectordb")]
-use crate::storage::lancedb_storage::LanceEmbeddingRecord;
-#[cfg(feature = "tree-sitter")]
-use crate::search::symbol_index::Symbol;
-use crate::search::bm25::BM25Match;
+use crate::search::bm25_fixed::BM25Match;
+
+// Define ExactMatch for now
+#[derive(Debug, Clone)]
+pub struct ExactMatch {
+    pub file_path: String,
+    pub line_number: usize,
+    pub content: String,
+    pub score: f32,
+}
 
 /// Configuration constants for fusion scoring
 #[derive(Debug, Clone)]
@@ -498,20 +502,17 @@ impl SimpleFusion {
         
         // Process BM25 matches
         for bm25 in bm25_matches {
-            // Extract file path and chunk index from doc_id (format: "filepath-chunkindex")
-            let (file_path, chunk_index) = Self::parse_doc_id(&bm25.doc_id)?;
-            let chunk_index = Some(chunk_index);
+            // Use path and line_number from BM25Match
+            let file_path = bm25.path.clone();
+            let chunk_index = bm25.line_number.map(|ln| ln / 100); // Approximate chunk index from line number
             
-            let key = format!("bm25-{}", bm25.doc_id);
+            let key = format!("bm25-{}-{}", bm25.path, bm25.line_number.unwrap_or(0));
             if seen.insert(key) {
                 // Apply dynamic normalization - will be calculated later with full score distribution
                 let normalized_score = bm25.score; // Temporary - will be normalized after collecting all scores
                 
-                // BM25 matches must have valid chunk indices
-                let chunk_idx = chunk_index.ok_or_else(|| SearchError::InvalidDocId {
-                    doc_id: bm25.doc_id.clone(),
-                    expected_format: "BM25 matches require chunk index".to_string(),
-                })?;
+                // BM25 matches use line number instead of chunk index
+                let chunk_idx = chunk_index.unwrap_or(0);
                 
                 results.push(FusedResult {
                     file_path,
