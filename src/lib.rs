@@ -14,6 +14,9 @@ pub mod embedding_cache;
 
 // Simple modules for core functionality
 pub mod simple_embedder;
+pub mod llama_bindings;
+pub mod llama_wrapper;
+pub mod llama_wrapper_simple;
 pub mod simple_storage;
 pub mod simple_search;
 pub mod advanced_search;

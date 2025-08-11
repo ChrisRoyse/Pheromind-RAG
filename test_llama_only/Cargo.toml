@@ -1,0 +1,9 @@
+[package]
+name = "test-llama-only"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+# Just test that we can link to llama-cpp-2
+llama-cpp-2 = "=0.1.54"
+llama-cpp-sys-2 = "=0.1.54"
