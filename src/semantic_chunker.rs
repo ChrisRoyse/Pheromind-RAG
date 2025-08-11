@@ -24,6 +24,13 @@ pub enum ChunkType {
     Module,
     Block,
     Import,
+    // Markdown chunk types
+    Header,
+    CodeBlock,
+    List,
+    Table,
+    Section,
+    Document,
 }
 
 pub struct SemanticChunker {
@@ -38,21 +45,30 @@ impl SemanticChunker {
         
         // Initialize language parsers
         let mut rust_parser = Parser::new();
-        rust_parser.set_language(&tree_sitter_rust::language())?;
+        rust_parser.set_language(tree_sitter_rust::language())?;
         parsers.insert("rs".to_string(), rust_parser);
         
         let mut python_parser = Parser::new();
-        python_parser.set_language(&tree_sitter_python::language())?;
+        python_parser.set_language(tree_sitter_python::language())?;
         parsers.insert("py".to_string(), python_parser);
         
         let mut js_parser = Parser::new();
-        js_parser.set_language(&tree_sitter_javascript::language())?;
+        js_parser.set_language(tree_sitter_javascript::language())?;
         parsers.insert("js".to_string(), js_parser);
         
         // Create separate parser for TypeScript
         let mut ts_parser = Parser::new();
-        ts_parser.set_language(&tree_sitter_javascript::language())?;
+        ts_parser.set_language(tree_sitter_javascript::language())?;
         parsers.insert("ts".to_string(), ts_parser);
+        
+        // Initialize markdown parser
+        let mut md_parser = Parser::new();
+        // md_parser.set_language(tree_sitter_markdown::language())?; // Disabled - not using tree-sitter for markdown
+        parsers.insert("md".to_string(), md_parser);
+        
+        let mut markdown_parser = Parser::new();
+        // markdown_parser.set_language(tree_sitter_markdown::language())?; // Disabled - not using tree-sitter for markdown
+        parsers.insert("markdown".to_string(), markdown_parser);
         
         Ok(Self {
             parsers,
@@ -77,6 +93,7 @@ impl SemanticChunker {
             "rs" => self.chunk_rust(&tree, &lines, file_path, code.as_bytes(), &mut chunks)?,
             "py" => self.chunk_python(&tree, &lines, file_path, code.as_bytes(), &mut chunks)?,
             "js" | "ts" => self.chunk_javascript(&tree, &lines, file_path, code.as_bytes(), &mut chunks)?,
+            "md" | "markdown" => self.chunk_markdown(&tree, &lines, file_path, code.as_bytes(), &mut chunks)?,
             _ => self.chunk_generic(&tree, &lines, file_path, code.as_bytes(), &mut chunks)?,
         }
         
@@ -224,6 +241,222 @@ impl SemanticChunker {
         Ok(())
     }
     
+    fn chunk_markdown(&self, tree: &Tree, lines: &[&str], file_path: &str, source: &[u8], chunks: &mut Vec<SemanticChunk>) -> Result<()> {
+        let root = tree.root_node();
+        let mut cursor = root.walk();
+        
+        // Track header hierarchy for context
+        let mut header_stack: Vec<(i32, String)> = Vec::new();
+        
+        self.walk_markdown_node(&mut cursor, lines, file_path, source, chunks, &mut header_stack)?;
+        
+        Ok(())
+    }
+    
+    fn walk_markdown_node(&self, cursor: &mut TreeCursor, lines: &[&str], file_path: &str, source: &[u8], chunks: &mut Vec<SemanticChunk>, header_stack: &mut Vec<(i32, String)>) -> Result<()> {
+        let node = cursor.node();
+        
+        match node.kind() {
+            "atx_heading" => {
+                let level = self.get_header_level(node, source);
+                let title = self.get_header_title(node, source);
+                
+                // Update header stack for context
+                header_stack.retain(|(h_level, _)| *h_level < level);
+                if let Some(title) = &title {
+                    header_stack.push((level, title.clone()));
+                }
+                
+                // Create section chunk from this header to next header of same or higher level
+                if let Some(section_chunk) = self.create_markdown_section(node, lines, file_path, source, header_stack.clone())? {
+                    chunks.push(section_chunk);
+                }
+            }
+            "fenced_code_block" | "indented_code_block" => {
+                let chunk = self.create_chunk_from_node(node, lines, file_path, source, self.get_context_from_headers(header_stack))?;
+                let mut code_chunk = chunk;
+                code_chunk.chunk_type = ChunkType::CodeBlock;
+                chunks.push(code_chunk);
+            }
+            "list" => {
+                let chunk = self.create_chunk_from_node(node, lines, file_path, source, self.get_context_from_headers(header_stack))?;
+                let mut list_chunk = chunk;
+                list_chunk.chunk_type = ChunkType::List;
+                chunks.push(list_chunk);
+            }
+            "table" => {
+                let chunk = self.create_chunk_from_node(node, lines, file_path, source, self.get_context_from_headers(header_stack))?;
+                let mut table_chunk = chunk;
+                table_chunk.chunk_type = ChunkType::Table;
+                chunks.push(table_chunk);
+            }
+            _ => {
+                // Continue walking the tree
+                if cursor.goto_first_child() {
+                    loop {
+                        self.walk_markdown_node(cursor, lines, file_path, source, chunks, header_stack)?;
+                        if !cursor.goto_next_sibling() {
+                            break;
+                        }
+                    }
+                    cursor.goto_parent();
+                }
+            }
+        }
+        
+        Ok(())
+    }
+    
+    fn get_header_level(&self, node: Node, source: &[u8]) -> i32 {
+        // Try to find the ATX marker (# ## ### etc.)
+        for i in 0..node.child_count() {
+            if let Some(child) = node.child(i) {
+                if child.kind() == "atx_h1_marker" { return 1; }
+                if child.kind() == "atx_h2_marker" { return 2; }
+                if child.kind() == "atx_h3_marker" { return 3; }
+                if child.kind() == "atx_h4_marker" { return 4; }
+                if child.kind() == "atx_h5_marker" { return 5; }
+                if child.kind() == "atx_h6_marker" { return 6; }
+            }
+        }
+        
+        // Fallback: count # characters at the beginning
+        if let Ok(text) = node.utf8_text(source) {
+            let hash_count = text.chars().take_while(|&c| c == '#').count();
+            return hash_count.min(6) as i32;
+        }
+        
+        1 // Default to h1
+    }
+    
+    fn get_header_title(&self, node: Node, source: &[u8]) -> Option<String> {
+        // Try to find the heading content
+        for i in 0..node.child_count() {
+            if let Some(child) = node.child(i) {
+                if child.kind() == "heading_content" {
+                    if let Ok(title) = child.utf8_text(source) {
+                        return Some(title.trim().to_string());
+                    }
+                }
+            }
+        }
+        
+        // Fallback: extract text after # markers
+        if let Ok(text) = node.utf8_text(source) {
+            let clean_text = text.trim_start_matches('#').trim();
+            if !clean_text.is_empty() {
+                return Some(clean_text.to_string());
+            }
+        }
+        
+        None
+    }
+    
+    fn create_markdown_section(&self, header_node: Node, lines: &[&str], file_path: &str, source: &[u8], header_context: Vec<(i32, String)>) -> Result<Option<SemanticChunk>> {
+        let start_line = header_node.start_position().row;
+        
+        // Find the end of this section (next header of same or higher level)
+        let _header_level = self.get_header_level(header_node, source);
+        let end_line = lines.len() - 1;
+        
+        // For now, we'll create sections that go until the end of the document
+        // A more sophisticated implementation would find the next header
+        
+        // Create the section content
+        let section_lines = &lines[start_line..=end_line];
+        let content = section_lines.join("\n");
+        
+        // Don't create empty sections
+        if content.trim().is_empty() {
+            return Ok(None);
+        }
+        
+        // Extract symbols (headers, links, etc.)
+        let symbols = self.extract_markdown_symbols(header_node, source);
+        
+        // Build parent context from header hierarchy
+        let parent_context = if header_context.len() > 1 {
+            Some(header_context.iter()
+                .take(header_context.len() - 1)
+                .map(|(_, title)| title.clone())
+                .collect::<Vec<_>>()
+                .join(" > "))
+        } else {
+            None
+        };
+        
+        Ok(Some(SemanticChunk {
+            content,
+            file_path: file_path.to_string(),
+            start_line,
+            end_line,
+            chunk_type: ChunkType::Section,
+            symbols,
+            parent_context,
+        }))
+    }
+    
+    fn get_context_from_headers(&self, header_stack: &[(i32, String)]) -> Option<String> {
+        if header_stack.is_empty() {
+            None
+        } else {
+            Some(header_stack.iter()
+                .map(|(_, title)| title.clone())
+                .collect::<Vec<_>>()
+                .join(" > "))
+        }
+    }
+    
+    fn extract_markdown_symbols(&self, node: Node, source: &[u8]) -> Vec<String> {
+        let mut symbols = Vec::new();
+        let mut cursor = node.walk();
+        
+        self.collect_markdown_symbols(&mut cursor, source, &mut symbols);
+        
+        symbols
+    }
+    
+    fn collect_markdown_symbols(&self, cursor: &mut TreeCursor, source: &[u8], symbols: &mut Vec<String>) {
+        let node = cursor.node();
+        
+        match node.kind() {
+            "link" | "link_reference_definition" | "image" => {
+                if let Ok(text) = node.utf8_text(source) {
+                    symbols.push(text.to_string());
+                }
+            }
+            "code_span" | "code_fence_content" => {
+                if let Ok(text) = node.utf8_text(source) {
+                    // Extract identifiers from code spans
+                    for word in text.split_whitespace() {
+                        if word.chars().all(|c| c.is_alphanumeric() || c == '_') && !word.is_empty() {
+                            symbols.push(word.to_string());
+                        }
+                    }
+                }
+            }
+            "emphasis" | "strong_emphasis" => {
+                if let Ok(text) = node.utf8_text(source) {
+                    let clean_text = text.trim_matches('*').trim_matches('_').trim();
+                    if !clean_text.is_empty() {
+                        symbols.push(clean_text.to_string());
+                    }
+                }
+            }
+            _ => {}
+        }
+        
+        if cursor.goto_first_child() {
+            loop {
+                self.collect_markdown_symbols(cursor, source, symbols);
+                if !cursor.goto_next_sibling() {
+                    break;
+                }
+            }
+            cursor.goto_parent();
+        }
+    }
+    
     fn chunk_generic(&self, _tree: &Tree, lines: &[&str], file_path: &str, _source: &[u8], chunks: &mut Vec<SemanticChunk>) -> Result<()> {
         // Fallback: create line-based chunks
         let mut current_chunk = Vec::new();
@@ -291,6 +524,10 @@ impl SemanticChunker {
             "class_declaration" | "class_definition" => ChunkType::Class,
             "method_definition" => ChunkType::Method,
             "mod_item" | "module" => ChunkType::Module,
+            "atx_heading" => ChunkType::Header,
+            "fenced_code_block" | "indented_code_block" => ChunkType::CodeBlock,
+            "list" => ChunkType::List,
+            "table" => ChunkType::Table,
             _ => ChunkType::Block,
         };
         
@@ -475,6 +712,52 @@ class User:
         assert!(!chunks.is_empty());
         assert!(chunks.iter().any(|c| c.chunk_type == ChunkType::Function));
         assert!(chunks.iter().any(|c| c.chunk_type == ChunkType::Class));
+        
+        Ok(())
+    }
+    
+    #[test]
+    fn test_markdown_chunking() -> Result<()> {
+        let mut chunker = SemanticChunker::new(1500)?;
+        
+        let markdown = r#"# Introduction
+
+This is the introduction section.
+
+## Getting Started
+
+Here's how to get started.
+
+### Prerequisites
+
+- Rust installed
+- Git configured
+
+```rust
+fn main() {
+    println!("Hello, world!");
+}
+```
+
+## Advanced Topics
+
+More advanced content here.
+
+| Feature | Status |
+|---------|---------|
+| Basic   | ✓       |
+| Advanced| ✗       |
+"#;
+        
+        let chunks = chunker.chunk_code(markdown, "test.md", "md")?;
+        
+        assert!(!chunks.is_empty());
+        // Should have sections and other chunk types
+        assert!(chunks.iter().any(|c| c.chunk_type == ChunkType::Section));
+        
+        // Check if we captured headers
+        let has_header_content = chunks.iter().any(|c| c.content.contains("# Introduction"));
+        assert!(has_header_content, "Should contain header content");
         
         Ok(())
     }

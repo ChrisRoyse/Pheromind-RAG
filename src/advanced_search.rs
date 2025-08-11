@@ -5,7 +5,8 @@ use tantivy::collector::TopDocs;
 use std::collections::HashMap;
 
 use crate::simple_storage::{VectorStorage, SearchResult as VectorResult};
-use crate::simple_embedder::NomicEmbedder;
+use crate::gguf_embedder::{GGUFEmbedder, GGUFEmbedderConfig};
+use crate::embedding_prefixes::EmbeddingTask;
 use crate::search::bm25_fixed::{BM25Engine, BM25Match};
 use crate::search::fusion::FusionConfig;
 use crate::symbol_extractor::{SymbolExtractor, Symbol};
@@ -15,7 +16,8 @@ pub struct AdvancedHybridSearch {
     vector_storage: VectorStorage,
     text_index: Index,
     text_writer: IndexWriter,
-    embedder: NomicEmbedder,
+    text_embedder: GGUFEmbedder,
+    code_embedder: GGUFEmbedder,
     bm25_engine: BM25Engine,
     symbol_extractor: SymbolExtractor,
     fusion_config: FusionConfig,
@@ -38,7 +40,7 @@ pub struct AdvancedSearchResult {
 impl AdvancedHybridSearch {
     pub async fn new(db_path: &str) -> Result<Self> {
         // Initialize vector storage
-        let vector_storage = VectorStorage::new(db_path).await?;
+        let vector_storage = VectorStorage::new(db_path)?;
         
         // Initialize Tantivy for full-text search
         let mut schema_builder = Schema::builder();
@@ -56,8 +58,19 @@ impl AdvancedHybridSearch {
         };
         let text_writer = text_index.writer(50_000_000)?; // 50MB heap
         
-        // Initialize all components
-        let embedder = NomicEmbedder::new()?;
+        // Initialize text embedder for markdown
+        let text_config = GGUFEmbedderConfig {
+            model_path: "./src/model/nomic-embed-text-v1.5.Q4_K_M.gguf".to_string(),
+            ..Default::default()
+        };
+        let text_embedder = GGUFEmbedder::new(text_config)?;
+        
+        // Initialize code embedder for code files
+        let code_config = GGUFEmbedderConfig {
+            model_path: "./src/model/nomic-embed-code.Q4_K_M.gguf".to_string(),
+            ..Default::default()
+        };
+        let code_embedder = GGUFEmbedder::new(code_config)?;
         let bm25_engine = BM25Engine::new()?;
         let symbol_extractor = SymbolExtractor::new()?;
         let fusion_config = FusionConfig::default();
@@ -66,7 +79,8 @@ impl AdvancedHybridSearch {
             vector_storage,
             text_index,
             text_writer,
-            embedder,
+            text_embedder,
+            code_embedder,
             bm25_engine,
             symbol_extractor,
             fusion_config,
@@ -75,16 +89,31 @@ impl AdvancedHybridSearch {
         })
     }
 
-    /// Index documents in all search engines (vector, text, BM25, and symbol)
+    /// Index documents in all search engines with appropriate embedders
     pub async fn index(&mut self, contents: Vec<String>, file_paths: Vec<String>) -> Result<()> {
-        // Generate embeddings with proper "passage:" prefix
-        let prefixed_contents: Vec<String> = contents.iter()
-            .map(|content| format!("passage: {}", content))
-            .collect();
-        let embeddings = self.embedder.embed_batch(prefixed_contents)?;
+        // Generate embeddings with appropriate embedder for each file
+        let mut embeddings = Vec::new();
+        for (content, path) in contents.iter().zip(file_paths.iter()) {
+            // Determine embedder and task based on file extension
+            let (embedder, task) = if path.ends_with(".md") || path.ends_with(".markdown") {
+                (&self.text_embedder, EmbeddingTask::SearchDocument)
+            } else if path.ends_with(".rs") || path.ends_with(".py") || path.ends_with(".js") || 
+                      path.ends_with(".ts") || path.ends_with(".go") || path.ends_with(".java") || 
+                      path.ends_with(".cpp") || path.ends_with(".c") || path.ends_with(".h") || 
+                      path.ends_with(".jsx") || path.ends_with(".tsx") || path.ends_with(".cs") || 
+                      path.ends_with(".php") || path.ends_with(".rb") || path.ends_with(".swift") ||
+                      path.ends_with(".kt") || path.ends_with(".scala") || path.ends_with(".r") {
+                (&self.code_embedder, EmbeddingTask::CodeDefinition)
+            } else {
+                (&self.text_embedder, EmbeddingTask::SearchDocument)
+            };
+            
+            let embedding = embedder.embed(content, task)?;
+            embeddings.push(embedding);
+        }
         
         // Store in vector database
-        self.vector_storage.store(contents.clone(), embeddings, file_paths.clone()).await?;
+        self.vector_storage.store(contents.clone(), embeddings, file_paths.clone())?;
         
         // Store in Tantivy text index and BM25 engine
         for (content, path) in contents.iter().zip(file_paths.iter()) {
@@ -106,9 +135,9 @@ impl AdvancedHybridSearch {
     pub async fn search(&mut self, query: &str, limit: usize) -> Result<Vec<AdvancedSearchResult>> {
         let search_limit = limit * 3; // Get more results for better fusion
         
-        // 1. Vector search (semantic)
-        let query_embedding = self.embedder.embed_query(query)?;
-        let vector_results = self.vector_storage.search(query_embedding, search_limit).await?;
+        // 1. Vector search (semantic) - use text embedder for natural language queries
+        let query_embedding = self.text_embedder.embed(query, EmbeddingTask::SearchQuery)?;
+        let vector_results = self.vector_storage.search(query_embedding, search_limit)?;
         
         // 2. Text search (Tantivy full-text)
         let text_results = self.text_search(query, search_limit)?;
@@ -273,7 +302,7 @@ impl AdvancedHybridSearch {
     }
 
     pub async fn clear(&mut self) -> Result<()> {
-        self.vector_storage.clear().await?;
+        self.vector_storage.clear()?;
         self.text_writer.delete_all_documents()?;
         self.text_writer.commit()?;
         Ok(())

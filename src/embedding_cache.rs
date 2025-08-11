@@ -173,18 +173,19 @@ impl<E> CachedEmbedder<E> {
     }
 }
 
-// Implement for NomicEmbedder
-use crate::simple_embedder::NomicEmbedder;
+// Implement for GGUFEmbedder
+use crate::gguf_embedder::GGUFEmbedder;
+use crate::embedding_prefixes::EmbeddingTask;
 
-impl CachedEmbedder<NomicEmbedder> {
+impl CachedEmbedder<GGUFEmbedder> {
     pub fn embed(&mut self, text: &str) -> Result<Vec<f32>> {
         // Check cache first
         if let Some(embedding) = self.cache.get(text) {
             return Ok(embedding);
         }
         
-        // Generate embedding and cache it
-        let embedding = self.embedder.embed(text)?;
+        // Generate embedding and cache it (use SearchDocument as default)
+        let embedding = self.embedder.embed(text, EmbeddingTask::SearchDocument)?;
         self.cache.put(text, embedding.clone());
         
         Ok(embedding)
@@ -198,7 +199,7 @@ impl CachedEmbedder<NomicEmbedder> {
             return Ok(embedding);
         }
         
-        let embedding = self.embedder.embed_query(query)?;
+        let embedding = self.embedder.embed(query, EmbeddingTask::SearchQuery)?;
         self.cache.put(&cache_key, embedding.clone());
         
         Ok(embedding)
@@ -219,7 +220,7 @@ impl CachedEmbedder<NomicEmbedder> {
             .collect();
         
         // Generate missing embeddings
-        let new_embeddings = self.embedder.embed_batch(texts_to_embed.clone())?;
+        let new_embeddings = self.embedder.embed_batch(texts_to_embed.clone(), EmbeddingTask::SearchDocument)?;
         
         // Cache the new embeddings
         self.cache.put_batch(&texts_to_embed, new_embeddings.clone());

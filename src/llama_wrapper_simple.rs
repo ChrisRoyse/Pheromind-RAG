@@ -1,40 +1,51 @@
-// Simplified GGUF wrapper that compiles with llama-cpp-2 v0.1.54
-use anyhow::{Result, bail};
+// Simple wrapper using the working implementation
+use crate::llama_wrapper_working::{GGUFModel as WorkingGGUFModel, GGUFContext as WorkingGGUFContext};
+use anyhow::Result;
+use std::path::Path;
 
-/// Placeholder GGUF model for Phase 2 compilation
+/// Simple GGUF model wrapper
 pub struct GGUFModel {
+    inner: WorkingGGUFModel,
     pub embedding_dim: usize,
 }
 
 impl GGUFModel {
-    pub fn load_from_file(_path: &str, _gpu_layers: i32) -> Result<Self> {
-        // Placeholder implementation for Phase 2
+    pub fn load_from_file<P: AsRef<Path>>(path: P, gpu_layers: i32) -> Result<Self> {
+        let inner = WorkingGGUFModel::load_from_file(path, gpu_layers)?;
+        let embedding_dim = inner.embedding_dim();
+        
         Ok(Self {
-            embedding_dim: 768, // Nomic embed dimension
+            inner,
+            embedding_dim,
         })
+    }
+    
+    pub fn inner(&self) -> &WorkingGGUFModel {
+        &self.inner
     }
 }
 
-/// Placeholder GGUF context for Phase 2 compilation  
+/// Simple GGUF context wrapper  
 pub struct GGUFContext {
+    inner: WorkingGGUFContext,
     embedding_dim: usize,
 }
 
 impl GGUFContext {
-    pub fn new_with_model(_model: &GGUFModel, _context_size: u32) -> Result<Self> {
+    pub fn new_with_model(model: &GGUFModel, context_size: u32) -> Result<Self> {
+        let inner = WorkingGGUFContext::new_with_model(model.inner(), context_size)?;
+        
         Ok(Self {
-            embedding_dim: 768,
+            inner,
+            embedding_dim: model.embedding_dim,
         })
     }
     
-    pub fn embed(&mut self, _text: &str) -> Result<Vec<f32>> {
-        // Return placeholder embedding for compilation
-        Ok(vec![0.0; self.embedding_dim])
+    pub fn embed(&mut self, text: &str) -> Result<Vec<f32>> {
+        self.inner.embed(text)
     }
     
     pub fn embed_batch(&mut self, texts: Vec<String>) -> Result<Vec<Vec<f32>>> {
-        Ok(texts.into_iter()
-            .map(|_| vec![0.0; self.embedding_dim])
-            .collect())
+        self.inner.embed_batch(texts)
     }
 }

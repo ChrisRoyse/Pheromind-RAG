@@ -4,7 +4,7 @@ use std::pin::Pin;
 use std::fmt;
 use backoff::{ExponentialBackoff, backoff::Backoff};
 use anyhow::{Result, Context};
-// use tracing::{debug, warn, error};
+use log::{debug, warn, error};
 
 /// Configuration for retry operations with exponential backoff
 #[derive(Debug, Clone)]

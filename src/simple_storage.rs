@@ -1,151 +1,97 @@
 use anyhow::Result;
-use arrow_array::{RecordBatch, Float32Array, StringArray, FixedSizeListArray, Int32Array, RecordBatchIterator};
-use arrow_schema::{DataType, Field, Schema};
-use lancedb::{Connection, Table};
-use lancedb::query::{QueryBase, ExecutableQuery};  // Import traits
-use futures_util::stream::TryStreamExt;  // For try_next() and stream iteration
-use std::sync::Arc;
+use std::collections::HashMap;
+use serde::{Serialize, Deserialize};
 
-/// Simple LanceDB storage using correct API
+/// Simple in-memory vector storage for CPU-only systems
+/// Replaces LanceDB to avoid arrow dependency conflicts
+#[derive(Clone)]
 pub struct VectorStorage {
-    connection: Connection,
-    table: Option<Table>,
+    documents: Vec<Document>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+struct Document {
+    id: usize,
+    content: String,
+    file_path: String,
+    embedding: Vec<f32>,
 }
 
 impl VectorStorage {
-    pub async fn new(db_path: &str) -> Result<Self> {
-        // Correct LanceDB connection API
-        let connection = lancedb::connect(db_path).execute().await?;
-        
+    pub fn new(_db_path: &str) -> Result<Self> {
         Ok(Self {
-            connection,
-            table: None,
+            documents: Vec::new(),
         })
     }
 
     /// Store embeddings with metadata
-    pub async fn store(&mut self, 
-                      contents: Vec<String>, 
-                      embeddings: Vec<Vec<f32>>, 
-                      file_paths: Vec<String>) -> Result<()> {
+    pub fn store(&mut self, 
+                contents: Vec<String>, 
+                embeddings: Vec<Vec<f32>>, 
+                file_paths: Vec<String>) -> Result<()> {
         
-        // Create Arrow schema for LanceDB - correct format
-        let embedding_dim = embeddings.first().map(|e| e.len()).unwrap_or(768) as i32;
+        let start_id = self.documents.len();
         
-        let schema = Arc::new(Schema::new(vec![
-            Field::new("id", DataType::Int32, false),
-            Field::new("content", DataType::Utf8, false),
-            Field::new("file_path", DataType::Utf8, false),
-            Field::new("vector", 
-                      DataType::FixedSizeList(
-                          Arc::new(Field::new("item", DataType::Float32, true)),
-                          embedding_dim,
-                      ), 
-                      false),
-        ]));
-
-        // Convert data to Arrow format
-        let ids: Vec<i32> = (0..contents.len() as i32).collect();
-        let id_array = Int32Array::from(ids);
-        let content_array = StringArray::from(contents);
-        let file_path_array = StringArray::from(file_paths);
-        
-        // Convert embeddings to FixedSizeListArray
-        let flat_embeddings: Vec<f32> = embeddings.into_iter().flatten().collect();
-        let values = Float32Array::from(flat_embeddings);
-        let embedding_array = FixedSizeListArray::try_new(
-            Arc::new(Field::new("item", DataType::Float32, true)),
-            embedding_dim,
-            Arc::new(values),
-            None,
-        )?;
-
-        let batch = RecordBatch::try_new(
-            schema.clone(),
-            vec![
-                Arc::new(id_array),
-                Arc::new(content_array), 
-                Arc::new(file_path_array),
-                Arc::new(embedding_array),
-            ],
-        )?;
-
-        // Create or append to table using correct LanceDB API
-        if self.table.is_none() {
-            // Convert RecordBatch to RecordBatchIterator for LanceDB compatibility
-            let data = RecordBatchIterator::new(vec![Ok(batch.clone())].into_iter(), batch.schema());
-            let table = self.connection
-                .create_table("documents", data)
-                .execute()
-                .await?;
-            self.table = Some(table);
-        } else {
-            // Append to existing table
-            if let Some(table) = &mut self.table {
-                let data = RecordBatchIterator::new(vec![Ok(batch)].into_iter(), schema.clone());
-                table.add(data).execute().await?;
-            }
+        for (i, ((content, embedding), file_path)) in contents.into_iter()
+            .zip(embeddings.into_iter())
+            .zip(file_paths.into_iter())
+            .enumerate() {
+            
+            let document = Document {
+                id: start_id + i,
+                content,
+                file_path,
+                embedding,
+            };
+            
+            self.documents.push(document);
         }
-
+        
         Ok(())
     }
 
-    /// Search using correct LanceDB vector search API
-    pub async fn search(&self, query_embedding: Vec<f32>, limit: usize) -> Result<Vec<SearchResult>> {
-        if let Some(table) = &self.table {
-            // Correct LanceDB vector search API
-            let results = table
-                .query()
-                .nearest_to(query_embedding)?
-                .limit(limit)
-                .execute()
-                .await?;
-
-            let mut search_results = Vec::new();
-            
-            // Convert results to our format - fix stream iteration
-            let mut result_stream = results;
-            while let Some(batch) = result_stream.try_next().await? {
-                for row_idx in 0..batch.num_rows() {
-                    let content = batch.column_by_name("content")
-                        .and_then(|col| col.as_any().downcast_ref::<StringArray>())
-                        .and_then(|arr| arr.value(row_idx).parse().ok())
-                        .unwrap_or_default();
-                        
-                    let file_path = batch.column_by_name("file_path")
-                        .and_then(|col| col.as_any().downcast_ref::<StringArray>())
-                        .and_then(|arr| arr.value(row_idx).parse().ok())
-                        .unwrap_or_default();
-
-                    // Extract distance/score from LanceDB result
-                    let distance = batch.column_by_name("_distance")
-                        .and_then(|col| col.as_any().downcast_ref::<Float32Array>())
-                        .and_then(|arr| arr.value(row_idx).into())
-                        .unwrap_or(1.0);
-                    
-                    // Convert distance to similarity score (lower distance = higher similarity)
-                    let score = 1.0 / (1.0 + distance);
-                    
-                    search_results.push(SearchResult {
-                        content,
-                        file_path,
-                        score,
-                    });
-                }
-            }
-
-            Ok(search_results)
-        } else {
-            Ok(vec![])
+    /// Search using simple cosine similarity
+    pub fn search(&self, query_embedding: Vec<f32>, limit: usize) -> Result<Vec<SearchResult>> {
+        let mut results: Vec<(usize, f32)> = Vec::new();
+        
+        for (idx, doc) in self.documents.iter().enumerate() {
+            let similarity = cosine_similarity(&query_embedding, &doc.embedding);
+            results.push((idx, similarity));
         }
+        
+        // Sort by similarity (descending)
+        results.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
+        
+        // Take top results and convert to SearchResult
+        let search_results = results.into_iter()
+            .take(limit)
+            .map(|(idx, similarity)| {
+                let doc = &self.documents[idx];
+                SearchResult {
+                    content: doc.content.clone(),
+                    file_path: doc.file_path.clone(),
+                    score: similarity,
+                }
+            })
+            .collect();
+            
+        Ok(search_results)
     }
 
     /// Clear all data
-    pub async fn clear(&mut self) -> Result<()> {
-        if let Some(table) = &mut self.table {
-            table.delete("true").await?; // Delete all rows
-        }
+    pub fn clear(&mut self) -> Result<()> {
+        self.documents.clear();
         Ok(())
+    }
+    
+    /// Get number of stored documents
+    pub fn len(&self) -> usize {
+        self.documents.len()
+    }
+    
+    /// Check if storage is empty
+    pub fn is_empty(&self) -> bool {
+        self.documents.is_empty()
     }
 }
 
@@ -156,28 +102,55 @@ pub struct SearchResult {
     pub score: f32,
 }
 
+/// Calculate cosine similarity between two vectors
+fn cosine_similarity(a: &[f32], b: &[f32]) -> f32 {
+    if a.len() != b.len() {
+        return 0.0;
+    }
+    
+    let dot_product: f32 = a.iter().zip(b.iter()).map(|(x, y)| x * y).sum();
+    let norm_a: f32 = a.iter().map(|x| x * x).sum::<f32>().sqrt();
+    let norm_b: f32 = b.iter().map(|x| x * x).sum::<f32>().sqrt();
+    
+    if norm_a == 0.0 || norm_b == 0.0 {
+        return 0.0;
+    }
+    
+    dot_product / (norm_a * norm_b)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
-    use tempfile::tempdir;
 
-    #[tokio::test]
-    async fn test_vector_storage() -> Result<()> {
-        let temp_dir = tempdir()?;
-        let db_path = temp_dir.path().join("test.db");
-        
-        let mut storage = VectorStorage::new(db_path.to_str().unwrap()).await?;
+    #[test]
+    fn test_vector_storage() -> Result<()> {
+        let mut storage = VectorStorage::new("test.db")?;
         
         // Test data
         let contents = vec!["Hello world".to_string()];
         let embeddings = vec![vec![0.1; 768]]; // 768-dim embedding
         let file_paths = vec!["test.rs".to_string()];
         
-        storage.store(contents, embeddings, file_paths).await?;
+        storage.store(contents, embeddings, file_paths)?;
         
-        let results = storage.search(vec![0.1; 768], 5).await?;
+        let results = storage.search(vec![0.1; 768], 5)?;
         assert!(!results.is_empty());
+        assert_eq!(results.len(), 1);
+        assert_eq!(results[0].content, "Hello world");
         
         Ok(())
+    }
+    
+    #[test]
+    fn test_cosine_similarity() {
+        let a = vec![1.0, 0.0, 0.0];
+        let b = vec![1.0, 0.0, 0.0];
+        let similarity = cosine_similarity(&a, &b);
+        assert!((similarity - 1.0).abs() < 1e-6);
+        
+        let c = vec![0.0, 1.0, 0.0];
+        let similarity2 = cosine_similarity(&a, &c);
+        assert!(similarity2.abs() < 1e-6);
     }
 }

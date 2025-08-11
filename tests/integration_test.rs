@@ -274,7 +274,7 @@ async fn test_incremental_indexing() -> Result<()> {
     let db_path = temp_dir.path().join("incremental.db");
     
     let config = Config::default();
-    let mut indexer = IncrementalIndexer::new(config.indexing);
+    let mut indexer = IncrementalIndexer::new(config.indexing)?;
     
     // Create test files
     let file1 = temp_dir.path().join("file1.rs");

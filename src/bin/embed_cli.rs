@@ -3,7 +3,7 @@
 
 use anyhow::Result;
 use clap::{Parser, Subcommand};
-use embed_search::{simple_search::HybridSearch as SimpleSearch, simple_embedder::NomicEmbedder, SymbolExtractor, SymbolKind};
+use embed_search::{simple_search::HybridSearch as SimpleSearch, gguf_embedder::{GGUFEmbedder, GGUFEmbedderConfig}, SymbolExtractor, SymbolKind};
 use std::path::PathBuf;
 
 #[derive(Parser)]
@@ -54,7 +54,8 @@ enum Commands {
     Status,
 }
 
-fn main() -> Result<()> {
+#[tokio::main]
+async fn main() -> Result<()> {
     let cli = Cli::parse();
     
     // Set up logging
@@ -62,10 +63,7 @@ fn main() -> Result<()> {
         env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("info")).init();
     }
     
-    // Use tokio runtime
-    let runtime = tokio::runtime::Runtime::new()?;
-    
-    runtime.block_on(async {
+    // Run async operations directly
         match cli.command {
             Commands::Search { query, limit } => {
                 search(&cli.index_path, &query, limit).await?;
@@ -81,7 +79,6 @@ fn main() -> Result<()> {
             }
         }
         Ok(())
-    })
 }
 
 async fn search(index_path: &str, query: &str, limit: usize) -> Result<()> {
@@ -126,7 +123,12 @@ async fn index(index_path: &str, path: &PathBuf, extensions: &str) -> Result<()>
     
     let db_path = format!("{}/vectors.db", index_path);
     let mut search_engine = SimpleSearch::new(&db_path).await?;
-    let mut embedder = NomicEmbedder::new()?;
+    // Note: embedder only kept for compatibility, search engine handles embedding internally
+    let config = GGUFEmbedderConfig {
+        model_path: "./src/model/nomic-embed-text-v1.5.Q4_K_M.gguf".to_string(),
+        ..Default::default()
+    };
+    let _embedder = GGUFEmbedder::new(config)?;
     
     let mut indexed_count = 0;
     let mut skipped_count = 0;
@@ -139,7 +141,7 @@ async fn index(index_path: &str, path: &PathBuf, extensions: &str) -> Result<()>
                 match std::fs::read_to_string(path) {
                     Ok(content) => {
                         let path_str = path.to_string_lossy().to_string();
-                        let embedding = embedder.embed_batch(vec![format!("passage: {}", content)])?;
+                        // Search engine handles embedding internally
                         
                         // Index using the batch method
                         search_engine.index(vec![content], vec![path_str.clone()]).await?;

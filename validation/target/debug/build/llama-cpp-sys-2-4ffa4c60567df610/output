@@ -1,0 +1,784 @@
+cargo:rerun-if-changed=build.rs
+cargo:rerun-if-env-changed=LLAMA_LIB_PROFILE
+cargo:rerun-if-env-changed=LLAMA_BUILD_SHARED_LIBS
+cargo:rerun-if-env-changed=LLAMA_STATIC_CRT
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/src
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/src/llama-io.cpp
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/src/llama-model-loader.h
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/src/llama-sampling.h
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/src/llama-context.cpp
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/src/llama-model.cpp
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/src/llama-model.h
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/src/llama-memory.cpp
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/src/llama-batch.cpp
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/src/llama-grammar.cpp
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/src/llama.cpp
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/src/llama-adapter.h
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/src/llama-kv-cache-unified.cpp
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/src/llama-kv-cache-unified-iswa.h
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/src/llama-chat.h
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/src/llama-kv-cells.h
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/src/llama-hparams.cpp
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/src/llama-arch.h
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/src/CMakeLists.txt
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/src/llama-kv-cache-unified.h
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/src/llama-quant.cpp
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/src/llama-adapter.cpp
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/src/llama-mmap.h
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/src/llama-kv-cache-unified-iswa.cpp
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/src/llama-model-saver.cpp
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/src/llama-arch.cpp
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/src/llama-memory-hybrid.h
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/src/unicode-data.h
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/src/llama-impl.h
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/src/llama-io.h
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/src/unicode-data.cpp
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/src/unicode.cpp
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/src/llama-mmap.cpp
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/src/llama-graph.h
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/src/llama-memory-recurrent.cpp
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/src/llama-memory-hybrid.cpp
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/src/llama-model-loader.cpp
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/src/llama-memory.h
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/src/llama-grammar.h
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/src/llama-cparams.cpp
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/src/llama-memory-recurrent.h
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/src/llama-batch.h
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/src/llama-sampling.cpp
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/src/llama-quant.h
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/src/llama-chat.cpp
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/src/llama-impl.cpp
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/src/llama-vocab.h
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/src/llama-vocab.cpp
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/src/unicode.h
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/src/llama-hparams.h
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/src/llama-graph.cpp
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/src/llama-cparams.h
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/src/llama-model-saver.h
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/src/llama-context.h
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/pocs/CMakeLists.txt
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/pocs/vdot/CMakeLists.txt
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-alloc.c
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml.c
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-quants.h
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/CMakeLists.txt
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml.cpp
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-metal
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-metal/CMakeLists.txt
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-metal/ggml-metal.m
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-metal/ggml-metal-impl.h
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-metal/ggml-metal.metal
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-cuda
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-cuda/getrows.cu
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-cuda/im2col.cuh
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-cuda/scale.cuh
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-cuda/add-id.cu
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-cuda/diagmask.cu
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-cuda/im2col.cu
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-cuda/conv2d-dw.cu
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-cuda/tsembd.cuh
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-cuda/cross-entropy-loss.cuh
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-cuda/upscale.cu
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-cuda/sum.cu
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-cuda/add-id.cuh
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-cuda/acc.cu
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-cuda/quantize.cuh
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-cuda/mmv.cu
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-cuda/argmax.cu
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-cuda/gla.cu
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-cuda/fattn-wmma-f16.cuh
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-cuda/rope.cu
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-cuda/fattn.cu
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-cuda/opt-step-adamw.cu
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-cuda/CMakeLists.txt
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-cuda/cpy-utils.cuh
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-cuda/mma.cuh
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-cuda/ssm-scan.cu
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-cuda/conv-transpose-1d.cu
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-cuda/quantize.cu
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-cuda/mmvq.cu
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-cuda/acc.cuh
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-cuda/set-rows.cuh
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-cuda/binbcast.cu
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-cuda/ssm-scan.cuh
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-cuda/pad.cu
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-cuda/norm.cuh
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-cuda/ssm-conv.cu
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-cuda/fattn-vec-f16.cuh
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-cuda/tsembd.cu
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-cuda/fattn-tile-f32.cu
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-cuda/sum.cuh
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-cuda/out-prod.cu
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-cuda/norm.cu
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-cuda/softcap.cuh
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-cuda/roll.cu
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-cuda/vecdotq.cuh
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-cuda/sumrows.cu
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-cuda/clamp.cu
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-cuda/fattn-wmma-f16.cu
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-cuda/convert.cu
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-cuda/count-equal.cu
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-cuda/arange.cu
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-cuda/set-rows.cu
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-cuda/mmvq.cuh
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-cuda/cpy.cu
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-cuda/scale.cu
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-cuda/fattn.cuh
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-cuda/cp-async.cuh
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-cuda/argmax.cuh
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-cuda/concat.cuh
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-cuda/arange.cuh
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-cuda/wkv.cuh
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-cuda/softmax.cu
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-cuda/common.cuh
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-cuda/gla.cuh
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-cuda/conv2d-dw.cuh
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-cuda/conv2d-transpose.cuh
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-cuda/clamp.cuh
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-cuda/mean.cu
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-cuda/cross-entropy-loss.cu
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-cuda/fattn-vec-f32.cuh
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-cuda/getrows.cuh
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-cuda/conv2d-transpose.cu
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-cuda/sumrows.cuh
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-cuda/ggml-cuda.cu
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-cuda/unary.cu
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-cuda/unary.cuh
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-cuda/dequantize.cuh
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-cuda/wkv.cu
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-cuda/cpy.cuh
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-cuda/ssm-conv.cuh
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-cuda/mmq.cuh
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-cuda/binbcast.cuh
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-cuda/fattn-tile-f16.cu
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-cuda/out-prod.cuh
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-cuda/argsort.cu
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-cuda/rope.cuh
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-cuda/pool2d.cu
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-cuda/concat.cu
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-cuda/template-instances
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-cuda/template-instances/fattn-mma-f16-instance-ncols1_64-ncols2_1.cu
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-cuda/template-instances/mmq-instance-q4_1.cu
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-cuda/template-instances/fattn-vec-f32-instance-hs128-f16-f16.cu
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-cuda/template-instances/fattn-mma-f16-instance-ncols1_8-ncols2_2.cu
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-cuda/template-instances/mmq-instance-iq1_s.cu
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-cuda/template-instances/fattn-vec-f16-instance-hs128-q4_0-f16.cu
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-cuda/template-instances/fattn-mma-f16-instance-ncols1_4-ncols2_8.cu
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-cuda/template-instances/fattn-vec-f16-instance-hs128-q8_0-q4_1.cu
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-cuda/template-instances/mmq-instance-iq2_xxs.cu
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-cuda/template-instances/mmq-instance-q5_k.cu
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-cuda/template-instances/mmq-instance-q2_k.cu
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-cuda/template-instances/fattn-vec-f32-instance-hs128-q5_1-q4_1.cu
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-cuda/template-instances/fattn-mma-f16-instance-ncols1_1-ncols2_16.cu
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-cuda/template-instances/fattn-vec-f32-instance-hs128-q8_0-q5_1.cu
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-cuda/template-instances/fattn-mma-f16-instance-ncols1_4-ncols2_16.cu
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-cuda/template-instances/fattn-mma-f16-instance-ncols1_8-ncols2_4.cu
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-cuda/template-instances/fattn-vec-f32-instance-hs128-q8_0-q5_0.cu
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-cuda/template-instances/fattn-vec-f16-instance-hs256-f16-f16.cu
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-cuda/template-instances/fattn-vec-f16-instance-hs64-f16-q8_0.cu
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-cuda/template-instances/fattn-vec-f16-instance-hs128-q5_0-q8_0.cu
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-cuda/template-instances/fattn-vec-f32-instance-hs128-q5_0-q8_0.cu
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-cuda/template-instances/fattn-vec-f16-instance-hs128-f16-q8_0.cu
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-cuda/template-instances/fattn-vec-f16-instance-hs64-f16-q4_1.cu
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-cuda/template-instances/fattn-vec-f32-instance-hs128-f16-q5_0.cu
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-cuda/template-instances/fattn-vec-f32-instance-hs128-q8_0-q8_0.cu
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-cuda/template-instances/fattn-vec-f16-instance-hs128-q5_0-f16.cu
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-cuda/template-instances/fattn-vec-f16-instance-hs128-q5_1-q5_0.cu
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-cuda/template-instances/mmq-instance-q6_k.cu
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-cuda/template-instances/fattn-vec-f16-instance-hs64-f16-q4_0.cu
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-cuda/template-instances/fattn-vec-f32-instance-hs128-f16-q8_0.cu
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-cuda/template-instances/fattn-vec-f16-instance-hs128-q5_0-q4_0.cu
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-cuda/template-instances/fattn-vec-f16-instance-hs128-q8_0-f16.cu
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-cuda/template-instances/fattn-vec-f16-instance-hs128-q4_1-q8_0.cu
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-cuda/template-instances/fattn-vec-f16-instance-hs128-q8_0-q4_0.cu
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-cuda/template-instances/mmq-instance-q3_k.cu
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-cuda/template-instances/fattn-vec-f16-instance-hs128-q4_1-q4_0.cu
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-cuda/template-instances/fattn-vec-f32-instance-hs64-f16-f16.cu
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-cuda/template-instances/fattn-mma-f16-instance-ncols1_8-ncols2_8.cu
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-cuda/template-instances/fattn-vec-f32-instance-hs128-q4_1-q5_1.cu
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-cuda/template-instances/fattn-mma-f16-instance-ncols1_16-ncols2_1.cu
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-cuda/template-instances/mmq-instance-iq2_xs.cu
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-cuda/template-instances/fattn-vec-f32-instance-hs128-f16-q5_1.cu
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-cuda/template-instances/mmq-instance-q5_1.cu
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-cuda/template-instances/fattn-mma-f16-instance-ncols1_2-ncols2_8.cu
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-cuda/template-instances/mmq-instance-iq4_nl.cu
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-cuda/template-instances/fattn-vec-f32-instance-hs128-q4_1-f16.cu
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-cuda/template-instances/fattn-vec-f32-instance-hs128-q5_1-q8_0.cu
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-cuda/template-instances/fattn-vec-f16-instance-hs128-q5_1-q5_1.cu
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-cuda/template-instances/fattn-mma-f16-instance-ncols1_4-ncols2_2.cu
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-cuda/template-instances/fattn-vec-f32-instance-hs128-f16-q4_0.cu
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-cuda/template-instances/fattn-vec-f32-instance-hs128-q5_0-q4_0.cu
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-cuda/template-instances/fattn-vec-f32-instance-hs128-q5_0-q4_1.cu
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-cuda/template-instances/mmq-instance-iq2_s.cu
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-cuda/template-instances/fattn-vec-f16-instance-hs128-q4_0-q8_0.cu
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-cuda/template-instances/fattn-vec-f32-instance-hs128-q5_1-q4_0.cu
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-cuda/template-instances/fattn-mma-f16-instance-ncols1_8-ncols2_1.cu
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-cuda/template-instances/mmq-instance-q5_0.cu
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-cuda/template-instances/fattn-vec-f16-instance-hs128-f16-q5_0.cu
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-cuda/template-instances/fattn-mma-f16-instance-ncols1_16-ncols2_4.cu
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-cuda/template-instances/fattn-vec-f16-instance-hs64-f16-q5_0.cu
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-cuda/template-instances/fattn-vec-f32-instance-hs128-f16-q4_1.cu
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-cuda/template-instances/fattn-mma-f16-instance-ncols1_16-ncols2_2.cu
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-cuda/template-instances/fattn-vec-f32-instance-hs128-q8_0-q4_0.cu
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-cuda/template-instances/fattn-vec-f16-instance-hs128-q4_1-q5_0.cu
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-cuda/template-instances/fattn-mma-f16-instance-ncols1_2-ncols2_4.cu
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-cuda/template-instances/fattn-vec-f32-instance-hs128-q4_1-q4_1.cu
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-cuda/template-instances/fattn-vec-f32-instance-hs64-f16-q4_1.cu
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-cuda/template-instances/fattn-vec-f32-instance-hs128-q4_1-q8_0.cu
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-cuda/template-instances/fattn-vec-f16-instance-hs128-q5_1-q8_0.cu
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-cuda/template-instances/fattn-vec-f16-instance-hs128-q4_0-q4_0.cu
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-cuda/template-instances/fattn-vec-f32-instance-hs256-f16-f16.cu
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-cuda/template-instances/fattn-vec-f16-instance-hs128-q4_1-q5_1.cu
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-cuda/template-instances/fattn-vec-f32-instance-hs128-q4_0-q5_0.cu
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-cuda/template-instances/fattn-vec-f32-instance-hs64-f16-q4_0.cu
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-cuda/template-instances/fattn-vec-f32-instance-hs64-f16-q5_1.cu
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-cuda/template-instances/mmq-instance-iq4_xs.cu
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-cuda/template-instances/fattn-vec-f16-instance-hs128-q4_0-q5_0.cu
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-cuda/template-instances/fattn-vec-f16-instance-hs128-q5_1-f16.cu
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-cuda/template-instances/fattn-vec-f16-instance-hs128-q4_0-q4_1.cu
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-cuda/template-instances/fattn-mma-f16-instance-ncols1_1-ncols2_8.cu
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-cuda/template-instances/fattn-vec-f32-instance-hs128-q8_0-f16.cu
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-cuda/template-instances/fattn-vec-f16-instance-hs64-f16-q5_1.cu
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-cuda/template-instances/fattn-vec-f16-instance-hs128-q5_1-q4_1.cu
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-cuda/template-instances/fattn-vec-f16-instance-hs128-q4_1-q4_1.cu
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-cuda/template-instances/mmq-instance-iq3_xxs.cu
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-cuda/template-instances/mmq-instance-iq3_s.cu
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-cuda/template-instances/fattn-vec-f16-instance-hs128-q4_1-f16.cu
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-cuda/template-instances/fattn-vec-f32-instance-hs128-q8_0-q4_1.cu
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-cuda/template-instances/mmq-instance-q4_0.cu
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-cuda/template-instances/fattn-vec-f32-instance-hs128-q4_0-q5_1.cu
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-cuda/template-instances/fattn-vec-f16-instance-hs128-q8_0-q8_0.cu
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-cuda/template-instances/fattn-vec-f32-instance-hs128-q4_0-q4_1.cu
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-cuda/template-instances/fattn-vec-f16-instance-hs128-q5_0-q5_0.cu
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-cuda/template-instances/fattn-vec-f32-instance-hs128-q5_1-q5_1.cu
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-cuda/template-instances/fattn-vec-f32-instance-hs64-f16-q5_0.cu
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-cuda/template-instances/fattn-vec-f32-instance-hs128-q4_0-q4_0.cu
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-cuda/template-instances/fattn-vec-f32-instance-hs128-q4_1-q4_0.cu
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-cuda/template-instances/fattn-vec-f16-instance-hs64-f16-f16.cu
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-cuda/template-instances/fattn-vec-f16-instance-hs128-q4_0-q5_1.cu
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-cuda/template-instances/mmq-instance-mxfp4.cu
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-cuda/template-instances/fattn-vec-f16-instance-hs128-q5_1-q4_0.cu
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-cuda/template-instances/mmq-instance-q8_0.cu
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-cuda/template-instances/fattn-vec-f32-instance-hs128-q4_1-q5_0.cu
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-cuda/template-instances/fattn-mma-f16-instance-ncols1_32-ncols2_1.cu
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-cuda/template-instances/fattn-vec-f32-instance-hs128-q5_1-q5_0.cu
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-cuda/template-instances/fattn-vec-f16-instance-hs128-f16-q5_1.cu
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-cuda/template-instances/fattn-vec-f16-instance-hs128-q5_0-q5_1.cu
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-cuda/template-instances/fattn-vec-f16-instance-hs128-f16-q4_0.cu
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-cuda/template-instances/fattn-vec-f32-instance-hs128-q4_0-q8_0.cu
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-cuda/template-instances/fattn-vec-f16-instance-hs128-f16-q4_1.cu
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-cuda/template-instances/fattn-vec-f32-instance-hs128-q5_1-f16.cu
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-cuda/template-instances/fattn-vec-f16-instance-hs128-q8_0-q5_0.cu
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-cuda/template-instances/fattn-vec-f16-instance-hs128-q8_0-q5_1.cu
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-cuda/template-instances/fattn-mma-f16-instance-ncols1_32-ncols2_2.cu
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-cuda/template-instances/fattn-vec-f32-instance-hs64-f16-q8_0.cu
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-cuda/template-instances/fattn-vec-f32-instance-hs128-q5_0-f16.cu
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-cuda/template-instances/fattn-vec-f32-instance-hs128-q5_0-q5_1.cu
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-cuda/template-instances/fattn-vec-f32-instance-hs128-q5_0-q5_0.cu
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-cuda/template-instances/generate_cu_files.py
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-cuda/template-instances/mmq-instance-q4_k.cu
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-cuda/template-instances/fattn-vec-f32-instance-hs128-q4_0-f16.cu
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-cuda/template-instances/fattn-vec-f16-instance-hs128-q5_0-q4_1.cu
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-cuda/template-instances/fattn-vec-f16-instance-hs128-f16-f16.cu
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-cuda/template-instances/fattn-mma-f16-instance-ncols1_4-ncols2_4.cu
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-cuda/template-instances/fattn-mma-f16-instance-ncols1_2-ncols2_16.cu
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-cuda/pad.cuh
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-cuda/diagmask.cuh
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-cuda/mmv.cuh
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-cuda/softcap.cu
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-cuda/argsort.cuh
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-cuda/roll.cuh
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-cuda/fattn-tile-f32.cuh
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-cuda/convert.cuh
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-cuda/upscale.cuh
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-cuda/pool2d.cuh
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-cuda/mmq.cu
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-cuda/fattn-tile-f16.cuh
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-cuda/mean.cuh
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-cuda/conv-transpose-1d.cuh
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-cuda/opt-step-adamw.cuh
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-cuda/vendors
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-cuda/vendors/musa.h
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-cuda/vendors/hip.h
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-cuda/vendors/cuda.h
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-cuda/fattn-mma-f16.cuh
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-cuda/fattn-common.cuh
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-cuda/count-equal.cuh
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-cuda/softmax.cuh
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-cpu
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-cpu/ggml-cpu.cpp
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-cpu/simd-mappings.h
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-cpu/hbm.h
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-cpu/vec.h
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-cpu/arch
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-cpu/arch/riscv
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-cpu/arch/riscv/repack.cpp
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-cpu/arch/riscv/quants.c
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-cpu/arch/wasm
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-cpu/arch/wasm/quants.c
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-cpu/arch/arm
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-cpu/arch/arm/cpu-feats.cpp
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-cpu/arch/arm/repack.cpp
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-cpu/arch/arm/quants.c
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-cpu/arch/loongarch
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-cpu/arch/loongarch/quants.c
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-cpu/arch/powerpc
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-cpu/arch/powerpc/cpu-feats.cpp
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-cpu/arch/powerpc/quants.c
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-cpu/arch/s390
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-cpu/arch/s390/quants.c
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-cpu/arch/x86
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-cpu/arch/x86/cpu-feats.cpp
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-cpu/arch/x86/repack.cpp
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-cpu/arch/x86/quants.c
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-cpu/arch-fallback.h
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-cpu/quants.h
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-cpu/ops.cpp
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-cpu/CMakeLists.txt
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-cpu/vec.cpp
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-cpu/kleidiai
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-cpu/kleidiai/kernels.cpp
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-cpu/kleidiai/kleidiai.cpp
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-cpu/kleidiai/kleidiai.h
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-cpu/kleidiai/kernels.h
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-cpu/cmake
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-cpu/cmake/FindSIMD.cmake
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-cpu/unary-ops.cpp
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-cpu/ggml-cpu.c
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-cpu/ggml-cpu-impl.h
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-cpu/common.h
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-cpu/traits.cpp
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-cpu/repack.h
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-cpu/llamafile
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-cpu/llamafile/sgemm.h
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-cpu/llamafile/sgemm.cpp
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-cpu/repack.cpp
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-cpu/binary-ops.cpp
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-cpu/traits.h
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-cpu/amx
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-cpu/amx/common.h
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-cpu/amx/mmq.h
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-cpu/amx/amx.h
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-cpu/amx/amx.cpp
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-cpu/amx/mmq.cpp
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-cpu/quants.c
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-cpu/binary-ops.h
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-cpu/hbm.cpp
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-cpu/ops.h
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-cpu/unary-ops.h
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-backend-impl.h
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-common.h
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/gguf.cpp
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-quants.c
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-vulkan
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-vulkan/vulkan-shaders
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-vulkan/vulkan-shaders/sub.comp
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-vulkan/vulkan-shaders/pad.comp
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-vulkan/vulkan-shaders/argmax.comp
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-vulkan/vulkan-shaders/roll.comp
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-vulkan/vulkan-shaders/mul_mat_vec_q4_k.comp
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-vulkan/vulkan-shaders/upscale.comp
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-vulkan/vulkan-shaders/contig_copy.comp
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-vulkan/vulkan-shaders/clamp.comp
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-vulkan/vulkan-shaders/gelu_erf.comp
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-vulkan/vulkan-shaders/conv2d_dw.comp
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-vulkan/vulkan-shaders/dequant_f32.comp
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-vulkan/vulkan-shaders/mul_mat_vec_nc.comp
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-vulkan/vulkan-shaders/mul_mat_split_k_reduce.comp
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-vulkan/vulkan-shaders/test_coopmat_support.comp
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-vulkan/vulkan-shaders/test_coopmat2_support.comp
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-vulkan/vulkan-shaders/mul.comp
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-vulkan/vulkan-shaders/dequant_q4_k.comp
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-vulkan/vulkan-shaders/dequant_q5_1.comp
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-vulkan/vulkan-shaders/mul_mat_vec_iq1_s.comp
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-vulkan/vulkan-shaders/generic_unary_head.comp
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-vulkan/vulkan-shaders/rope_head.comp
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-vulkan/vulkan-shaders/test_bfloat16_support.comp
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-vulkan/vulkan-shaders/conv2d_mm.comp
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-vulkan/vulkan-shaders/mul_mat_vec_iq3_s.comp
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-vulkan/vulkan-shaders/CMakeLists.txt
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-vulkan/vulkan-shaders/dequant_q2_k.comp
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-vulkan/vulkan-shaders/dequant_iq1_s.comp
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-vulkan/vulkan-shaders/copy_to_quant.comp
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-vulkan/vulkan-shaders/dequant_q6_k.comp
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-vulkan/vulkan-shaders/flash_attn_cm2.comp
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-vulkan/vulkan-shaders/mul_mat_vec_iq2_xxs.comp
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-vulkan/vulkan-shaders/rope_neox.comp
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-vulkan/vulkan-shaders/add_id.comp
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-vulkan/vulkan-shaders/dequant_iq3_s.comp
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-vulkan/vulkan-shaders/soft_max_back.comp
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-vulkan/vulkan-shaders/copy.comp
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-vulkan/vulkan-shaders/dequant_iq1_m.comp
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-vulkan/vulkan-shaders/dequant_q4_1.comp
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-vulkan/vulkan-shaders/conv_transpose_1d.comp
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-vulkan/vulkan-shaders/mul_mat_vec_iq3_xxs.comp
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-vulkan/vulkan-shaders/acc.comp
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-vulkan/vulkan-shaders/count_equal.comp
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-vulkan/vulkan-shaders/flash_attn_base.comp
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-vulkan/vulkan-shaders/wkv7.comp
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-vulkan/vulkan-shaders/dequant_mxfp4.comp
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-vulkan/vulkan-shaders/quantize_q8_1.comp
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-vulkan/vulkan-shaders/vulkan-shaders-gen.cpp
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-vulkan/vulkan-shaders/dequant_head.comp
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-vulkan/vulkan-shaders/norm.comp
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-vulkan/vulkan-shaders/dequant_iq3_xxs.comp
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-vulkan/vulkan-shaders/square.comp
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-vulkan/vulkan-shaders/wkv6.comp
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-vulkan/vulkan-shaders/im2col.comp
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-vulkan/vulkan-shaders/pool2d.comp
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-vulkan/vulkan-shaders/glu_head.comp
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-vulkan/vulkan-shaders/dequant_iq2_s.comp
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-vulkan/vulkan-shaders/gelu.comp
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-vulkan/vulkan-shaders/geglu_erf.comp
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-vulkan/vulkan-shaders/generic_head.comp
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-vulkan/vulkan-shaders/copy_from_quant.comp
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-vulkan/vulkan-shaders/test_integer_dot_support.comp
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-vulkan/vulkan-shaders/rope_norm.comp
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-vulkan/vulkan-shaders/geglu_quick.comp
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-vulkan/vulkan-shaders/dequant_funcs_cm2.comp
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-vulkan/vulkan-shaders/swiglu_oai.comp
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-vulkan/vulkan-shaders/tanh.comp
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-vulkan/vulkan-shaders/rms_norm.comp
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-vulkan/vulkan-shaders/relu.comp
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-vulkan/vulkan-shaders/dequant_q4_0.comp
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-vulkan/vulkan-shaders/cos.comp
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-vulkan/vulkan-shaders/mul_mat_vec_iq2_s.comp
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-vulkan/vulkan-shaders/argsort.comp
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-vulkan/vulkan-shaders/dequant_q5_0.comp
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-vulkan/vulkan-shaders/gelu_quick.comp
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-vulkan/vulkan-shaders/leaky_relu.comp
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-vulkan/vulkan-shaders/get_rows_quant.comp
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-vulkan/vulkan-shaders/glu_main.comp
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-vulkan/vulkan-shaders/mul_mmq_funcs.comp
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-vulkan/vulkan-shaders/sin.comp
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-vulkan/vulkan-shaders/timestep_embedding.comp
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-vulkan/vulkan-shaders/mul_mat_vec_q5_k.comp
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-vulkan/vulkan-shaders/flash_attn.comp
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-vulkan/vulkan-shaders/rope_vision.comp
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-vulkan/vulkan-shaders/generic_binary_head.comp
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-vulkan/vulkan-shaders/swiglu.comp
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-vulkan/vulkan-shaders/mul_mm_cm2.comp
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-vulkan/vulkan-shaders/dequant_q5_k.comp
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-vulkan/vulkan-shaders/diag_mask_inf.comp
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-vulkan/vulkan-shaders/group_norm.comp
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-vulkan/vulkan-shaders/repeat_back.comp
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-vulkan/vulkan-shaders/mul_mat_vec_q6_k.comp
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-vulkan/vulkan-shaders/mul_mat_vec_p021.comp
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-vulkan/vulkan-shaders/dequant_q3_k.comp
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-vulkan/vulkan-shaders/get_rows.comp
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-vulkan/vulkan-shaders/repeat.comp
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-vulkan/vulkan-shaders/silu.comp
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-vulkan/vulkan-shaders/mul_mat_vec_iq1_m.comp
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-vulkan/vulkan-shaders/opt_step_adamw.comp
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-vulkan/vulkan-shaders/geglu.comp
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-vulkan/vulkan-shaders/add.comp
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-vulkan/vulkan-shaders/dequant_funcs.comp
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-vulkan/vulkan-shaders/dequant_iq4_nl.comp
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-vulkan/vulkan-shaders/dequant_q8_0.comp
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-vulkan/vulkan-shaders/flash_attn_cm1.comp
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-vulkan/vulkan-shaders/mul_mm.comp
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-vulkan/vulkan-shaders/dequant_iq2_xxs.comp
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-vulkan/vulkan-shaders/sum_rows.comp
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-vulkan/vulkan-shaders/reglu.comp
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-vulkan/vulkan-shaders/mul_mat_vec_iq2_xs.comp
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-vulkan/vulkan-shaders/flash_attn_split_k_reduce.comp
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-vulkan/vulkan-shaders/rms_norm_back.comp
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-vulkan/vulkan-shaders/mul_mat_vec_base.comp
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-vulkan/vulkan-shaders/concat.comp
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-vulkan/vulkan-shaders/dequant_iq4_xs.comp
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-vulkan/vulkan-shaders/scale.comp
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-vulkan/vulkan-shaders/mul_mmq.comp
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-vulkan/vulkan-shaders/dequant_iq2_xs.comp
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-vulkan/vulkan-shaders/rope_multi.comp
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-vulkan/vulkan-shaders/mul_mat_vec_q2_k.comp
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-vulkan/vulkan-shaders/silu_back.comp
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-vulkan/vulkan-shaders/l2_norm.comp
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-vulkan/vulkan-shaders/types.comp
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-vulkan/vulkan-shaders/div.comp
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-vulkan/vulkan-shaders/mul_mat_vec_q3_k.comp
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-vulkan/vulkan-shaders/mul_mat_vec.comp
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-vulkan/vulkan-shaders/soft_max.comp
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-vulkan/vulkan-shaders/sigmoid.comp
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-vulkan/vulkan-shaders/rte.comp
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-vulkan/CMakeLists.txt
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-vulkan/cmake
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-vulkan/cmake/host-toolchain.cmake.in
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-vulkan/ggml-vulkan.cpp
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-impl.h
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-threading.h
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-threading.cpp
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-backend-reg.cpp
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-opt.cpp
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/src/ggml-backend.cpp
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/CMakeLists.txt
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/CMakeLists.txt
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/common
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/common/console.cpp
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/common/sampling.h
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/common/CMakeLists.txt
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/common/chat-parser.h
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/common/arg.cpp
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/common/regex-partial.cpp
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/common/llguidance.cpp
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/common/speculative.h
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/common/speculative.cpp
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/common/common.cpp
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/common/json-schema-to-grammar.cpp
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/common/regex-partial.h
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/common/json-schema-to-grammar.h
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/common/chat.h
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/common/common.h
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/common/sampling.cpp
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/common/ngram-cache.h
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/common/console.h
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/common/log.cpp
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/common/arg.h
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/common/base64.hpp
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/common/build-info.cpp.in
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/common/json-partial.cpp
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/common/log.h
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/common/chat-parser.cpp
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/common/ngram-cache.cpp
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/common/json-partial.h
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/common/chat.cpp
+cargo:rerun-if-env-changed=TARGET
+cargo:rerun-if-env-changed=BINDGEN_EXTRA_CLANG_ARGS_x86_64-unknown-linux-gnu
+cargo:rerun-if-env-changed=BINDGEN_EXTRA_CLANG_ARGS_x86_64_unknown_linux_gnu
+cargo:rerun-if-env-changed=BINDGEN_EXTRA_CLANG_ARGS
+cargo:rerun-if-changed=wrapper.h
+cargo:rerun-if-changed=./llama.cpp/include/llama.h
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/include/ggml.h
+cargo:rerun-if-changed=/usr/lib/llvm-14/lib/clang/14.0.0/include/stdbool.h
+cargo:rerun-if-changed=/usr/lib/llvm-14/lib/clang/14.0.0/include/stddef.h
+cargo:rerun-if-changed=/usr/lib/llvm-14/lib/clang/14.0.0/include/__stddef_max_align_t.h
+cargo:rerun-if-changed=/usr/lib/llvm-14/lib/clang/14.0.0/include/stdint.h
+cargo:rerun-if-changed=/usr/include/stdint.h
+cargo:rerun-if-changed=/usr/include/x86_64-linux-gnu/bits/libc-header-start.h
+cargo:rerun-if-changed=/usr/include/features.h
+cargo:rerun-if-changed=/usr/include/features-time64.h
+cargo:rerun-if-changed=/usr/include/x86_64-linux-gnu/bits/wordsize.h
+cargo:rerun-if-changed=/usr/include/x86_64-linux-gnu/bits/timesize.h
+cargo:rerun-if-changed=/usr/include/x86_64-linux-gnu/bits/wordsize.h
+cargo:rerun-if-changed=/usr/include/stdc-predef.h
+cargo:rerun-if-changed=/usr/include/x86_64-linux-gnu/sys/cdefs.h
+cargo:rerun-if-changed=/usr/include/x86_64-linux-gnu/bits/wordsize.h
+cargo:rerun-if-changed=/usr/include/x86_64-linux-gnu/bits/long-double.h
+cargo:rerun-if-changed=/usr/include/x86_64-linux-gnu/gnu/stubs.h
+cargo:rerun-if-changed=/usr/include/x86_64-linux-gnu/gnu/stubs-64.h
+cargo:rerun-if-changed=/usr/include/x86_64-linux-gnu/bits/types.h
+cargo:rerun-if-changed=/usr/include/features.h
+cargo:rerun-if-changed=/usr/include/x86_64-linux-gnu/bits/wordsize.h
+cargo:rerun-if-changed=/usr/include/x86_64-linux-gnu/bits/timesize.h
+cargo:rerun-if-changed=/usr/include/x86_64-linux-gnu/bits/wordsize.h
+cargo:rerun-if-changed=/usr/include/x86_64-linux-gnu/bits/typesizes.h
+cargo:rerun-if-changed=/usr/include/x86_64-linux-gnu/bits/time64.h
+cargo:rerun-if-changed=/usr/include/x86_64-linux-gnu/bits/wchar.h
+cargo:rerun-if-changed=/usr/include/x86_64-linux-gnu/bits/wordsize.h
+cargo:rerun-if-changed=/usr/include/x86_64-linux-gnu/bits/stdint-intn.h
+cargo:rerun-if-changed=/usr/include/x86_64-linux-gnu/bits/types.h
+cargo:rerun-if-changed=/usr/include/x86_64-linux-gnu/bits/stdint-uintn.h
+cargo:rerun-if-changed=/usr/include/x86_64-linux-gnu/bits/types.h
+cargo:rerun-if-changed=/usr/include/stdio.h
+cargo:rerun-if-changed=/usr/include/x86_64-linux-gnu/bits/libc-header-start.h
+cargo:rerun-if-changed=/usr/include/features.h
+cargo:rerun-if-changed=/usr/lib/llvm-14/lib/clang/14.0.0/include/stddef.h
+cargo:rerun-if-changed=/usr/lib/llvm-14/lib/clang/14.0.0/include/stdarg.h
+cargo:rerun-if-changed=/usr/include/x86_64-linux-gnu/bits/types.h
+cargo:rerun-if-changed=/usr/include/x86_64-linux-gnu/bits/types/__fpos_t.h
+cargo:rerun-if-changed=/usr/include/x86_64-linux-gnu/bits/types.h
+cargo:rerun-if-changed=/usr/include/x86_64-linux-gnu/bits/types/__mbstate_t.h
+cargo:rerun-if-changed=/usr/include/x86_64-linux-gnu/bits/types/__fpos64_t.h
+cargo:rerun-if-changed=/usr/include/x86_64-linux-gnu/bits/types.h
+cargo:rerun-if-changed=/usr/include/x86_64-linux-gnu/bits/types/__mbstate_t.h
+cargo:rerun-if-changed=/usr/include/x86_64-linux-gnu/bits/types/__FILE.h
+cargo:rerun-if-changed=/usr/include/x86_64-linux-gnu/bits/types/FILE.h
+cargo:rerun-if-changed=/usr/include/x86_64-linux-gnu/bits/types/struct_FILE.h
+cargo:rerun-if-changed=/usr/include/x86_64-linux-gnu/bits/types.h
+cargo:rerun-if-changed=/usr/include/x86_64-linux-gnu/bits/stdio_lim.h
+cargo:rerun-if-changed=/usr/include/x86_64-linux-gnu/bits/floatn.h
+cargo:rerun-if-changed=/usr/include/features.h
+cargo:rerun-if-changed=/usr/include/x86_64-linux-gnu/bits/floatn-common.h
+cargo:rerun-if-changed=/usr/include/features.h
+cargo:rerun-if-changed=/usr/include/x86_64-linux-gnu/bits/long-double.h
+cargo:rerun-if-changed=/usr/include/x86_64-linux-gnu/bits/floatn.h
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/include/ggml-cpu.h
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/include/ggml.h
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/include/ggml-backend.h
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/include/ggml.h
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/include/ggml-alloc.h
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/include/ggml.h
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/include/ggml-backend.h
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/include/ggml-opt.h
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/include/ggml.h
+cargo:rerun-if-changed=/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp/ggml/include/ggml-backend.h
+cargo:rerun-if-changed=/usr/lib/llvm-14/lib/clang/14.0.0/include/stdint.h
+cargo:rerun-if-changed=/usr/lib/llvm-14/lib/clang/14.0.0/include/stddef.h
+cargo:rerun-if-changed=/usr/lib/llvm-14/lib/clang/14.0.0/include/stdint.h
+cargo:rerun-if-changed=/usr/include/stdio.h
+cargo:rerun-if-changed=/usr/lib/llvm-14/lib/clang/14.0.0/include/stdbool.h
+cargo:rerun-if-changed=wrapper.h
+CMAKE_TOOLCHAIN_FILE_x86_64-unknown-linux-gnu = None
+CMAKE_TOOLCHAIN_FILE_x86_64_unknown_linux_gnu = None
+HOST_CMAKE_TOOLCHAIN_FILE = None
+CMAKE_TOOLCHAIN_FILE = None
+CMAKE_GENERATOR_x86_64-unknown-linux-gnu = None
+CMAKE_GENERATOR_x86_64_unknown_linux_gnu = None
+HOST_CMAKE_GENERATOR = None
+CMAKE_GENERATOR = None
+CMAKE_PREFIX_PATH_x86_64-unknown-linux-gnu = None
+CMAKE_PREFIX_PATH_x86_64_unknown_linux_gnu = None
+HOST_CMAKE_PREFIX_PATH = None
+CMAKE_PREFIX_PATH = None
+CMAKE_x86_64-unknown-linux-gnu = None
+CMAKE_x86_64_unknown_linux_gnu = None
+HOST_CMAKE = None
+CMAKE = None
+running: cd "/home/cabdru/rags/Pheromind-RAG/validation/target/debug/build/llama-cpp-sys-2-4ffa4c60567df610/out/build" && CMAKE_PREFIX_PATH="" LC_ALL="C" "cmake" "/home/cabdru/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/llama-cpp-sys-2-0.1.116/llama.cpp" "-DLLAMA_BUILD_TESTS=OFF" "-DLLAMA_BUILD_EXAMPLES=OFF" "-DLLAMA_BUILD_SERVER=OFF" "-DLLAMA_BUILD_TOOLS=OFF" "-DLLAMA_CURL=OFF" "-DCMAKE_BUILD_PARALLEL_LEVEL=12" "-DBUILD_SHARED_LIBS=OFF" "-DGGML_OPENMP=ON" "-DCMAKE_INSTALL_PREFIX=/home/cabdru/rags/Pheromind-RAG/validation/target/debug/build/llama-cpp-sys-2-4ffa4c60567df610/out" "-DCMAKE_C_FLAGS= -ffunction-sections -fdata-sections -fPIC -m64" "-DCMAKE_C_COMPILER=/usr/bin/cc" "-DCMAKE_CXX_FLAGS= -ffunction-sections -fdata-sections -fPIC -m64" "-DCMAKE_CXX_COMPILER=/usr/bin/c++" "-DCMAKE_ASM_FLAGS= -ffunction-sections -fdata-sections -fPIC -m64" "-DCMAKE_ASM_COMPILER=/usr/bin/cc" "-DCMAKE_BUILD_TYPE=Release"
+-- The C compiler identification is GNU 11.4.0
+-- The CXX compiler identification is GNU 11.4.0
+-- Detecting C compiler ABI info
+-- Detecting C compiler ABI info - done
+-- Check for working C compiler: /usr/bin/cc - skipped
+-- Detecting C compile features
+-- Detecting C compile features - done
+-- Detecting CXX compiler ABI info
+-- Detecting CXX compiler ABI info - done
+-- Check for working CXX compiler: /usr/bin/c++ - skipped
+-- Detecting CXX compile features
+-- Detecting CXX compile features - done
+-- Found Git: /usr/bin/git (found version "2.34.1") 
+-- Looking for pthread.h
+-- Looking for pthread.h - found
+-- Performing Test CMAKE_HAVE_LIBC_PTHREAD
+-- Performing Test CMAKE_HAVE_LIBC_PTHREAD - Success
+-- Found Threads: TRUE  
+-- Warning: ccache not found - consider installing it for faster compilation or disable this warning with GGML_CCACHE=OFF
+-- CMAKE_SYSTEM_PROCESSOR: x86_64
+-- GGML_SYSTEM_ARCH: x86
+-- Including CPU backend
+-- Found OpenMP_C: -fopenmp (found version "4.5") 
+-- Found OpenMP_CXX: -fopenmp (found version "4.5") 
+-- Found OpenMP: TRUE (found version "4.5")  
+-- x86 detected
+-- Adding CPU backend variant ggml-cpu: -march=native 
+-- ggml version: 0.0.0
+-- ggml commit:  unknown
+-- Configuring done
+-- Generating done
+-- Build files have been written to: /home/cabdru/rags/Pheromind-RAG/validation/target/debug/build/llama-cpp-sys-2-4ffa4c60567df610/out/build
+running: cd "/home/cabdru/rags/Pheromind-RAG/validation/target/debug/build/llama-cpp-sys-2-4ffa4c60567df610/out/build" && LC_ALL="C" MAKEFLAGS="-j --jobserver-fds=9,10 --jobserver-auth=9,10" "cmake" "--build" "/home/cabdru/rags/Pheromind-RAG/validation/target/debug/build/llama-cpp-sys-2-4ffa4c60567df610/out/build" "--target" "install" "--config" "Release"
+[  1%] Building CXX object common/CMakeFiles/build_info.dir/build-info.cpp.o
+[  2%] Building CXX object ggml/src/CMakeFiles/ggml-base.dir/ggml-opt.cpp.o
+[  4%] Building CXX object ggml/src/CMakeFiles/ggml-base.dir/ggml-threading.cpp.o
+[  5%] Building CXX object ggml/src/CMakeFiles/ggml-base.dir/ggml.cpp.o
+[  7%] Building C object ggml/src/CMakeFiles/ggml-base.dir/ggml.c.o
+[  8%] Building C object ggml/src/CMakeFiles/ggml-base.dir/ggml-alloc.c.o
+[ 10%] Building CXX object ggml/src/CMakeFiles/ggml-base.dir/ggml-backend.cpp.o
+[ 11%] Building C object ggml/src/CMakeFiles/ggml-base.dir/ggml-quants.c.o
+[ 13%] Building CXX object ggml/src/CMakeFiles/ggml-base.dir/gguf.cpp.o
+[ 13%] Built target build_info
+[ 14%] Linking CXX static library libggml-base.a
+[ 14%] Built target ggml-base
+[ 15%] Building CXX object ggml/src/CMakeFiles/ggml-cpu.dir/ggml-cpu/hbm.cpp.o
+[ 17%] Building CXX object ggml/src/CMakeFiles/ggml-cpu.dir/ggml-cpu/amx/amx.cpp.o
+[ 18%] Building CXX object ggml/src/CMakeFiles/ggml-cpu.dir/ggml-cpu/binary-ops.cpp.o
+[ 21%] Building CXX object ggml/src/CMakeFiles/ggml-cpu.dir/ggml-cpu/amx/mmq.cpp.o
+[ 21%] Building CXX object ggml/src/CMakeFiles/ggml-cpu.dir/ggml-cpu/ggml-cpu.cpp.o
+[ 23%] Building CXX object ggml/src/CMakeFiles/ggml-cpu.dir/ggml-cpu/repack.cpp.o
+[ 26%] Building C object ggml/src/CMakeFiles/ggml-cpu.dir/ggml-cpu/quants.c.o
+[ 27%] Building CXX object ggml/src/CMakeFiles/ggml-cpu.dir/ggml-cpu/traits.cpp.o
+[ 26%] Building C object ggml/src/CMakeFiles/ggml-cpu.dir/ggml-cpu/ggml-cpu.c.o
+[ 30%] Building CXX object ggml/src/CMakeFiles/ggml-cpu.dir/ggml-cpu/vec.cpp.o
+[ 30%] Building CXX object ggml/src/CMakeFiles/ggml-cpu.dir/ggml-cpu/unary-ops.cpp.o
+[ 31%] Building CXX object ggml/src/CMakeFiles/ggml-cpu.dir/ggml-cpu/ops.cpp.o
+[ 33%] Building CXX object ggml/src/CMakeFiles/ggml-cpu.dir/ggml-cpu/llamafile/sgemm.cpp.o
+[ 34%] Building C object ggml/src/CMakeFiles/ggml-cpu.dir/ggml-cpu/arch/x86/quants.c.o
+[ 36%] Building CXX object ggml/src/CMakeFiles/ggml-cpu.dir/ggml-cpu/arch/x86/repack.cpp.o
+[ 37%] Linking CXX static library libggml-cpu.a
+[ 37%] Built target ggml-cpu
+[ 39%] Building CXX object ggml/src/CMakeFiles/ggml.dir/ggml-backend-reg.cpp.o
+[ 40%] Linking CXX static library libggml.a
+[ 40%] Built target ggml
+[ 42%] Building CXX object src/CMakeFiles/llama.dir/llama.cpp.o
+[ 43%] Building CXX object src/CMakeFiles/llama.dir/llama-chat.cpp.o
+[ 44%] Building CXX object src/CMakeFiles/llama.dir/llama-adapter.cpp.o
+[ 46%] Building CXX object src/CMakeFiles/llama.dir/llama-cparams.cpp.o
+[ 47%] Building CXX object src/CMakeFiles/llama.dir/llama-batch.cpp.o
+[ 49%] Building CXX object src/CMakeFiles/llama.dir/llama-arch.cpp.o
+[ 50%] Building CXX object src/CMakeFiles/llama.dir/llama-graph.cpp.o
+[ 52%] Building CXX object src/CMakeFiles/llama.dir/llama-context.cpp.o
+[ 55%] Building CXX object src/CMakeFiles/llama.dir/llama-hparams.cpp.o
+[ 55%] Building CXX object src/CMakeFiles/llama.dir/llama-grammar.cpp.o
+[ 56%] Building CXX object src/CMakeFiles/llama.dir/llama-io.cpp.o
+[ 57%] Building CXX object src/CMakeFiles/llama.dir/llama-impl.cpp.o
+[ 59%] Building CXX object src/CMakeFiles/llama.dir/llama-kv-cache-unified.cpp.o
+[ 60%] Building CXX object src/CMakeFiles/llama.dir/llama-kv-cache-unified-iswa.cpp.o
+[ 62%] Building CXX object src/CMakeFiles/llama.dir/llama-memory.cpp.o
+[ 63%] Building CXX object src/CMakeFiles/llama.dir/llama-memory-hybrid.cpp.o
+[ 65%] Building CXX object src/CMakeFiles/llama.dir/llama-memory-recurrent.cpp.o
+[ 66%] Building CXX object src/CMakeFiles/llama.dir/llama-mmap.cpp.o
+[ 68%] Building CXX object src/CMakeFiles/llama.dir/llama-model-loader.cpp.o
+[ 69%] Building CXX object src/CMakeFiles/llama.dir/llama-model-saver.cpp.o
+[ 71%] Building CXX object src/CMakeFiles/llama.dir/llama-model.cpp.o
+[ 72%] Building CXX object src/CMakeFiles/llama.dir/llama-quant.cpp.o
+[ 73%] Building CXX object src/CMakeFiles/llama.dir/llama-sampling.cpp.o
+[ 75%] Building CXX object src/CMakeFiles/llama.dir/llama-vocab.cpp.o
+[ 76%] Building CXX object src/CMakeFiles/llama.dir/unicode-data.cpp.o
+[ 78%] Building CXX object src/CMakeFiles/llama.dir/unicode.cpp.o
+[ 79%] Linking CXX static library libllama.a
+[ 79%] Built target llama
+[ 81%] Building CXX object common/CMakeFiles/common.dir/arg.cpp.o
+[ 82%] Building CXX object common/CMakeFiles/common.dir/common.cpp.o
+[ 84%] Building CXX object common/CMakeFiles/common.dir/json-schema-to-grammar.cpp.o
+[ 85%] Building CXX object common/CMakeFiles/common.dir/chat.cpp.o
+[ 86%] Building CXX object common/CMakeFiles/common.dir/log.cpp.o
+[ 88%] Building CXX object common/CMakeFiles/common.dir/json-partial.cpp.o
+[ 89%] Building CXX object common/CMakeFiles/common.dir/console.cpp.o
+[ 91%] Building CXX object common/CMakeFiles/common.dir/chat-parser.cpp.o
+[ 92%] Building CXX object common/CMakeFiles/common.dir/llguidance.cpp.o
+[ 94%] Building CXX object common/CMakeFiles/common.dir/regex-partial.cpp.o
+[ 95%] Building CXX object common/CMakeFiles/common.dir/ngram-cache.cpp.o
+[ 97%] Building CXX object common/CMakeFiles/common.dir/sampling.cpp.o
+[ 98%] Building CXX object common/CMakeFiles/common.dir/speculative.cpp.o
+[100%] Linking CXX static library libcommon.a
+[100%] Built target common
+Install the project...
+-- Install configuration: "Release"
+-- Installing: /home/cabdru/rags/Pheromind-RAG/validation/target/debug/build/llama-cpp-sys-2-4ffa4c60567df610/out/lib/libggml-cpu.a
+-- Installing: /home/cabdru/rags/Pheromind-RAG/validation/target/debug/build/llama-cpp-sys-2-4ffa4c60567df610/out/lib/libggml.a
+-- Installing: /home/cabdru/rags/Pheromind-RAG/validation/target/debug/build/llama-cpp-sys-2-4ffa4c60567df610/out/include/ggml.h
+-- Installing: /home/cabdru/rags/Pheromind-RAG/validation/target/debug/build/llama-cpp-sys-2-4ffa4c60567df610/out/include/ggml-cpu.h
+-- Installing: /home/cabdru/rags/Pheromind-RAG/validation/target/debug/build/llama-cpp-sys-2-4ffa4c60567df610/out/include/ggml-alloc.h
+-- Installing: /home/cabdru/rags/Pheromind-RAG/validation/target/debug/build/llama-cpp-sys-2-4ffa4c60567df610/out/include/ggml-backend.h
+-- Installing: /home/cabdru/rags/Pheromind-RAG/validation/target/debug/build/llama-cpp-sys-2-4ffa4c60567df610/out/include/ggml-blas.h
+-- Installing: /home/cabdru/rags/Pheromind-RAG/validation/target/debug/build/llama-cpp-sys-2-4ffa4c60567df610/out/include/ggml-cann.h
+-- Installing: /home/cabdru/rags/Pheromind-RAG/validation/target/debug/build/llama-cpp-sys-2-4ffa4c60567df610/out/include/ggml-cpp.h
+-- Installing: /home/cabdru/rags/Pheromind-RAG/validation/target/debug/build/llama-cpp-sys-2-4ffa4c60567df610/out/include/ggml-cuda.h
+-- Installing: /home/cabdru/rags/Pheromind-RAG/validation/target/debug/build/llama-cpp-sys-2-4ffa4c60567df610/out/include/ggml-opt.h
+-- Installing: /home/cabdru/rags/Pheromind-RAG/validation/target/debug/build/llama-cpp-sys-2-4ffa4c60567df610/out/include/ggml-metal.h
+-- Installing: /home/cabdru/rags/Pheromind-RAG/validation/target/debug/build/llama-cpp-sys-2-4ffa4c60567df610/out/include/ggml-rpc.h
+-- Installing: /home/cabdru/rags/Pheromind-RAG/validation/target/debug/build/llama-cpp-sys-2-4ffa4c60567df610/out/include/ggml-sycl.h
+-- Installing: /home/cabdru/rags/Pheromind-RAG/validation/target/debug/build/llama-cpp-sys-2-4ffa4c60567df610/out/include/ggml-vulkan.h
+-- Installing: /home/cabdru/rags/Pheromind-RAG/validation/target/debug/build/llama-cpp-sys-2-4ffa4c60567df610/out/include/ggml-webgpu.h
+-- Installing: /home/cabdru/rags/Pheromind-RAG/validation/target/debug/build/llama-cpp-sys-2-4ffa4c60567df610/out/include/gguf.h
+-- Installing: /home/cabdru/rags/Pheromind-RAG/validation/target/debug/build/llama-cpp-sys-2-4ffa4c60567df610/out/lib/libggml-base.a
+-- Installing: /home/cabdru/rags/Pheromind-RAG/validation/target/debug/build/llama-cpp-sys-2-4ffa4c60567df610/out/lib/cmake/ggml/ggml-config.cmake
+-- Installing: /home/cabdru/rags/Pheromind-RAG/validation/target/debug/build/llama-cpp-sys-2-4ffa4c60567df610/out/lib/cmake/ggml/ggml-version.cmake
+-- Installing: /home/cabdru/rags/Pheromind-RAG/validation/target/debug/build/llama-cpp-sys-2-4ffa4c60567df610/out/lib/libllama.a
+-- Installing: /home/cabdru/rags/Pheromind-RAG/validation/target/debug/build/llama-cpp-sys-2-4ffa4c60567df610/out/include/llama.h
+-- Installing: /home/cabdru/rags/Pheromind-RAG/validation/target/debug/build/llama-cpp-sys-2-4ffa4c60567df610/out/include/llama-cpp.h
+-- Installing: /home/cabdru/rags/Pheromind-RAG/validation/target/debug/build/llama-cpp-sys-2-4ffa4c60567df610/out/lib/cmake/llama/llama-config.cmake
+-- Installing: /home/cabdru/rags/Pheromind-RAG/validation/target/debug/build/llama-cpp-sys-2-4ffa4c60567df610/out/lib/cmake/llama/llama-version.cmake
+-- Installing: /home/cabdru/rags/Pheromind-RAG/validation/target/debug/build/llama-cpp-sys-2-4ffa4c60567df610/out/bin/convert_hf_to_gguf.py
+-- Installing: /home/cabdru/rags/Pheromind-RAG/validation/target/debug/build/llama-cpp-sys-2-4ffa4c60567df610/out/lib/pkgconfig/llama.pc
+cargo:root=/home/cabdru/rags/Pheromind-RAG/validation/target/debug/build/llama-cpp-sys-2-4ffa4c60567df610/out
+cargo:rustc-link-search=/home/cabdru/rags/Pheromind-RAG/validation/target/debug/build/llama-cpp-sys-2-4ffa4c60567df610/out/lib
+cargo:rustc-link-search=/home/cabdru/rags/Pheromind-RAG/validation/target/debug/build/llama-cpp-sys-2-4ffa4c60567df610/out/lib64
+cargo:rustc-link-search=/home/cabdru/rags/Pheromind-RAG/validation/target/debug/build/llama-cpp-sys-2-4ffa4c60567df610/out
+cargo:rustc-link-lib=static=ggml-base
+cargo:rustc-link-lib=static=ggml-cpu
+cargo:rustc-link-lib=static=ggml
+cargo:rustc-link-lib=static=llama
+cargo:rustc-link-lib=gomp
+cargo:rustc-link-lib=dylib=stdc++

@@ -37,10 +37,10 @@ impl SymbolExtractor {
         
         // Initialize Rust parser and query
         let mut rust_parser = Parser::new();
-        rust_parser.set_language(&tree_sitter_rust::language())?;
+        rust_parser.set_language(tree_sitter_rust::language())?;
         
         let rust_query = Query::new(
-            &tree_sitter_rust::language(),
+            tree_sitter_rust::language(),
             r#"
             (function_item name: (identifier) @function.name)
             (struct_item name: (type_identifier) @struct.name)
@@ -56,10 +56,10 @@ impl SymbolExtractor {
         
         // Initialize Python parser and query
         let mut python_parser = Parser::new();
-        python_parser.set_language(&tree_sitter_python::language())?;
+        python_parser.set_language(tree_sitter_python::language())?;
         
         let python_query = Query::new(
-            &tree_sitter_python::language(),
+            tree_sitter_python::language(),
             r#"
             (function_definition name: (identifier) @function.name)
             (class_definition name: (identifier) @class.name)
@@ -72,10 +72,10 @@ impl SymbolExtractor {
         
         // Initialize JavaScript/TypeScript parser and query
         let mut js_parser = Parser::new();
-        js_parser.set_language(&tree_sitter_javascript::language())?;
+        js_parser.set_language(tree_sitter_javascript::language())?;
         
         let js_query = Query::new(
-            &tree_sitter_javascript::language(),
+            tree_sitter_javascript::language(),
             r#"
             (function_declaration name: (identifier) @function.name)
             (class_declaration name: (identifier) @class.name)
@@ -86,11 +86,11 @@ impl SymbolExtractor {
         
         // Create separate parser for TypeScript (can't clone Parser)
         let mut ts_parser = Parser::new();
-        ts_parser.set_language(&tree_sitter_javascript::language())?;
+        ts_parser.set_language(tree_sitter_javascript::language())?;
         
         // Create separate query for TypeScript (can't clone Query)
         let ts_query = Query::new(
-            &tree_sitter_javascript::language(),
+            tree_sitter_javascript::language(),
             r#"
             (function_declaration name: (identifier) @function.name)
             (class_declaration name: (identifier) @class.name)

@@ -1,0 +1,10 @@
+prefix=/home/cabdru/rags/Pheromind-RAG/validation/target/debug/build/llama-cpp-sys-2-4ffa4c60567df610/out
+exec_prefix=/home/cabdru/rags/Pheromind-RAG/validation/target/debug/build/llama-cpp-sys-2-4ffa4c60567df610/out
+libdir=/home/cabdru/rags/Pheromind-RAG/validation/target/debug/build/llama-cpp-sys-2-4ffa4c60567df610/out/lib
+includedir=/home/cabdru/rags/Pheromind-RAG/validation/target/debug/build/llama-cpp-sys-2-4ffa4c60567df610/out/include
+
+Name: llama
+Description: Port of Facebook's LLaMA model in C/C++
+Version: 0.0.0
+Libs: -L${libdir} -lggml -lggml-base -lllama
+Cflags: -I${includedir}

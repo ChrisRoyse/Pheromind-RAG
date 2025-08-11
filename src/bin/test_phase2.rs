@@ -8,9 +8,8 @@ fn main() -> Result<()> {
     // Test 1: Check that llama-cpp-2 is available
     println!("✓ Test 1: llama-cpp-2 crate is linked");
     
-    // Test 2: Initialize llama backend
-    llama_cpp_2::llama_backend_init();
-    println!("✓ Test 2: llama backend initialized");
+    // Test 2: Initialize llama backend (handled by wrapper)
+    println!("✓ Test 2: llama backend will be initialized by wrapper");
     
     // Test 3: Check model file exists
     let model_path = "./src/model/nomic-embed-code.Q4_K_M.gguf";
@@ -58,16 +57,17 @@ fn main() -> Result<()> {
 
 fn load_test_model(path: &str) -> Result<usize> {
     use llama_cpp_2::{
-        llama::LlamaModel,
-        model::LlamaModelParams,
+        model::{LlamaModel, params::LlamaModelParams},
+        llama_backend::LlamaBackend,
     };
     
-    let model_params = LlamaModelParams::default()
-        .with_n_gpu_layers(0)
-        .with_use_mmap(true)
-        .with_use_mlock(false);
+    // Initialize backend first
+    let backend = LlamaBackend::init()?;
     
-    let model = LlamaModel::load_from_file(path, model_params)?;
+    let model_params = LlamaModelParams::default()
+        .with_n_gpu_layers(0);
+    
+    let model = LlamaModel::load_from_file(&backend, path, &model_params)?;
     let embedding_dim = model.n_embd() as usize;
     
     Ok(embedding_dim)

@@ -355,7 +355,6 @@ impl EmbedSearchMCPServer {
 async fn main() -> Result<()> {
     // Initialize tracing
     tracing_subscriber::fmt()
-        .with_env_filter("embed_search_mcp=info,embed_search=info")
         .init();
 
     info!("Starting Embed Search MCP Server v{}", env!("CARGO_PKG_VERSION"));

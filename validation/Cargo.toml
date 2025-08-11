@@ -1,0 +1,11 @@
+[package]
+name = "gguf-validation"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+llama-cpp-2 = "0.1.54"
+
+[[bin]]
+name = "validate"
+path = "standalone_test.rs"

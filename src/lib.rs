@@ -13,13 +13,16 @@ pub mod fusion;
 pub mod embedding_cache;
 
 // Simple modules for core functionality
-pub mod simple_embedder;
-pub mod llama_bindings;
-pub mod llama_wrapper;
-pub mod llama_wrapper_simple;
+// Enable working GGUF implementation
+pub mod llama_wrapper_working;
 pub mod simple_storage;
 pub mod simple_search;
 pub mod advanced_search;
+pub mod markdown_metadata_extractor;
+
+// GGUF embedding modules - now enabled
+pub mod embedding_prefixes;
+pub mod gguf_embedder;
 
 // Re-export key types
 pub use error::{SearchError, Result};
@@ -34,3 +37,12 @@ pub use symbol_extractor::{SymbolExtractor, Symbol, SymbolKind};
 // Main hybrid search interface
 pub use simple_search::HybridSearch;
 pub use advanced_search::{AdvancedHybridSearch, AdvancedSearchResult};
+pub use markdown_metadata_extractor::{
+    MarkdownMetadataExtractor, EnhancedChunkMetadata, MarkdownSymbol, 
+    DocumentOutline, LinkInfo, ImageInfo, SymbolType as MarkdownSymbolType
+};
+
+// GGUF embedding interfaces - now enabled
+pub use embedding_prefixes::{EmbeddingTask, CodeFormatter, BatchProcessor};
+pub use gguf_embedder::{GGUFEmbedder, GGUFEmbedderConfig, EmbedderStats};
+pub use llama_wrapper_working::{GGUFModel, GGUFContext};

@@ -66,6 +66,8 @@ impl Default for Config {
                     "cpp".to_string(),
                     "c".to_string(),
                     "h".to_string(),
+                    "md".to_string(),
+                    "markdown".to_string(),
                 ],
                 enable_incremental: true,
             },

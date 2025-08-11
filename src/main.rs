@@ -4,11 +4,7 @@ use walkdir::WalkDir;
 use std::fs;
 // std::path::Path temporarily removed
 
-mod simple_embedder;
-mod simple_storage;
-mod simple_search;
-
-use simple_search::HybridSearch;
+use embed_search::{simple_search::HybridSearch};
 
 #[derive(Parser)]
 #[command(name = "embed-search")]
@@ -54,7 +50,13 @@ async fn main() -> Result<()> {
                 .filter(|e| e.file_type().is_file())
                 .filter(|e| {
                     if let Some(ext) = e.path().extension() {
-                        matches!(ext.to_str(), Some("rs") | Some("py") | Some("js") | Some("ts"))
+                        if let Some(ext_str) = ext.to_str() {
+                            // Use config's supported extensions - now includes markdown!
+                            let supported = vec!["rs", "py", "js", "ts", "go", "java", "cpp", "c", "h", "md", "markdown"];
+                            supported.contains(&ext_str)
+                        } else {
+                            false
+                        }
                     } else {
                         false
                     }

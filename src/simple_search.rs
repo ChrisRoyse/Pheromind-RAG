@@ -5,7 +5,8 @@ use tantivy::collector::TopDocs;
 use std::collections::HashMap;
 
 use crate::simple_storage::{VectorStorage, SearchResult as VectorResult};
-use crate::simple_embedder::NomicEmbedder;
+use crate::gguf_embedder::{GGUFEmbedder, GGUFEmbedderConfig};
+use crate::embedding_prefixes::EmbeddingTask;
 // BM25Engine and BM25Match temporarily removed
 // FusionConfig and MatchType temporarily removed
 // ChunkContext and Chunk temporarily removed
@@ -16,7 +17,8 @@ pub struct HybridSearch {
     vector_storage: VectorStorage,
     text_index: Index,
     text_writer: IndexWriter,
-    embedder: NomicEmbedder,
+    text_embedder: GGUFEmbedder,
+    code_embedder: GGUFEmbedder,
     
     // Schema fields
     content_field: Field,
@@ -33,7 +35,7 @@ pub struct SearchResult {
 impl HybridSearch {
     pub async fn new(db_path: &str) -> Result<Self> {
         // Initialize vector storage
-        let vector_storage = VectorStorage::new(db_path).await?;
+        let vector_storage = VectorStorage::new(db_path)?;
         
         // Initialize Tantivy for full-text search
         let mut schema_builder = Schema::builder();
@@ -51,26 +53,53 @@ impl HybridSearch {
         };
         let text_writer = text_index.writer(50_000_000)?; // 50MB heap
         
-        // Initialize embedder
-        let embedder = NomicEmbedder::new()?;
+        // Initialize text embedder for markdown
+        let text_config = GGUFEmbedderConfig {
+            model_path: "./src/model/nomic-embed-text-v1.5.Q4_K_M.gguf".to_string(),
+            ..Default::default()
+        };
+        let text_embedder = GGUFEmbedder::new(text_config)?;
+        
+        // Initialize code embedder for code files
+        let code_config = GGUFEmbedderConfig {
+            model_path: "./src/model/nomic-embed-code.Q4_K_M.gguf".to_string(),
+            ..Default::default()
+        };
+        let code_embedder = GGUFEmbedder::new(code_config)?;
 
         Ok(Self {
             vector_storage,
             text_index,
             text_writer,
-            embedder,
+            text_embedder,
+            code_embedder,
             content_field,
             path_field,
         })
     }
 
-    /// Index documents in both vector and text indices
+    /// Index documents in both vector and text indices with appropriate embedders
     pub async fn index(&mut self, contents: Vec<String>, file_paths: Vec<String>) -> Result<()> {
-        // Generate embeddings
-        let embeddings = self.embedder.embed_batch(contents.clone())?;
+        // Generate embeddings with appropriate embedder for each file
+        let mut embeddings = Vec::new();
+        for (content, path) in contents.iter().zip(file_paths.iter()) {
+            // Determine embedder and task based on file extension
+            let (embedder, task) = if path.ends_with(".md") || path.ends_with(".markdown") {
+                (&self.text_embedder, EmbeddingTask::SearchDocument)
+            } else if path.ends_with(".rs") || path.ends_with(".py") || path.ends_with(".js") || 
+                      path.ends_with(".ts") || path.ends_with(".go") || path.ends_with(".java") || 
+                      path.ends_with(".cpp") || path.ends_with(".c") || path.ends_with(".h") {
+                (&self.code_embedder, EmbeddingTask::CodeDefinition)
+            } else {
+                (&self.text_embedder, EmbeddingTask::SearchDocument)
+            };
+            
+            let embedding = embedder.embed(content, task)?;
+            embeddings.push(embedding);
+        }
         
         // Store in vector database
-        self.vector_storage.store(contents.clone(), embeddings, file_paths.clone()).await?;
+        self.vector_storage.store(contents.clone(), embeddings, file_paths.clone())?;
         
         // Store in text index
         for (content, path) in contents.iter().zip(file_paths.iter()) {
@@ -84,11 +113,12 @@ impl HybridSearch {
         Ok(())
     }
 
-    /// Hybrid search with simple RRF fusion
+    /// Hybrid search with simple RRF fusion (uses text embedder for queries)
     pub async fn search(&mut self, query: &str, limit: usize) -> Result<Vec<SearchResult>> {
-        // Vector search
-        let query_embedding = self.embedder.embed_query(query)?;
-        let vector_results = self.vector_storage.search(query_embedding, limit * 2).await?;
+        // Vector search - use text embedder for search queries
+        // We use text embedder as queries are natural language
+        let query_embedding = self.text_embedder.embed(query, EmbeddingTask::SearchQuery)?;
+        let vector_results = self.vector_storage.search(query_embedding, limit * 2)?;
         
         // Text search
         let text_results = self.text_search(query, limit * 2)?;
@@ -176,7 +206,7 @@ impl HybridSearch {
     }
 
     pub async fn clear(&mut self) -> Result<()> {
-        self.vector_storage.clear().await?;
+        self.vector_storage.clear()?;
         self.text_writer.delete_all_documents()?;
         self.text_writer.commit()?;
         Ok(())
