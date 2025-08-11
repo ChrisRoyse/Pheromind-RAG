@@ -1,15 +1,17 @@
-use embed_search::simple_embedder::NomicEmbedder;
+// simple_embedder was deleted - NomicEmbedder doesn't exist. Using GGUFEmbedder instead.
+use embed_search::{GGUFEmbedder, GGUFEmbedderConfig};
 use anyhow::Result;
 
 #[tokio::test]
 async fn test_nomic_embedder_real_functionality() -> Result<()> {
     println!("🧪 Testing NomicEmbedder Real Functionality");
     
-    // Initialize the embedder
-    let mut embedder = match NomicEmbedder::new() {
+    // Initialize the GGUF embedder (the real implementation)
+    let config = GGUFEmbedderConfig::default();
+    let mut embedder = match GGUFEmbedder::new(config) {
         Ok(e) => e,
         Err(e) => {
-            println!("❌ Failed to initialize NomicEmbedder: {}", e);
+            println!("❌ Failed to initialize GGUFEmbedder: {}", e);
             return Err(e);
         }
     };
@@ -18,7 +20,7 @@ async fn test_nomic_embedder_real_functionality() -> Result<()> {
     
     // Test 1: Document embedding with "passage:" prefix
     let test_document = "fn main() { println!(\"Hello, world!\"); }";
-    let doc_embedding = embedder.embed(test_document)?;
+    let doc_embedding = embedder.embed(test_document, embed_search::embedding_prefixes::EmbeddingTask::SearchDocument)?;
     
     println!("📄 Document embedding:");
     println!("  - Text: '{}'", test_document);
@@ -31,7 +33,7 @@ async fn test_nomic_embedder_real_functionality() -> Result<()> {
     
     // Test 2: Query embedding with "query:" prefix  
     let test_query = "main function";
-    let query_embedding = embedder.embed_query(test_query)?;
+    let query_embedding = embedder.embed(test_query, embed_search::embedding_prefixes::EmbeddingTask::SearchQuery)?;
     
     println!("\n🔍 Query embedding:");
     println!("  - Text: '{}'", test_query);
@@ -49,7 +51,7 @@ async fn test_nomic_embedder_real_functionality() -> Result<()> {
         "let user = User::new();".to_string(),
     ];
     
-    let batch_embeddings = embedder.embed_batch(test_documents.clone())?;
+    let batch_embeddings = embedder.embed_batch(test_documents.clone(), embed_search::embedding_prefixes::EmbeddingTask::SearchDocument)?;
     
     println!("\n📦 Batch embeddings:");
     println!("  - Documents: {}", test_documents.len());
@@ -67,8 +69,8 @@ async fn test_nomic_embedder_real_functionality() -> Result<()> {
     
     // Test 4: Verify prefix usage (embeddings should be different for same text with different prefixes)
     let base_text = "search algorithm implementation";
-    let passage_embedding = embedder.embed(base_text)?;
-    let query_embedding_same_text = embedder.embed_query(base_text)?;
+    let passage_embedding = embedder.embed(base_text, embed_search::embedding_prefixes::EmbeddingTask::SearchDocument)?;
+    let query_embedding_same_text = embedder.embed(base_text, embed_search::embedding_prefixes::EmbeddingTask::SearchQuery)?;
     
     println!("\n🔀 Prefix verification:");
     println!("  - Same text with passage prefix: first 3 values: {:?}", &passage_embedding[..3]);
@@ -84,8 +86,8 @@ async fn test_nomic_embedder_real_functionality() -> Result<()> {
     
     // Test 5: Verify embeddings are deterministic
     let text = "deterministic test";
-    let embedding1 = embedder.embed(text)?;
-    let embedding2 = embedder.embed(text)?;
+    let embedding1 = embedder.embed(text, embed_search::embedding_prefixes::EmbeddingTask::SearchDocument)?;
+    let embedding2 = embedder.embed(text, embed_search::embedding_prefixes::EmbeddingTask::SearchDocument)?;
     
     let embeddings_identical = embedding1.iter()
         .zip(embedding2.iter())
@@ -99,9 +101,9 @@ async fn test_nomic_embedder_real_functionality() -> Result<()> {
     let similar_text2 = "function implementation"; 
     let different_text = "database connection";
     
-    let emb1 = embedder.embed(similar_text1)?;
-    let emb2 = embedder.embed(similar_text2)?;
-    let emb3 = embedder.embed(different_text)?;
+    let emb1 = embedder.embed(similar_text1, embed_search::embedding_prefixes::EmbeddingTask::SearchDocument)?;
+    let emb2 = embedder.embed(similar_text2, embed_search::embedding_prefixes::EmbeddingTask::SearchDocument)?;
+    let emb3 = embedder.embed(different_text, embed_search::embedding_prefixes::EmbeddingTask::SearchDocument)?;
     
     // Calculate cosine similarity
     let similarity_similar = cosine_similarity(&emb1, &emb2);
@@ -147,8 +149,9 @@ async fn test_embedding_system_integration() -> Result<()> {
     let temp_dir = tempdir()?;
     let db_path = temp_dir.path().join("integration.db").to_str().unwrap().to_string();
     
-    let mut embedder = NomicEmbedder::new()?;
-    let mut storage = VectorStorage::new(&db_path).await?;
+    let config = embed_search::gguf_embedder::GGUFEmbedderConfig::default();
+    let mut embedder = embed_search::gguf_embedder::GGUFEmbedder::new(config)?;
+    let mut storage = VectorStorage::new(&db_path)?;
     
     // Test documents
     let documents = vec![
@@ -164,16 +167,16 @@ async fn test_embedding_system_integration() -> Result<()> {
     ];
     
     // Generate embeddings
-    let embeddings = embedder.embed_batch(documents.clone())?;
+    let embeddings = embedder.embed_batch(documents.clone(), embed_search::embedding_prefixes::EmbeddingTask::SearchDocument)?;
     println!("📦 Generated {} embeddings", embeddings.len());
     
     // Store in vector database
-    storage.store(documents, embeddings, file_paths).await?;
+    storage.store(documents, embeddings, file_paths)?;
     println!("✅ Documents stored successfully");
     
     // Test search
-    let query_embedding = embedder.embed_query("main function")?;
-    let results = storage.search(query_embedding, 3).await?;
+    let query_embedding = embedder.embed("main function", embed_search::embedding_prefixes::EmbeddingTask::SearchQuery)?;
+    let results = storage.search(query_embedding, 3)?;
     
     assert!(!results.is_empty(), "Search should return results");
     println!("🔍 Found {} search results", results.len());

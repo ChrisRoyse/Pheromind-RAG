@@ -1,6 +1,6 @@
 use anyhow::Result;
-use pheromind_rag::gguf_embedder::{GGUFEmbedder, GGUFEmbedderConfig};
-use pheromind_rag::embedding_prefixes::EmbeddingTask;
+use embed_search::gguf_embedder::{GGUFEmbedder, GGUFEmbedderConfig};
+use embed_search::embedding_prefixes::EmbeddingTask;
 use std::path::Path;
 
 #[test]

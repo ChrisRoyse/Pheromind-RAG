@@ -1,6 +1,7 @@
 use anyhow::Result;
-use embed_search::llama_wrapper::{GGUFModel, GGUFContext};
-use embed_search::simple_embedder::NomicEmbedder;
+use embed_search::llama_wrapper_working::{GGUFModel, GGUFContext};
+// simple_embedder was deleted - NomicEmbedder doesn't exist. Using GGUFEmbedder instead.
+use embed_search::{GGUFEmbedder, GGUFEmbedderConfig, EmbeddingTask};
 use std::sync::Arc;
 use std::path::Path;
 
@@ -35,7 +36,7 @@ fn test_gguf_context_creation() -> Result<()> {
     }
     
     let model = Arc::new(GGUFModel::load_from_file(model_path, 0)?);
-    let mut context = GGUFContext::new_with_model(model, 2048)?;
+    let mut context = GGUFContext::new_with_model(&model, 2048)?;
     
     // Test single embedding
     let text = "This is a test sentence for embeddings";
@@ -62,7 +63,7 @@ fn test_batch_embeddings() -> Result<()> {
     }
     
     let model = Arc::new(GGUFModel::load_from_file(model_path, 0)?);
-    let mut context = GGUFContext::new_with_model(model, 2048)?;
+    let mut context = GGUFContext::new_with_model(&model, 2048)?;
     
     // Test batch embedding
     let texts = vec![
@@ -98,18 +99,19 @@ fn test_nomic_embedder_integration() -> Result<()> {
     }
     
     // Test the integrated NomicEmbedder
-    let mut embedder = NomicEmbedder::new()?;
+    let config = GGUFEmbedderConfig::default();
+    let mut embedder = GGUFEmbedder::new(config)?;
     
     // Test document embedding (with "passage:" prefix)
     let doc_text = "This is a document about Rust programming";
-    let doc_embedding = embedder.embed(doc_text)?;
+    let doc_embedding = embedder.embed(doc_text, EmbeddingTask::SearchDocument)?;
     
     assert!(!doc_embedding.is_empty(), "Document embedding should not be empty");
     assert_eq!(doc_embedding.len(), 768, "Should be 768-dimensional");
     
     // Test query embedding (with "query:" prefix)
     let query_text = "How to program in Rust?";
-    let query_embedding = embedder.embed_query(query_text)?;
+    let query_embedding = embedder.embed(query_text, EmbeddingTask::SearchQuery)?;
     
     assert!(!query_embedding.is_empty(), "Query embedding should not be empty");
     assert_eq!(query_embedding.len(), 768, "Should be 768-dimensional");
@@ -150,12 +152,13 @@ fn test_embedding_consistency() -> Result<()> {
         return Ok(());
     }
     
-    let mut embedder = NomicEmbedder::new()?;
+    let config = GGUFEmbedderConfig::default();
+    let mut embedder = GGUFEmbedder::new(config)?;
     
     // Test that same text produces same embedding
     let text = "Consistent test text";
-    let embedding1 = embedder.embed(text)?;
-    let embedding2 = embedder.embed(text)?;
+    let embedding1 = embedder.embed(text, EmbeddingTask::SearchDocument)?;
+    let embedding2 = embedder.embed(text, EmbeddingTask::SearchDocument)?;
     
     // Calculate similarity (should be very close to 1.0)
     let similarity: f32 = embedding1.iter()
@@ -183,8 +186,8 @@ fn test_memory_safety() -> Result<()> {
     let model = Arc::new(GGUFModel::load_from_file(model_path, 0)?);
     
     // Create multiple contexts from same model
-    let mut context1 = GGUFContext::new_with_model(model.clone(), 2048)?;
-    let mut context2 = GGUFContext::new_with_model(model.clone(), 2048)?;
+    let mut context1 = GGUFContext::new_with_model(&model, 2048)?;
+    let mut context2 = GGUFContext::new_with_model(&model, 2048)?;
     
     // Use both contexts
     let embedding1 = context1.embed("Test text 1")?;

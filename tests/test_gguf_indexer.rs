@@ -48,12 +48,11 @@ async fn test_gguf_embedder_integration_with_indexer() -> Result<()> {
     // Initialize storage and BM25
     let db_path = temp_dir.path().join("test.db").to_str().unwrap().to_string();
     let mut storage = VectorStorage::new(&db_path)?;
-    let mut bm25 = BM25Engine::new();
+    let mut bm25 = BM25Engine::new()?;
     
     // Test indexing
     let indexed_count = indexer.index_incremental(
         &test_dir,
-        &embedder,
         &mut storage,
         &mut bm25,
     ).await?;

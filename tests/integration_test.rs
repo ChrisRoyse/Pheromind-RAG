@@ -9,8 +9,8 @@ use embed_search::{
     SymbolExtractor,
     semantic_chunker::SemanticChunker,
     fusion::{FusionConfig, FusionEngine},
-    embedding_cache::CachedEmbedder,
-    simple_embedder::NomicEmbedder,
+    GGUFEmbedder,
+    GGUFEmbedderConfig,
 };
 use tempfile::tempdir;
 use std::time::Instant;
@@ -281,13 +281,13 @@ async fn test_incremental_indexing() -> Result<()> {
     std::fs::write(&file1, "fn first() {}")?;
     
     // First indexing
-    let mut embedder = NomicEmbedder::new()?;
-    let mut storage = embed_search::simple_storage::VectorStorage::new(db_path.to_str().unwrap()).await?;
+    let config = GGUFEmbedderConfig::default();
+    let mut embedder = GGUFEmbedder::new(config)?;
+    let mut storage = embed_search::simple_storage::VectorStorage::new(db_path.to_str().unwrap())?;
     let mut bm25 = embed_search::BM25Engine::new()?;
     
     let count = indexer.index_incremental(
         temp_dir.path(),
-        &mut embedder,
         &mut storage,
         &mut bm25,
     ).await?;
@@ -301,7 +301,6 @@ async fn test_incremental_indexing() -> Result<()> {
     // Incremental indexing should only index the new file
     let count = indexer.index_incremental(
         temp_dir.path(),
-        &mut embedder,
         &mut storage,
         &mut bm25,
     ).await?;

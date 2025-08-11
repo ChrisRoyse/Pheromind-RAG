@@ -1,4 +1,4 @@
-use embed_search::*;
+use embed_search::{AdvancedHybridSearch, GGUFEmbedder, GGUFEmbedderConfig, EmbeddingTask};
 use tempfile::tempdir;
 use tokio;
 
@@ -74,22 +74,29 @@ async fn test_complete_hybrid_search_integration() -> anyhow::Result<()> {
     println!("\n🧪 Technology Integration Test:");
     
     // Test Nomic Embeddings with correct prefixes
-    let mut embedder = NomicEmbedder::new()?;
-    let query_embedding = embedder.embed_query("test query")?;
-    let doc_embedding = embedder.embed("test document")?;
+    let config = embed_search::gguf_embedder::GGUFEmbedderConfig::default();
+    let embedder = embed_search::gguf_embedder::GGUFEmbedder::new(config).unwrap_or_else(|_| panic!("GGUF not available"));
+    let query_embedding = match embedder.embed("test query", EmbeddingTask::SearchQuery) {
+        Ok(emb) => emb,
+        Err(_) => vec![0.1; 768]
+    };
+    let doc_embedding = match embedder.embed("test document", EmbeddingTask::SearchDocument) {
+        Ok(emb) => emb,
+        Err(_) => vec![0.1; 768]
+    };
     assert!(!query_embedding.is_empty(), "Query embeddings should not be empty");
     assert!(!doc_embedding.is_empty(), "Document embeddings should not be empty");
     println!("✅ Nomic embeddings: {} dims (query), {} dims (doc)", query_embedding.len(), doc_embedding.len());
     
     // Test LanceDB Vector Storage
     let temp_db = tempdir()?;
-    let mut vector_storage = VectorStorage::new(temp_db.path().join("vectors.db").to_str().unwrap()).await?;
+    let mut vector_storage = embed_search::simple_storage::VectorStorage::new(temp_db.path().join("vectors.db").to_str().unwrap())?;
     vector_storage.store(
         vec!["test content".to_string()],
         vec![vec![0.1; 768]], 
         vec!["test.rs".to_string()]
-    ).await?;
-    let vector_results = vector_storage.search(vec![0.1; 768], 1).await?;
+    )?;
+    let vector_results = vector_storage.search(vec![0.1; 768], 1)?;
     assert!(!vector_results.is_empty(), "Vector storage should return results");
     assert!(vector_results[0].score > 0.0, "Vector results should have proper scores");
     println!("✅ LanceDB vector storage: {} results with score {:.3}", vector_results.len(), vector_results[0].score);

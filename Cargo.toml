@@ -32,7 +32,7 @@ tree-sitter = "0.20"
 tree-sitter-rust = "0.20"
 tree-sitter-python = "0.20"
 tree-sitter-javascript = "0.20"
-# tree-sitter-markdown = "0.7"  # Disabled to avoid version conflicts
+# tree-sitter-markdown = { version = "0.7", optional = true }  # Version conflict with tree-sitter 0.20 - temporarily disabled
 unicode-segmentation = "1.12"
 # lancedb = "0.6" # DISABLED due to arrow-arith chrono quarter() bug
 # Using simple in-memory vector store for CPU-only system
@@ -54,8 +54,15 @@ cmake = "0.1"
 
 [features]
 # CPU-ONLY configuration - NO GPU features
-default = ["cpu-optimized"]
+default = ["cpu-optimized", "tree-sitter"]
 cpu-optimized = []
+# Feature flags for conditional compilation
+vectordb = []
+tree-sitter = []  # tree-sitter-markdown temporarily disabled due to version conflict
+# GPU acceleration features (disabled for CPU-only build)
+cuda = []
+metal = []
+hipblas = []
 
 [[bin]]
 name = "test_phase2"
@@ -65,6 +72,3 @@ path = "src/bin/test_phase2.rs"
 name = "test_ffi"
 path = "src/bin/test_ffi.rs"
 
-[[bin]]
-name = "test_markdown"
-path = "tests/test_markdown_chunker.rs"

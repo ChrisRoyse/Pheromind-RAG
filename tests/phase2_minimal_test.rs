@@ -14,7 +14,7 @@ fn test_llama_wrapper_types() -> Result<()> {
     println!("Phase 2: llama_wrapper types are defined");
     
     // Verify the module exists and exports expected types
-    use embed_search::llama_wrapper::{GGUFModel, GGUFContext};
+    use embed_search::llama_wrapper_working::{GGUFModel, GGUFContext};
     
     println!("Phase 2: GGUFModel and GGUFContext types accessible");
     Ok(())

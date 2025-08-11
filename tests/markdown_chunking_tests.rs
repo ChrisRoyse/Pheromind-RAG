@@ -94,7 +94,7 @@ Final paragraph."#;
         let chunks = chunker.chunk_file(markdown_with_code);
         
         // Verify that code blocks are preserved within chunks
-        let full_content = chunks.iter().map(|c| &c.content).collect::<Vec<_>>().join("\n");
+        let full_content = chunks.iter().map(|c| c.content.as_str()).collect::<Vec<_>>().join("\n");
         
         assert!(full_content.contains("```rust"), "Rust code block marker should be preserved");
         assert!(full_content.contains("```python"), "Python code block marker should be preserved");
@@ -134,7 +134,7 @@ Final paragraph."#;
         let chunks = chunker.chunk_file(markdown_with_lists);
         
         // Verify list structures are preserved
-        let full_content = chunks.iter().map(|c| &c.content).collect::<Vec<_>>().join("\n");
+        let full_content = chunks.iter().map(|c| c.content.as_str()).collect::<Vec<_>>().join("\n");
         
         assert!(full_content.contains("- Item 1"), "Unordered list items should be preserved");
         assert!(full_content.contains("1. First task"), "Ordered list items should be preserved");
@@ -170,7 +170,7 @@ That's all the data."#;
         let chunks = chunker.chunk_file(markdown_with_table);
         
         // Verify table structure is preserved
-        let full_content = chunks.iter().map(|c| &c.content).collect::<Vec<_>>().join("\n");
+        let full_content = chunks.iter().map(|c| c.content.as_str()).collect::<Vec<_>>().join("\n");
         
         assert!(full_content.contains("| Feature | Version 1"), "Table headers should be preserved");
         assert!(full_content.contains("|---------|"), "Table separators should be preserved");
@@ -232,7 +232,7 @@ That's everything!"#;
         let chunks = chunker.chunk_file(mixed_markdown);
         
         // Verify all content types are preserved
-        let full_content = chunks.iter().map(|c| &c.content).collect::<Vec<_>>().join("\n");
+        let full_content = chunks.iter().map(|c| c.content.as_str()).collect::<Vec<_>>().join("\n");
         
         assert!(full_content.contains("# Complex Document"), "Main header preserved");
         assert!(full_content.contains("```javascript"), "JavaScript code block preserved");

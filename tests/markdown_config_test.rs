@@ -1,4 +1,4 @@
-use pheromind_rag::config::Config;
+use embed_search::config::Config;
 
 #[test]
 fn test_markdown_extensions_included() {

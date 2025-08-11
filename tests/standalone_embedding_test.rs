@@ -3,6 +3,7 @@
 // TODO: Update to use GGUF embeddings once integration is complete
 
 use anyhow::Result;
+use embed_search::{GGUFEmbedder, GGUFEmbedderConfig, EmbeddingTask};
 
 // Define our own NomicEmbedder to avoid import issues
 // TODO: Remove this once GGUF integration is complete in simple_embedder.rs

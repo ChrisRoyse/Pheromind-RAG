@@ -160,7 +160,8 @@ fn test_performance_benchmarks() -> Result<()> {
     let test_cases = vec![
         ("Short", "Hello world"),
         ("Medium", "This is a medium length text that contains several words and should test the embedding performance with moderate input."),
-        ("Long", &"Lorem ipsum dolor sit amet, consectetur adipiscing elit. ".repeat(20)),
+        // ("Long", &"Lorem ipsum dolor sit amet, consectetur adipiscing elit. ".repeat(20)), // Lifetime issue
+        ("Long", "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Lorem ipsum dolor sit amet, consectetur adipiscing elit. Lorem ipsum dolor sit amet, consectetur adipiscing elit. Lorem ipsum dolor sit amet, consectetur adipiscing elit. Lorem ipsum dolor sit amet, consectetur adipiscing elit."),
     ];
     
     for (name, text) in test_cases {

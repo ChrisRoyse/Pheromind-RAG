@@ -923,20 +923,15 @@ mod tests {
                 file_path: "test.rs".to_string(),
                 line_number: 10,
                 content: "fn test()".to_string(),
-                line_content: "fn test()".to_string(),
+                score: 1.0,
             }
         ];
         
         let semantic_matches = vec![
-            LanceEmbeddingRecord {
-                id: "test-0".to_string(),
+            SearchResult {
                 file_path: "test.rs".to_string(),
-                chunk_index: 0,
                 content: "some other content".to_string(),
-                embedding: vec![0.1; 768],
-                start_line: 5,
-                end_line: 15,
-                similarity_score: Some(0.8),
+                score: 0.8,
             }
         ];
         
@@ -954,22 +949,22 @@ mod tests {
         // Create BM25 matches with varying score ranges
         let bm25_matches = vec![
             BM25Match {
-                doc_id: "file1.rs-0".to_string(),
+                path: "file1.rs".to_string(),
                 score: 25.5, // High score
-                term_scores: FxHashMap::default(),
-                matched_terms: vec!["test".to_string()],
+                snippet: "test snippet".to_string(),
+                line_number: Some(10),
             },
             BM25Match {
-                doc_id: "file2.rs-0".to_string(),
+                path: "file2.rs".to_string(),
                 score: 15.2, // Medium score
-                term_scores: FxHashMap::default(),
-                matched_terms: vec!["test".to_string()],
+                snippet: "test snippet".to_string(),
+                line_number: Some(20),
             },
             BM25Match {
-                doc_id: "file3.rs-0".to_string(),
+                path: "file3.rs".to_string(),
                 score: 5.1, // Low score
-                term_scores: FxHashMap::default(),
-                matched_terms: vec!["test".to_string()],
+                snippet: "test snippet".to_string(),
+                line_number: Some(30),
             },
         ];
         
@@ -1002,10 +997,10 @@ mod tests {
         // Create BM25 matches with high scores
         let bm25_matches = vec![
             BM25Match {
-                doc_id: "file1.rs-0".to_string(),
+                path: "file1.rs".to_string(),
                 score: 100.0, // Very high score to test capping
-                term_scores: FxHashMap::default(),
-                matched_terms: vec!["test".to_string()],
+                snippet: "test snippet".to_string(),
+                line_number: Some(10),
             },
         ];
         
@@ -1025,13 +1020,13 @@ mod tests {
                 file_path: "test.rs".to_string(),
                 line_number: 10,
                 content: "fn test()".to_string(),
-                line_content: "fn test()".to_string(),
+                score: 1.0,
             },
             ExactMatch {
                 file_path: "test.rs".to_string(),
                 line_number: 10,
                 content: "fn test()".to_string(),
-                line_content: "fn test()".to_string(),
+                score: 1.0,
             }
         ];
         

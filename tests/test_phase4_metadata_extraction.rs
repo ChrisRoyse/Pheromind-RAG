@@ -3,7 +3,7 @@
 use anyhow::Result;
 use embed_search::chunking::{MarkdownRegexChunker, MarkdownChunkType};
 use embed_search::markdown_metadata_extractor::{
-    MarkdownMetadataExtractor, MarkdownSymbolType, ElementType
+    MarkdownMetadataExtractor, MarkdownSymbol, ElementType
 };
 
 #[test]
@@ -85,37 +85,37 @@ Final thoughts and summary.
     
     // Verify we extracted headers
     let headers: Vec<_> = symbols.iter()
-        .filter(|s| matches!(s.symbol_type, MarkdownSymbolType::Header(_)))
+        .filter(|s| matches!(s.symbol_type, embed_search::MarkdownSymbolType::Header(_)))
         .collect();
     assert!(headers.len() >= 5, "Should extract at least 5 headers");
     
     // Verify header levels
-    assert!(symbols.iter().any(|s| matches!(s.symbol_type, MarkdownSymbolType::Header(1))));
-    assert!(symbols.iter().any(|s| matches!(s.symbol_type, MarkdownSymbolType::Header(2))));
-    assert!(symbols.iter().any(|s| matches!(s.symbol_type, MarkdownSymbolType::Header(3))));
+    assert!(symbols.iter().any(|s| matches!(s.symbol_type, embed_search::MarkdownSymbolType::Header(1))));
+    assert!(symbols.iter().any(|s| matches!(s.symbol_type, embed_search::MarkdownSymbolType::Header(2))));
+    assert!(symbols.iter().any(|s| matches!(s.symbol_type, embed_search::MarkdownSymbolType::Header(3))));
     
     // Verify we extracted links
     let links: Vec<_> = symbols.iter()
-        .filter(|s| matches!(s.symbol_type, MarkdownSymbolType::Link))
+        .filter(|s| matches!(s.symbol_type, embed_search::MarkdownSymbolType::Link))
         .collect();
     assert!(links.len() >= 3, "Should extract at least 3 links");
     
     // Verify we extracted images
     let images: Vec<_> = symbols.iter()
-        .filter(|s| matches!(s.symbol_type, MarkdownSymbolType::Image))
+        .filter(|s| matches!(s.symbol_type, embed_search::MarkdownSymbolType::Image))
         .collect();
     assert!(images.len() >= 1, "Should extract at least 1 image");
     
     // Verify we extracted code language hints
     let code_langs: Vec<_> = symbols.iter()
-        .filter(|s| matches!(s.symbol_type, MarkdownSymbolType::CodeLanguage(_)))
+        .filter(|s| matches!(s.symbol_type, embed_search::MarkdownSymbolType::CodeLanguage(_)))
         .collect();
     assert!(code_langs.len() >= 3, "Should extract at least 3 code language hints");
     
     // Check specific languages
-    assert!(symbols.iter().any(|s| matches!(&s.symbol_type, MarkdownSymbolType::CodeLanguage(lang) if lang == "rust")));
-    assert!(symbols.iter().any(|s| matches!(&s.symbol_type, MarkdownSymbolType::CodeLanguage(lang) if lang == "python")));
-    assert!(symbols.iter().any(|s| matches!(&s.symbol_type, MarkdownSymbolType::CodeLanguage(lang) if lang == "javascript")));
+    assert!(symbols.iter().any(|s| matches!(&s.symbol_type, embed_search::MarkdownSymbolType::CodeLanguage(lang) if lang == "rust")));
+    assert!(symbols.iter().any(|s| matches!(&s.symbol_type, embed_search::MarkdownSymbolType::CodeLanguage(lang) if lang == "python")));
+    assert!(symbols.iter().any(|s| matches!(&s.symbol_type, embed_search::MarkdownSymbolType::CodeLanguage(lang) if lang == "javascript")));
     
     Ok(())
 }

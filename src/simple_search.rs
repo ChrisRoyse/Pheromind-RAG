@@ -25,6 +25,7 @@ pub struct HybridSearch {
     path_field: Field,
 }
 
+#[derive(Debug, Clone)]
 pub struct SearchResult {
     pub content: String,
     pub file_path: String,

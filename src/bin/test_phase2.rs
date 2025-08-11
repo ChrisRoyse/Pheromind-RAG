@@ -39,7 +39,7 @@ fn main() -> Result<()> {
     println!("✓ Module structure:");
     println!("  - llama_bindings.rs created");
     println!("  - llama_wrapper.rs created");
-    println!("  - Integration with simple_embedder.rs complete");
+    println!("  - Integration with GGUFEmbedder complete (simple_embedder removed)");
     
     println!("\n=== Phase 2 Implementation Summary ===");
     println!("✅ llama-cpp-2 dependencies configured");
@@ -47,7 +47,7 @@ fn main() -> Result<()> {
     println!("✅ Batch embedding support added");
     println!("✅ L2 normalization implemented");
     println!("✅ Thread-safe model sharing with Arc");
-    println!("✅ Integration with NomicEmbedder complete");
+    println!("✅ Integration with GGUFEmbedder complete (NomicEmbedder removed)");
     println!("✅ Proper prefix support (query:/passage:) implemented");
     
     println!("\n=== Phase 2: COMPLETE ===");
